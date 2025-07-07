@@ -25,4 +25,4 @@ env:
     value: "false"
 
   - variable: API_KEY
-    secret: projects/854100669672/secrets/mongo-db-account-secret-key-viewer
+    secret: projects/854100669672/secrets/mongo-db-account-secret-key-viewer/versions/1
