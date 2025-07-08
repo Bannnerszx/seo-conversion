@@ -17,7 +17,7 @@ import { useCurrency } from "@/providers/CurrencyContext"
 import { useSort } from "@/app/stock/stockComponents/sortContext"
 import { AnimatedCurrencyPrice } from "./animatedPrice"
 import { useInspectionToggle } from "./inspectionToggle"
-import { fetchInspectionPrice, checkChatExists, addChatData, addOfferStatsCustomer } from "@/app/actions/actions"
+import { fetchInspectionPrice, checkChatExists, accountExist, addOfferStatsCustomer } from "@/app/actions/actions"
 import { FloatingAlertPortal } from "./floatingAlert";
 import Loader from "@/app/components/Loader";
 import { useRouter } from 'next/navigation';
@@ -73,96 +73,94 @@ const Dropdown = ({ placeholder, options, value, onChange, className = '' }) => 
         </div>
     );
 };
-async function handleCreateConversation(addChat, router, setLoadingChat, setShowAlert, textareaRef, freightOrigPrice, profitMap, selectedCurrency, currency, inspectionPrice, inspectionData, carData, user, dropdownValuesLocations, setShakeCountry, setShakePort, insuranceToggle) {
+async function handleCreateConversation(
+    addChat,
+    router,
+    setLoadingChat,
+    setShowAlert,
+    textareaRef,
+    freightOrigPrice,
+    profitMap,
+    selectedCurrency,
+    currency,
+    inspectionPrice,
+    inspectionData,
+    carData,
+    user,
+    dropdownValuesLocations,
+    setShakeCountry,
+    setShakePort,
+    insuranceToggle
+) {
     setLoadingChat(true);
+
+    // 1) Make sure we have a user and an account
     if (!user) {
-        console.log("User's email is not verified or user not logged in.");
+        console.log("User not logged in or email not verified.");
         setLoadingChat(false);
-        router.push(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
-        return;
+        return router.push(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
     }
+    const userHasAccount = await accountExist(user);
+    console.log("accountExist returned:", userHasAccount);
+    if (!userHasAccount) {
+        setLoadingChat(false);
+        // *** make sure you return here ***
+        return router.push(`/accountCreation`);
+    }
+
+    // 2) Check for an existing chat
     const chatId = `chat_${carData?.stockID}_${user}`;
-    const checkChat = await checkChatExists(carData.stockID, user)
-    if (checkChat.exists) {
-        console.log("Chat already exists for this inquiry.")
-        setShowAlert(true)
-        setLoadingChat(false)
-
-        setTimeout(() => {
-            router.push(`/chats/${chatId}`)
-        }, 100)
-
-        return
+    const { exists: chatExists } = await checkChatExists(carData.stockID, user);
+    if (chatExists) {
+        console.log("Chat already exists for this inquiry.");
+        setShowAlert(true);
+        setLoadingChat(false);
+        return setTimeout(() => router.push(`/chats/${chatId}`), 100);
     }
-    // Validate dropdown selections
-    let error = false;
 
+    // 3) Validate dropdowns
+    let error = false;
     if (!dropdownValuesLocations['Select Country'] || dropdownValuesLocations['Select Country'] === 'none') {
         setShakeCountry(true);
         error = true;
         setTimeout(() => setShakeCountry(false), 1000);
-        setLoadingChat(false);
-
     }
-
     if (!dropdownValuesLocations['Select Port'] || dropdownValuesLocations['Select Port'] === 'none') {
         setShakePort(true);
         error = true;
         setTimeout(() => setShakePort(false), 1000);
+    }
+    if (error) {
         setLoadingChat(false);
-
+        return;
     }
 
-    // Exit if validation fails
-    if (error) return;
-
     try {
-
-
-        // Parallel API calls for better performance
-        const [ipInfoResponse, tokyoTimeResponse] = await Promise.all([
+        // 4) Fetch IP info + Tokyo time in parallel
+        const [ipRes, timeRes] = await Promise.all([
             fetch('https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo'),
             fetch('https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time')
         ]);
+        if (!ipRes.ok || !timeRes.ok) throw new Error("Failed to fetch metadata");
 
-        // Check responses
-        if (!ipInfoResponse.ok) {
-            throw new Error("Failed to fetch IP Info");
+        const [ipInfo, tokyoTimeData] = await Promise.all([ipRes.json(), timeRes.json()]);
+        const m = moment(tokyoTimeData.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');
+        const formattedTime = m.format('YYYY/MM/DD [at] HH:mm:ss');
+        const docId = m.format('YYYY-MM');
+        const dayField = m.format('DD');
+
+        // 5) Optionally record offer stats
+        if (docId && carData && user && dayField && userHasAccount) {
+            await addOfferStatsCustomer({ docId, carData, userEmail: user, dayField });
         }
 
-        if (!tokyoTimeResponse.ok) {
-            throw new Error("Failed to fetch Tokyo Time");
-        }
-
-        // Parse responses
-        const [ipInfo, tokyoTime] = await Promise.all([
-            ipInfoResponse.json(),
-            tokyoTimeResponse.json()
-        ]);
-        const momentDate = moment(tokyoTime?.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');
-
-        const formattedTime = momentDate.format('YYYY/MM/DD [at] HH:mm:ss');
-        const docId = `${momentDate.format('YYYY')}-${momentDate.format('MM')}`;
-        const dayField = momentDate.format('DD');
-        // Log details
-        console.log("IP Info:", ipInfo);
-        console.log("Tokyo Time:", formattedTime);
-
-        const addTransaction = {
-            stockId: carData?.stockID,
-            dateOfTransaction: formattedTime,
-            carName: carData?.carName,
-            referenceNumber: carData?.referenceNumber,
-        };
-        //offerstats
-
-        // userEmail: user,
-        //CHAT DATA
+        // 6) **Only now** actually create the chat
+        //    (this will never run for non-existent users or if chatExists was true)
         const chatData = {
-            carId: carData?.stockID,
-            carData: carData,
-            formattedTime: formattedTime,
-            inspectionPrice: inspectionPrice,
+            carId: carData.stockID,
+            carData,
+            formattedTime,
+            inspectionPrice,
             recipientEmail: [
                 'marc@realmotor.jp',
                 'carl@realmotor.jp',
@@ -177,49 +175,35 @@ async function handleCreateConversation(addChat, router, setLoadingChat, setShow
             inspectionName: inspectionData.inspectionName,
             toggle: inspectionData.toggle,
             insurance: insuranceToggle,
-            currency: currency,
-            profitMap: profitMap ? profitMap : 0,
+            currency,
+            profitMap: profitMap || 0,
             freightOrigPrice,
             textInput: textareaRef.current.value,
             ip: ipInfo.ip,
             ipCountry: ipInfo.country_name,
             ipCountryCode: ipInfo.country_code,
-            addTransaction,
-
-        }
-
-        console.log('Conversation Details:', {
-            chatData
-        });
-
-        // Additional processing or API calls can be added here
-        if (docId && carData && user && dayField) {
-            await addOfferStatsCustomer({
-                docId,
-                carData,
-                userEmail: user,
-                dayField,
-            });
-        }
-        //Sever action addChatData
-        if (chatData) {
+            addTransaction: {
+                stockId: carData.stockID,
+                dateOfTransaction: formattedTime,
+                carName: carData.carName,
+                referenceNumber: carData.referenceNumber,
+            },
+        };
+        console.log(userHasAccount)
+        if (userHasAccount) {
+            // … build chatData …
             const res = await addChat(chatData);
-            const newChatId = res.data.chatId;
-            console.log('Chat created:', newChatId);
+            console.log("Chat created:", res.data.chatId);
             setLoadingChat(false);
             router.push(`/chats/${chatId}`);
         }
 
-
-    } catch (fetchError) {
-        const message =
-            fetchError?.message ??
-            fetchError?.code ??
-            'An unexpected error occurred. Please try again.';
-        console.error('Failed to create chat:', fetchError);
-       
+    } catch (err) {
+        console.error('Failed to create chat:', err);
+        setLoadingChat(false);
     }
-};
+}
+
 
 const downloadImagesAsZip = async ({ images, setIsDownloading, carData }) => {
     if (!images || images?.length === 0) {
@@ -288,6 +272,7 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
     const router = useRouter();
     const [insuranceToggle, setInsuranceToggle] = useState(false)
     const { user } = useAuth();
+
     const [shakeCountry, setShakeCountry] = useState(false);
     const [shakePort, setShakePort] = useState(false);
     const { setSelectedCurrency, selectedCurrency } = useCurrency();
@@ -562,6 +547,7 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
     const thumbs = Array.from({ length: THUMB_COUNT }, (_, i) =>
         images?.[i] ?? null
     )
+
     return (
         <div className="container mx-auto px-4 py-8 z-[9999]">
             <FloatingAlertPortal

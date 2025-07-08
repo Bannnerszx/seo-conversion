@@ -43,6 +43,24 @@ export async function fetchInspectionPrice(inspectionName) {
     }
 }
 
+export async function accountExist(userId) {
+    // Return false if no userId is provided
+    if (!userId) {
+        return false;
+    }
+
+    try {
+        const accountRef = db.collection('accounts').doc(userId);
+        const docSnap = await accountRef.get();
+
+        // The 'exists' property is a boolean indicating if the document was found
+        return docSnap.exists;
+    } catch (error) {
+        console.error("Error checking if account exists:", error);
+        // In case of an error, assume it doesn't exist or handle as needed
+        return false;
+    }
+}
 export async function checkChatExists(carId, userEmail) {
     try {
         if (!carId || !userEmail) {
