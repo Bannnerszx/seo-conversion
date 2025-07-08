@@ -16,7 +16,7 @@ import { firestore } from "../../../../firebase/clientApp";
 import { runTransaction, doc, increment } from "firebase/firestore"
 
 
-export default function OrderButton({ accountData, isOrderMounted, setIsOrderMounted, userEmail, chatId, selectedChatData, countryList }) {
+export default function OrderButton({ accountData, isOrderMounted, setIsOrderMounted, userEmail, chatId, selectedChatData, countryList, invoiceData }) {
     const [ordered, setOrdered] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
     const router = useRouter()
@@ -235,7 +235,7 @@ export default function OrderButton({ accountData, isOrderMounted, setIsOrderMou
             }
 
             // 2) Always set the order item, regardless of wasNew
-            const { data } = await setOrderItemFunction({  chatId, userEmail, ipInfo, tokyoTime, invoiceNumber: selectedChatData?.invoiceNumber, stockID: selectedChatData?.carData?.stockID });
+            const { data } = await setOrderItemFunction({ chatId, userEmail, ipInfo, tokyoTime, invoiceNumber: selectedChatData?.invoiceNumber, stockID: selectedChatData?.carData?.stockID });
             if (data.success) {
                 console.log("✅ Ordered!");
                 setIsLoading(false)
@@ -256,9 +256,7 @@ export default function OrderButton({ accountData, isOrderMounted, setIsOrderMou
     };
 
     // Define animation classes
-    const animateScaleIn = "transition-all duration-500 animate-[scaleIn_0.5s_ease-out]"
-    const animateFadeIn = "transition-all duration-500 animate-[fadeIn_0.6s_ease-out]"
-    const animateFadeInDelay = "transition-all duration-500 animate-[fadeIn_0.8s_ease-out]"
+
     // const result = await setOrderItem(chatId, selectedChatData, userEmail)
     const [copied, setCopied] = useState(false)
 
@@ -271,6 +269,35 @@ export default function OrderButton({ accountData, isOrderMounted, setIsOrderMou
             console.error("Failed to copy:", err)
         }
     }
+
+    const selectedCurrencyCode = selectedChatData?.selectedCurrencyExchange;
+    const currencies = [
+        { code: "USD", symbol: "USD$", value: 1 },
+        { code: "EUR", symbol: "€", value: selectedChatData?.currency.usdToEur },
+        { code: "JPY", symbol: "¥", value: selectedChatData?.currency.usdToJpy },
+        { code: "CAD", symbol: "CAD$", value: selectedChatData?.currency.usdToCad },
+        { code: "AUD", symbol: "AUD$", value: selectedChatData?.currency.usdToAud },
+        { code: "GBP", symbol: "GBP£", value: selectedChatData?.currency.usdToGbp },
+        { code: "ZAR", symbol: "R", value: selectedChatData?.currency.usdToZar },
+    ];
+    // 3) find the matching currency (fallback to USD if nothing matches)
+    const currency =
+        currencies.find((c) => c.code === selectedCurrencyCode)
+        || currencies[0];
+
+    // 4) do your price math with currency.value
+    const basePrice =
+        parseFloat(selectedChatData?.carData?.fobPrice)
+        * parseFloat(selectedChatData?.currency.jpyToUsd);
+
+const baseFinalPrice = invoiceData?.paymentDetails.totalAmount ? parseFloat(invoiceData?.paymentDetails.totalAmount) - (selectedChatData?.inspection ? 300 : 0) :
+        basePrice
+        + parseFloat(selectedChatData?.carData?.dimensionCubicMeters)
+        * parseFloat(selectedChatData?.freightPrice);
+
+    const inspectionSurcharge = selectedChatData?.inspection ? 300 * currency.value : 0;
+    const insuranceSurcharge = selectedChatData?.insurance ? 50 * currency.value : 0
+    const finalPrice = (baseFinalPrice * currency.value + inspectionSurcharge + insuranceSurcharge);
     return (
         <>
 
@@ -360,7 +387,7 @@ export default function OrderButton({ accountData, isOrderMounted, setIsOrderMou
                                             <li>Copy the invoice number above</li>
                                             <li>Go to your bank's online banking or visit a branch</li>
                                             <li>
-                                                Make a transfer for <strong>$18,500</strong> to our account
+                                                Make a transfer for <strong>`{currency.symbol} {Math.ceil(finalPrice).toLocaleString()}`</strong> to our account
                                             </li>
                                             <li className="bg-red-50 p-2 sm:p-3 rounded border-l-4 border-red-400 animate-pulse">
                                                 <strong className="text-red-800">

@@ -111,6 +111,7 @@ export function AnnouncementBar({
             userEmail={userEmail}
             isOrderMounted={isOrderMounted}
             setIsOrderMounted={setIsOrderMounted}
+            invoiceData={invoiceData}
           />
         )
       }
