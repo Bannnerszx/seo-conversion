@@ -108,8 +108,8 @@ async function handleCreateConversation(
 
     // 2) Check for an existing chat
     const chatId = `chat_${carData?.stockID}_${user}`;
-    const { exists: chatExists } = await checkChatExists(carData.stockID, user);
-    if (chatExists) {
+    const checkChat = await checkChatExists(carData?.stockID, user)
+    if (checkChat.exists) {
         console.log("Chat already exists for this inquiry.");
         setShowAlert(true);
         setLoadingChat(false);
@@ -151,7 +151,7 @@ async function handleCreateConversation(
         if (docId && carData && user && dayField && exists && (!missingFields || missingFields.length === 0)) {
             await addOfferStatsCustomer({ docId, carData, userEmail: user, dayField });
         }
-       
+
         // 6) **Only now** actually create the chat
         //    (this will never run for non-existent users or if chatExists was true)
         const chatData = {
@@ -187,7 +187,7 @@ async function handleCreateConversation(
                 referenceNumber: carData.referenceNumber,
             },
         };
-        console.log(userHasAccount)
+
         if (exists && (!missingFields || missingFields.length === 0)) {
             // … build chatData …
             const res = await addChat(chatData);

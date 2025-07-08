@@ -69,13 +69,8 @@ export default function ClientLayoutWrapper({ children, currency, userEmail }) {
     window.addEventListener('resize', updateBreadcrumbTop);
     return () => window.removeEventListener('resize', updateBreadcrumbTop);
   }, [hideHeader, showBanner]);
-  const wrapperStyle =
-    pathname === '/'
-      ? {}
-      : {
-        marginTop: `${breadcrumbTop}px`, zIndex: 900,
-      };
-
+  const isRoot = pathname === '/';
+  console.log(breadcrumbTop)
   return (
     <div className="flex flex-col overflow-x-clip">
 
@@ -100,11 +95,17 @@ export default function ClientLayoutWrapper({ children, currency, userEmail }) {
           <DynamicBreadcrumbs maxItems={5} />
         </div>
       )} */}
+      <div
 
-      <div style={wrapperStyle}>
+        style={
+          isRoot
+            ? { zIndex: 900 }
+            : { '--bt': `${breadcrumbTop}px`, zIndex: 900 }
+        }
+        className={isRoot ? '' : 'mt-[var(--bt)]'}
+      >
         {children}
       </div>
-
       {/* {children} */}
 
 

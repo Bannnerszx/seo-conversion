@@ -209,11 +209,11 @@ const CarStock = async ({ params, searchParams }) => {
             resultsIsFavorited = [];
         }
     }
-
+    // true or false
     // Render with correct userEmail
     return (
         <SortProvider>
-            <div className="z-10">
+            <div className={`z-10`}>
                 <div className="flex flex-col lg:flex-row gap-8">
                     <aside className="hidden lg:block max-w-1/3 sticky top-[80px] self-start">
                         <CarFilter
@@ -233,9 +233,6 @@ const CarStock = async ({ params, searchParams }) => {
                     </aside>
 
                     <div className="w-full">
-                        {/* <div className="px-6 mt-24">
-                            <DynamicBreadcrumbs maxItems={5} />
-                        </div> */}
                         <div className="px-6 absolute top-32">
                             <DynamicBreadcrumbs maxItems={5} />
                         </div>
