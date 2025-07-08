@@ -121,32 +121,42 @@ export async function middleware(request) {
   // ───────────────────────────────────────────────────────
   // 4️⃣  Tracker‐based chat redirects (unchanged)
   // ───────────────────────────────────────────────────────
-  if (pathname.startsWith('/chats/')) {
-    const parts = pathname.split('/')
-    const chatId = parts[2]
-    if (chatId) {
-      try {
-        const trackerRes = await fetch(
-          `${origin}/api/getChatTracker?chatId=${encodeURIComponent(chatId)}`,
-          { next: { revalidate: 5 } }
+  if (
+    pathname.startsWith('/chats/payment/') ||
+    pathname.startsWith('/chats/ordered/')
+  ) {
+    return NextResponse.next()
+  }
+
+  // ── 2) only handle the “bare” chat URL: /chats/<chatId>
+  //     segments = ["chats", "<chatId>"]
+  const segments = pathname.split('/').filter(Boolean)
+  if (!(segments[0] === 'chats' && segments.length === 2)) {
+    return NextResponse.next()
+  }
+  const chatId = segments[1]
+
+  // ── 3) fetch tracker and redirect if needed
+  try {
+    const trackerRes = await fetch(
+      `${origin}/api/getChatTracker?chatId=${encodeURIComponent(chatId)}`,
+      { next: { revalidate: 5 } }
+    )
+    if (trackerRes.ok) {
+      const { tracker } = await trackerRes.json()
+      if (tracker === 3) {
+        return NextResponse.redirect(
+          new URL(`/chats/ordered/${chatId}`, origin)
         )
-        if (trackerRes.ok) {
-          const { tracker } = await trackerRes.json()
-          if (tracker === 3) {
-            return NextResponse.redirect(
-              new URL(`/chats/ordered/${chatId}`, origin)
-            )
-          }
-          if (tracker >= 4) {
-            return NextResponse.redirect(
-              new URL(`/chats/payment/${chatId}`, origin)
-            )
-          }
-        }
-      } catch (e) {
-        console.error('Failed to fetch chat tracker:', e)
+      }
+      if (tracker >= 4) {
+        return NextResponse.redirect(
+          new URL(`/chats/payment/${chatId}`, origin)
+        )
       }
     }
+  } catch (e) {
+    console.error('Failed to fetch chat tracker:', e)
   }
 
   // ───────────────────────────────────────────────────────

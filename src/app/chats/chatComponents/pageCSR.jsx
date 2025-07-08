@@ -271,6 +271,7 @@ export default function ChatPageCSR({ view, accountData, userEmail, currency, fe
 
 
     useEffect(() => {
+        console.log("[chat-guard] pathname:", pathname, "segments:", pathname.split("/").filter(Boolean));
         const segments = pathname.split("/").filter(Boolean)
         // ── if we're exactly on "/chats", do nothing (that's your main page)
         if (segments.length === 1 && segments[0] === "chats") {
@@ -310,6 +311,7 @@ export default function ChatPageCSR({ view, accountData, userEmail, currency, fe
             router.replace("/chats")
         } else {
             setChatId(chatIdFromPath)
+
         }
     }, [pathname, userEmail, router])
 
@@ -414,7 +416,7 @@ export default function ChatPageCSR({ view, accountData, userEmail, currency, fe
     // e.g. "/chats" or "/chats/123"
     // detail view whenever we're on /chats/<something>
     const isDetail = segments[0] === 'chats' && segments.length > 1;
-
+    console.log(isDetail)
     useEffect(() => {
         if (!userEmail || !selectedContact?.invoiceNumber) return
 

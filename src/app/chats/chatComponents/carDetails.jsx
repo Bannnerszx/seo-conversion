@@ -7,12 +7,12 @@ import Link from "next/link";
 export default function CarDetails({ chatId, handleBackToList, isMobileView, isDetailView, countryDetails, contact, invoiceData, dueDate }) {
     const router = useRouter()
     const selectedCurrencyCode = contact?.selectedCurrencyExchange; // e.g. "JPY"
-    const step = Number(contact?.stepIndicator?.value ?? 0)
-    useEffect(() => {
-        if (step > 3) {
-            router.push(`/chats/payment/${chatId}`)
-        }
-    }, [step])
+    // const step = Number(contact?.stepIndicator?.value ?? 0)
+    // useEffect(() => {
+    //     if (step > 3) {
+    //         router.push(`/chats/payment/${chatId}`)
+    //     }
+    // }, [step])
     // 2) build your lookup table
     const currencies = [
         { code: "USD", symbol: "USD$", value: 1 },
