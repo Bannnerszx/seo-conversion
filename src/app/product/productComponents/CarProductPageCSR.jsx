@@ -17,7 +17,7 @@ import { useCurrency } from "@/providers/CurrencyContext"
 import { useSort } from "@/app/stock/stockComponents/sortContext"
 import { AnimatedCurrencyPrice } from "./animatedPrice"
 import { useInspectionToggle } from "./inspectionToggle"
-import { fetchInspectionPrice, checkChatExists, accountExist, addOfferStatsCustomer } from "@/app/actions/actions"
+import { fetchInspectionPrice, checkChatExists, checkUserExist, addOfferStatsCustomer } from "@/app/actions/actions"
 import { FloatingAlertPortal } from "./floatingAlert";
 import Loader from "@/app/components/Loader";
 import { useRouter } from 'next/navigation';
@@ -100,13 +100,11 @@ async function handleCreateConversation(
         setLoadingChat(false);
         return router.push(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
     }
-    const userHasAccount = await accountExist(user);
-    console.log("accountExist returned:", userHasAccount);
-    if (!userHasAccount) {
-        setLoadingChat(false);
-        // *** make sure you return here ***
-        return router.push(`/accountCreation`);
+    const { exists, missingFields } = await checkUserExist(user)
+    if (!exists || (missingFields && missingFields.length > 0)) {
+        redirect("/accountCreation")
     }
+
 
     // 2) Check for an existing chat
     const chatId = `chat_${carData?.stockID}_${user}`;
@@ -150,10 +148,10 @@ async function handleCreateConversation(
         const dayField = m.format('DD');
 
         // 5) Optionally record offer stats
-        if (docId && carData && user && dayField && userHasAccount) {
+        if (docId && carData && user && dayField && exists && (!missingFields || missingFields.length === 0)) {
             await addOfferStatsCustomer({ docId, carData, userEmail: user, dayField });
         }
-
+       
         // 6) **Only now** actually create the chat
         //    (this will never run for non-existent users or if chatExists was true)
         const chatData = {
@@ -190,7 +188,7 @@ async function handleCreateConversation(
             },
         };
         console.log(userHasAccount)
-        if (userHasAccount) {
+        if (exists && (!missingFields || missingFields.length === 0)) {
             // … build chatData …
             const res = await addChat(chatData);
             console.log("Chat created:", res.data.chatId);
