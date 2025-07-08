@@ -540,36 +540,16 @@ export async function docDelivery(form1Data, chatId, userEmail) {
     return true;
 };
 
-export async function updateCustomerFiles({ chatId, selectedFile, userEmail, messageValue }) {
+export async function updateCustomerFiles({ chatId, selectedFile, userEmail, messageValue, ipInfo, formattedTime }) {
     if (!userEmail) {
         throw new Error('The `userEmail` parameter is required for updateCustomerFiles.');
     }
 
     try {
 
-        const [ipInfoResponse, tokyoTimeResponse] = await Promise.all([
-            fetch('https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo', {
-                headers: { 'Origin': 'https://seo-conversion--samplermj.asia-east1.hosted.app' }
-            }),
-            fetch('https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time', {
-                headers: { 'Origin': 'https://seo-conversion--samplermj.asia-east1.hosted.app' }
-            })
-        ]);
-
-        if (!ipInfoResponse.ok || !tokyoTimeResponse.ok) {
-            throw new Error('Network response was not ok');
-        }
-
-        // 2. Parse the JSON responses
-        const ipInfo = await ipInfoResponse.json();
-        const tokyoTime = await tokyoTimeResponse.json();
-
-        // 3. Format the received Tokyo time using moment.js
-        const momentDate = moment(tokyoTime?.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');
-        const formattedTime = momentDate.format('YYYY/MM/DD [at] HH:mm:ss');
 
         // 4. Prepare storage reference using the Firebase Admin SDK
-        const bucket = storage.bucket('samplermj.appspot.com');
+        const bucket = storage.bucket('real-motor-japan.firebasestorage.app');
         const filePath = `ChatFiles/${chatId}/${selectedFile.name}`;
         const fileRef = bucket.file(filePath);
 
@@ -667,31 +647,11 @@ export async function updateCustomerFiles({ chatId, selectedFile, userEmail, mes
 };
 
 
-export async function updatePaymentNotifications({ nameOfRemitter, calendarETD, chatId, selectedFile, userEmail, messageValue }) {
+export async function updatePaymentNotifications({ nameOfRemitter, calendarETD, chatId, selectedFile, userEmail, messageValue, ipInfo, formattedTime }) {
     try {
-        const [ipInfoResponse, tokyoTimeResponse] = await Promise.all([
-            fetch('https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo', {
-                headers: { 'Origin': 'https://seo-conversion--samplermj.asia-east1.hosted.app' }
-            }),
-            fetch('https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time', {
-                headers: { 'Origin': 'https://seo-conversion--samplermj.asia-east1.hosted.app' }
-            })
-        ]);
-
-        if (!ipInfoResponse.ok || !tokyoTimeResponse.ok) {
-            throw new Error('Network response was not ok');
-        }
-
-        // 2. Parse the JSON responses
-        const ipInfo = await ipInfoResponse.json();
-        const tokyoTime = await tokyoTimeResponse.json();
-
-        // 3. Format the received Tokyo time using moment.js
-        const momentDate = moment(tokyoTime?.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');
-        const formattedTime = momentDate.format('YYYY/MM/DD [at] HH:mm:ss');
 
         // 4. Prepare storage reference using the Firebase Admin SDK
-        const bucket = storage.bucket('samplermj.appspot.com');
+        const bucket = storage.bucket('real-motor-japan.firebasestorage.app');
         const filePath = `ChatFiles/${chatId}/${selectedFile.name}`;
         const fileRef = bucket.file(filePath);
 
@@ -1530,7 +1490,7 @@ export async function emailUs({ userName, userEmail, subject, message }) {
               </p>
             </td>
           </tr>
-        </table>
+        </table>    
       </td>
     </tr>
   </table>
@@ -1542,8 +1502,8 @@ export async function emailUs({ userName, userEmail, subject, message }) {
         port: 465,
         secure: true,
         auth: {
-            user: 'marc@realmotor.jp',
-            pass: 'pqwp pwya crpe wnra',
+            user: 'info@realmotor.jp',
+            pass: 'owua fjqc yjro budr',
         },
     });
 
@@ -1551,14 +1511,13 @@ export async function emailUs({ userName, userEmail, subject, message }) {
     const info = await transporter.sendMail({
         from: `"${userName}" <${userEmail}>`,
         to: 'info@realmotor.jp',
-        replyTo: '',     // e.g. info@realmotor.jp
+        replyTo: `${userEmail}`,      // e.g. info@realmotor.jp
         subject,
         text: `From: ${userName} <${userEmail}>\n\n${message}`,
         html,
     });
 
-    console.log('Email sent:', info.messageId);
+    console.log('Email sent');
     return { success: true, messageId: info.messageId }
 };
-
 
