@@ -285,6 +285,7 @@ export async function fetchVehicleProductsByPage({
   // 2) Build Mongo filter
   const filter = {
     stockStatus: "On-Sale",
+    rmj_flg: "1"
   };
   if (isRecommended) {
     filter.isRecommended = isRecommended;
