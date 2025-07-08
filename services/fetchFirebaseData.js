@@ -281,7 +281,7 @@ export async function fetchVehicleProductsByPage({
     m[f.code] = f.id;
     return m;
   }, {});
-  // const color = 'Pearl'
+
   // 2) Build Mongo filter
   const filter = {
     stockStatus: "On-Sale",
