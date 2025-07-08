@@ -1459,20 +1459,36 @@ export const getMakeCounts = async (maker) => {
         return 0; // Return null instead of 0 to indicate an error
     }
 };
-
+let _cached = {
+    token:     /** @type {string|null} */ null,
+    expiresAt: /** @type {number}    */ 0  // UNIX secs
+}
 export async function getAppCheckToken({ appId }) {
-    // 1) Mint the token (default TTL = 1h)
-    const { token, ttl } = await admin.appCheck().createToken(appId)
+    const nowSec = Math.floor(Date.now() / 1000)
 
-    // 2) Compute the *absolute* expiry in seconds since UNIX epoch
-    const expiresAt = Math.floor(Date.now() / 1000) + (ttl ?? 3600)
+    // 1) if we still have >60s of validity left, reuse the cached token
+    if (_cached.token && _cached.expiresAt - nowSec > 60) {
+        return {
+            appCheckToken: _cached.token,
+            expiresAt: _cached.expiresAt
+        }
+    }
 
-    // 3) Return both the token and the expiry
+    // 2) otherwise mint a fresh 24 h token
+    const { token, ttl } = await admin
+        .appCheck()
+        .createToken(appId, { ttl: 86400 })  // 24 h in seconds
+
+    const expiresAt = nowSec + (ttl ?? 3600)  // fallback to 1h if ttl missing
+
+    // 3) stash it in our module cache
+    _cached = { token, expiresAt }
+
     return {
         appCheckToken: token,
-        expiresAt       // seconds since 1970-01-01 UTC
+        expiresAt
     }
-};
+}
 
 export async function emailUs({ userName, userEmail, subject, message }) {
     const html = `<!DOCTYPE html>
