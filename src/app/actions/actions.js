@@ -1088,6 +1088,7 @@ export async function submitJackallClient({
         throw new Error("submitJackallClient: userEmail is required");
     }
 
+    // 1) build your single source-of-truth object
     const jackallClientData = {
         id: newClientId,
         client_name: `${firstName} ${lastName}`,
@@ -1096,21 +1097,32 @@ export async function submitJackallClient({
         email: userEmail,
         country_name: countryName,
         note,
-        createdAt: new Date().toISOString(),
     };
 
-    // Use the d as the Firestore doc ID (or use `.add()` if you prefer auto‐ID)
-    const docRef = db
-        .collection("jackallClients")
-        .doc(String(newClientId));
+    // 2) send it to your Cloud Function
+    const response = await fetch(
+        "https://asia-northeast2-real-motor-japan.cloudfunctions.net/uploadJackallClients",
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            // wrap it in an array if your function expects an array of clients
+            body: JSON.stringify([jackallClientData]),
+        }
+    );
+    if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`uploadJackallClients failed: ${text}`);
+    }
 
-
-    await docRef.set(jackallClientData);
-
-
+    // 3) write the same object to Firestore
+    //   const docRef = db
+    //     .collection("jackallClients")
+    //     .doc(String(newClientId));
+    //   await docRef.set(jackallClientData);
 
     return { success: true };
-};
+}
+
 
 export async function submitUserData({
     userEmail,

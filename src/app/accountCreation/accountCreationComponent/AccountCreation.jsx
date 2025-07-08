@@ -149,13 +149,13 @@ export default function AccounCreationCSR({ countryList, accountData, oldId, cur
                 textStreet: payload.address,
                 textZip: payload.postalCode,
                 accountCreated: serverTime,
-                client_id: oldId || newId,
+                client_id: oldId ? oldId : newId,
                 currentId: currentUserId,
                 keywords: generatedKeywords,
             });
             await submitJackallClient({
                 userEmail,
-                newClientId: newId,
+                newClientId: oldId ? oldId : newId,
                 firstName: payload.firstName,
                 lastName: payload.lastName,
                 zip: payload.postalCode,
@@ -255,9 +255,9 @@ export default function AccounCreationCSR({ countryList, accountData, oldId, cur
 
                         <Input
                             name="address"
-                                placeholder="Address"
-                                defaultValue={accountData?.textStreet || ""}
-                                className={errors.includes(fieldLabels.address) ? 'border-red-500' : ''}
+                            placeholder="Address"
+                            defaultValue={accountData?.textStreet || ""}
+                            className={errors.includes(fieldLabels.address) ? 'border-red-500' : ''}
                         />
 
                         <Input
@@ -301,3 +301,4 @@ const generateKeywords = (fields) => {
     });
     return Array.from(keywords);
 };
+
