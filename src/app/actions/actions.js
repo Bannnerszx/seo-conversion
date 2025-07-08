@@ -794,7 +794,7 @@ export async function updatePaymentNotifications({ nameOfRemitter, calendarETD, 
 
 };
 
-export async function updateInvoice(form1Data, form2Data, chatId, userEmail, isChecked, sameAsConsignee) {
+export async function updateInvoice(form1Data, form2Data, chatId, userEmail, isChecked, sameAsConsignee, ipInfo, formattedTime) {
     const removeAccents = (str) =>
         str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
@@ -815,27 +815,6 @@ export async function updateInvoice(form1Data, form2Data, chatId, userEmail, isC
             form2Data[key] = value.trim();
         }
     });
-
-    // Perform external fetch calls
-    const [ipInfoResponse, tokyoTimeResponse] = await Promise.all([
-        fetch('https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo', {
-            headers: { 'Origin': 'https://seo-conversion--samplermj.asia-east1.hosted.app' }
-        }),
-        fetch('https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time', {
-            headers: { 'Origin': 'https://seo-conversion--samplermj.asia-east1.hosted.app' }
-        })
-    ]);
-
-    if (!ipInfoResponse.ok || !tokyoTimeResponse.ok) {
-        throw new Error('Network response was not ok');
-    }
-
-    const ipInfo = await ipInfoResponse.json();
-    const tokyoTime = await tokyoTimeResponse.json();
-
-    // Format the received Tokyo time using moment.js
-    const momentDate = moment(tokyoTime?.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');
-    const formattedTime = momentDate.format('YYYY/MM/DD [at] HH:mm:ss');
 
     // Combine the form data passed from the client with the server-side fetched data.
 
@@ -860,17 +839,17 @@ export async function updateInvoice(form1Data, form2Data, chatId, userEmail, isC
                 country: removeAccents(form1Data.country),
                 city: removeAccents(form1Data.city),
                 address: form1Data.address,
-                faxNumber: form1Data.faxNumber || '',
+                fax: form1Data.faxNumber || '',
                 email: form1Data.email,
                 telephones: form1Data.telephoneNumber,
                 sameAsBuyer: isChecked //kindly make a check button at client side
             },
-            notifyPart: {
+            notifyParty: {
                 fullName: form2Data.fullName,
                 country: removeAccents(form2Data.country),
                 city: removeAccents(form2Data.city),
                 address: form2Data.address,
-                faxNumber: form2Data.faxNumber || '',
+                fax: form2Data.faxNumber || '',
                 email: form2Data.email,
                 telephones: form2Data.telephoneNumber,
                 sameAsConsignee: sameAsConsignee //kindly make a check button at client side
