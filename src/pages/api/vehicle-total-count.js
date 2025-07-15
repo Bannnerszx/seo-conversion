@@ -86,8 +86,8 @@ export default async function handler(req, res) {
     // New parameters for sorting and pagination
     page = "1",
     limit = "20",
-    sortBy = "dateAdded", // Default sort field
-    sortOrder = "desc",   // Default sort order (descending)
+    sortField = "dateAdded",
+    sortDirection = "asc",
   } = req.query;
 
   // 2) coerce booleans & numbers
@@ -160,11 +160,7 @@ export default async function handler(req, res) {
   const totalCount = await vehicleColl.countDocuments(filter).catch(() => 0);
 
   // 6) Build sort object
-  const sort = {};
-  if (sortBy) {
-    // In MongoDB, 1 is for ascending and -1 is for descending
-    sort[sortBy] = sortOrder === "desc" ? -1 : 1;
-  }
+  const sortOrder = sortDirection === "asc" ? 1 : -1;
 
   // 7) Fetch paginated & sorted documents
   const pageNum = num(page);
@@ -173,7 +169,7 @@ export default async function handler(req, res) {
 
   const vehicles = await vehicleColl
     .find(filter)
-    .sort(sort)
+    .sort({ [sortField]: sortOrder })
     .skip(documentsToSkip)
     .limit(limitNum)
     .toArray();
