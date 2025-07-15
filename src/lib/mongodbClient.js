@@ -1,5 +1,6 @@
 import { MongoClient } from "mongodb";
 
+
 const uri = process.env.NEXT_PUBLIC_MONGODB_URI ? process.env.NEXT_PUBLIC_MONGODB_URI : process.env.API_KEY
 const dbName = "mongodb-prod";
 
