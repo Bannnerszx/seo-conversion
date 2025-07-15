@@ -59,7 +59,7 @@ export default async function handler(req, res) {
     return res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 
-  // 1) pull strings from query
+  // 1) pull strings from query, including new params for sorting & pagination
   const {
     searchKeywords = "",
     carMakes = "",
@@ -74,20 +74,26 @@ export default async function handler(req, res) {
     maxMileage = "0",
     color = "",
     transmission = "",
+    subBodyType = "",
     minEngineDisplacement = "0",
     maxEngineDisplacement = "0",
     driveType = "",
     steering = "",
-    features = "[]",        // might be JSON, CSV, or repeated
+    features = "[]", // might be JSON, CSV, or repeated
     isRecommended = "false",
     isSale = "false",
     currency = "1",
+    // New parameters for sorting and pagination
+    page = "1",
+    limit = "20",
+    sortBy = "dateAdded", // Default sort field
+    sortOrder = "desc",   // Default sort order (descending)
   } = req.query;
 
   // 2) coerce booleans & numbers
   const recommendedFlag = isRecommended === "true";
   const saleFlag = isSale === "true";
-  const num = x => {
+  const num = (x) => {
     const n = Number(x);
     return isNaN(n) ? 0 : n;
   };
@@ -96,30 +102,31 @@ export default async function handler(req, res) {
   // 3) build base filter
   const filter = { stockStatus: "On-Sale" };
   if (recommendedFlag) filter.isRecommended = true;
-  if (saleFlag)       filter.isSale = true;
+  if (saleFlag) filter.isSale = true;
 
   const lookup = decodeURIComponent(searchKeywords.replace(/\+/g, " ")).trim().toLowerCase();
-  if (lookup)         filter.keywords = lookup;
-  if (carMakes)       filter.make = carMakes;
-  if (carModels)      filter.model = carModels;
-  if (carBodyType)    filter.bodyType = carBodyType;
-  if (fuelType)       filter.fuel = fuelType;
-  if (color)          filter.exteriorColor = color;
-  if (transmission)   filter.transmission = transmission;
-  if (driveType)      filter.driveType = decodeURIComponent(driveType.replace(/\+/g, " "));
-  if (steering)       filter.steering = steering;
+  if (lookup) filter.keywords = lookup;
+  if (carMakes) filter.make = carMakes;
+  if (carModels) filter.model = carModels;
+  if (carBodyType) filter.bodyType = carBodyType;
+  if (subBodyType) filter.subBodyType = subBodyType;
+  if (fuelType) filter.fuel = fuelType;
+  if (color) filter.exteriorColor = color;
+  if (transmission) filter.transmission = transmission;
+  if (driveType) filter.driveType = decodeURIComponent(driveType.replace(/\+/g, " "));
+  if (steering) filter.steering = steering;
 
   // numeric ranges
-  if (num(minPrice) > 0)       filter.fobPriceNumber = { ...(filter.fobPriceNumber || {}), $gte: num(minPrice) / curr };
-  if (num(maxPrice) > 0)       filter.fobPriceNumber = { ...(filter.fobPriceNumber || {}), $lte: num(maxPrice) / curr };
-  if (num(minYear) > 0)        filter.regYearNumber   = { ...(filter.regYearNumber   || {}), $gte: num(minYear) };
-  if (num(maxYear) > 0)        filter.regYearNumber   = { ...(filter.regYearNumber   || {}), $lte: num(maxYear) };
-  if (num(minMileage) > 0)     filter.mileageNumber    = { ...(filter.mileageNumber    || {}), $gte: num(minMileage) };
-  if (num(maxMileage) > 0)     filter.mileageNumber    = { ...(filter.mileageNumber    || {}), $lte: num(maxMileage) };
+  if (num(minPrice) > 0) filter.fobPriceNumber = { ...(filter.fobPriceNumber || {}), $gte: num(minPrice) / curr };
+  if (num(maxPrice) > 0) filter.fobPriceNumber = { ...(filter.fobPriceNumber || {}), $lte: num(maxPrice) / curr };
+  if (num(minYear) > 0) filter.regYearNumber = { ...(filter.regYearNumber || {}), $gte: num(minYear) };
+  if (num(maxYear) > 0) filter.regYearNumber = { ...(filter.regYearNumber || {}), $lte: num(maxYear) };
+  if (num(minMileage) > 0) filter.mileageNumber = { ...(filter.mileageNumber || {}), $gte: num(minMileage) };
+  if (num(maxMileage) > 0) filter.mileageNumber = { ...(filter.mileageNumber || {}), $lte: num(maxMileage) };
   if (num(minEngineDisplacement) > 0)
-                                filter.engineDisplacementNumber = { ...(filter.engineDisplacementNumber || {}), $gte: num(minEngineDisplacement) };
+    filter.engineDisplacementNumber = { ...(filter.engineDisplacementNumber || {}), $gte: num(minEngineDisplacement) };
   if (num(maxEngineDisplacement) > 0)
-                                filter.engineDisplacementNumber = { ...(filter.engineDisplacementNumber || {}), $lte: num(maxEngineDisplacement) };
+    filter.engineDisplacementNumber = { ...(filter.engineDisplacementNumber || {}), $lte: num(maxEngineDisplacement) };
 
   // 4) feature flags (JSON, CSV, or repeated params)
   let rawFeat = req.query.features;
@@ -127,20 +134,20 @@ export default async function handler(req, res) {
 
   if (Array.isArray(rawFeat)) {
     // ?features=1&features=2&...
-    codesArr = rawFeat.map(x => Number(x)).filter(x => !isNaN(x));
+    codesArr = rawFeat.map((x) => Number(x)).filter((x) => !isNaN(x));
   } else if (typeof rawFeat === "string") {
     // try JSON first
     try {
       const parsed = JSON.parse(rawFeat);
       if (Array.isArray(parsed)) {
-        codesArr = parsed.map(x => Number(x)).filter(x => !isNaN(x));
+        codesArr = parsed.map((x) => Number(x)).filter((x) => !isNaN(x));
       }
     } catch {
       // fallback to CSV
       codesArr = rawFeat
         .split(",")
-        .map(x => Number(x.trim()))
-        .filter(x => !isNaN(x));
+        .map((x) => Number(x.trim()))
+        .filter((x) => !isNaN(x));
     }
   }
 
@@ -149,7 +156,29 @@ export default async function handler(req, res) {
     if (fid) filter[fid] = true;
   }
 
-  // 5) count & respond
+  // 5) Get total count for pagination
   const totalCount = await vehicleColl.countDocuments(filter).catch(() => 0);
-  return res.status(200).json({ totalCount });
+
+  // 6) Build sort object
+  const sort = {};
+  if (sortBy) {
+    // In MongoDB, 1 is for ascending and -1 is for descending
+    sort[sortBy] = sortOrder === "desc" ? -1 : 1;
+  }
+
+  // 7) Fetch paginated & sorted documents
+  const pageNum = num(page);
+  const limitNum = num(limit);
+  const documentsToSkip = (pageNum - 1) * limitNum;
+
+  const vehicles = await vehicleColl
+    .find(filter)
+    .sort(sort)
+    .skip(documentsToSkip)
+    .limit(limitNum)
+    .toArray();
+
+  // 8) Respond with both count and data
+  return res.status(200).json({ totalCount, vehicles });
 }
+

@@ -211,6 +211,7 @@ export async function fetchVehicleProductsByPage({
   carMakes = null,
   carModels = null,
   carBodyType = "",
+  subBodyType = "",
   sortField = "dateAdded",
   sortDirection = "asc",
   itemsPerPage = 50,
@@ -308,6 +309,7 @@ export async function fetchVehicleProductsByPage({
   if (carMakes) filter.make = carMakes;
   if (carModels) filter.model = carModels;
   if (carBodyType) filter.bodyType = carBodyType;
+  if (subBodyType) filter.subBodyType = subBodyType;
   if (fuelType) filter.fuel = fuelType
   if (minPrice) filter.fobPriceNumber = { ...(filter.fobPriceNumber ?? {}), $gte: Number(minPrice / currency) };
   if (maxPrice) filter.fobPriceNumber = { ...(filter.fobPriceNumber ?? {}), $lte: Number(maxPrice / currency) };
@@ -373,7 +375,8 @@ export async function fetchVehicleProductsByPage({
     fobPriceNumber: 1,
     isRecommended: 1,
     fobHistory: 1,
-    isSale: 1
+    isSale: 1,
+    subBodyType: 1,
     // …and any feature flags you render in the UI…
   };
 

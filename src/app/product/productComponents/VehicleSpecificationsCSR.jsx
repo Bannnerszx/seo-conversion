@@ -9,25 +9,25 @@ export default function VehicleSpecifications({ carData }) {
                     <h2 className="text-2xl font-bold mb-4">Full Vehicle Specifications</h2>
                     <div className="border-t border-gray-200">
                         <div className="grid grid-cols-1">
-                            <SpecRow label="Make" value={carData.make || ''} />
-                            <SpecRow label="Model" value={carData.model || ''} />
-                            <SpecRow label="Registration Year" value={`${carData.regYear || ''} / ${carData.regMonth || ''}`} />
-                            <SpecRow label="Reference Number" value={carData.referenceNumber || ''} />
-                            <SpecRow label="Chassis/Frame Number" value={carData.chassisNumber || ''} />
-                            <SpecRow label="Model Code" value={carData.modelCode || ''} />
-                            <SpecRow label="Engine Displacement (cc)" value={`${carData.engineDisplacement || ''} cc`} />
-                            <SpecRow label="Steering" value={carData.steering || ''} />
-                            <SpecRow label="Mileage" value={carData.mileage || ''} />
-                            <SpecRow label="Transmission" value={carData.transmission || ''} />
-                            <SpecRow label="External Color" value={carData.exteriorColor || ''} />
-                            <SpecRow label="Number of Seats" value={carData.numberOfSeats || ''} />
-                            <SpecRow label="Doors" value={carData.doors || ''} />
-                            <SpecRow label="Fuel" value={carData.fuel || ''} />
-                            <SpecRow label="Drive Type" value={carData.driveType || ''} />
+                            <SpecRow label="Make" value={carData?.make || ''} />
+                            <SpecRow label="Model" value={carData?.model || ''} />
+                            <SpecRow label="Registration Year" value={`${carData?.regYear || ''} / ${carData?.regMonth || ''}`} />
+                            <SpecRow label="Reference Number" value={carData?.referenceNumber || ''} />
+                            <SpecRow label="Chassis/Frame Number" value={carData?.chassisNumber || ''} />
+                            <SpecRow label="Model Code" value={carData?.modelCode || ''} />
+                            <SpecRow label="Engine Displacement (cc)" value={`${carData?.engineDisplacement || ''} cc`} />
+                            <SpecRow label="Steering" value={carData?.steering || ''} />
+                            <SpecRow label="Mileage" value={carData?.mileage || ''} />
+                            <SpecRow label="Transmission" value={carData?.transmission || ''} />
+                            <SpecRow label="External Color" value={carData?.exteriorColor || ''} />
+                            <SpecRow label="Number of Seats" value={carData?.numberOfSeats || ''} />
+                            <SpecRow label="Doors" value={carData?.doors || ''} />
+                            <SpecRow label="Fuel" value={carData?.fuel || ''} />
+                            <SpecRow label="Drive Type" value={carData?.driveType || ''} />
                             <SpecRow label="Dimension"
-                                value={`${carData.dimensionLength || ''}cm x ${carData.dimensionWidth || ''}cm x ${carData.dimensionHeight || ''}cm (${carData.dimensionCubicMeters || ''}m³)`}
+                                value={`${carData?.dimensionLength || ''}cm x ${carData?.dimensionWidth || ''}cm x ${carData?.dimensionHeight || ''}cm (${carData?.dimensionCubicMeters || ''}m³)`}
                             />
-                            <SpecRow label="Body Type" value={carData.bodyType || ''} />
+                            <SpecRow label="Body Type" value={carData?.bodyType || ''} />
 
                         </div>
                     </div>
@@ -42,66 +42,66 @@ export default function VehicleSpecifications({ carData }) {
 
                     {/* Safety System */}
                     <FeatureSection title="Safety System" features={[
-                        { name: "Anti-Lock Braking System (ABS)", active: carData.SafetySystemAnBrSy || false },
-                        { name: "Driver Airbag", active: carData.SafetySystemDrAi || false },
-                        { name: "Passenger Airbag", active: carData.SafetySystemPaAi || false },
-                        { name: "Safety Airbag", active: carData.SafetySystemSiAi || false },
+                        { name: "Anti-Lock Braking System (ABS)", active: carData?.SafetySystemAnBrSy || false },
+                        { name: "Driver Airbag", active: carData?.SafetySystemDrAi || false },
+                        { name: "Passenger Airbag", active: carData?.SafetySystemPaAi || false },
+                        { name: "Safety Airbag", active: carData?.SafetySystemSiAi || false },
                     ]} />
 
                     {/* Comfort */}
                     <FeatureSection title="Comfort" features={[
-                        { name: "Air Conditioner (Front)", value: carData.ComfortAiCoFr || false },
-                        { name: "Air Conditioner (Rear)", value: carData.ComfortAiCoRe || false },
-                        { name: "AM/FM Radio", value: carData.ComfortAMFMRa || false },
-                        { name: "AM/FM Stereo", value: carData.ComfortAMFMSt || false },
-                        { name: "CD Player", value: carData.ComfortCDPl || false },
-                        { name: "CD Changer", value: carData.ComfortCDCh || false },
-                        { name: "Cruise Speed Control", value: carData.ComfortCrSpCo || false },
-                        { name: "Digital Speedometer", value: carData.ComfortDiSp || false },
-                        { name: "DVD Player", value: carData.ComfortDVDPl || false },
-                        { name: "Hard Disk Drive", value: carData.ComfortHDD || false },
-                        { name: "Navigation System (GPS)", value: carData.ComfortNaSyGPS || false },
-                        { name: "Power Steering", value: carData.ComfortPoSt || false },
-                        { name: "Premium Audio System", value: carData.ComfortPrAuSy || false },
-                        { name: "Remote Keyless System", value: carData.ComfortReKeSy || false },
-                        { name: "Tilt Steering Wheel", value: carData.ComfortTiStWh || false },
+                        { name: "Air Conditioner (Front)", active: carData?.ComfortAiCoFr || false },
+                        { name: "Air Conditioner (Rear)", active: carData?.ComfortAiCoRe || false },
+                        { name: "AM/FM Radio", active: carData?.ComfortAMFMRa || false },
+                        { name: "AM/FM Stereo", active: carData?.ComfortAMFMSt || false },
+                        { name: "CD Player", active: carData?.ComfortCDPl || false },
+                        { name: "CD Changer", active: carData?.ComfortCDCh || false },
+                        { name: "Cruise Speed Control", active: carData?.ComfortCrSpCo || false },
+                        { name: "Digital Speedometer", active: carData?.ComfortDiSp || false },
+                        { name: "DVD Player", active: carData?.ComfortDVDPl || false },
+                        { name: "Hard Disk Drive", active: carData?.ComfortHDD || false },
+                        { name: "Navigation System (GPS)", value: carData?.ComfortNaSyGPS || false },
+                        { name: "Power Steering", active: carData?.ComfortPoSt || false },
+                        { name: "Premium Audio System", active: carData?.ComfortPrAuSy || false },
+                        { name: "Remote Keyless System", active: carData?.ComfortReKeSy || false },
+                        { name: "Tilt Steering Wheel", active: carData?.ComfortTiStWh || false },
 
                     ]} />
 
                     {/* Interior */}
                     <FeatureSection title="Interior" features={[
-                        { name: "Leather Seats", value: carData.InteriorLeSe || false },
-                        { name: "Power Door Locks", value: carData.InteriorPoDoLo || false },
-                        { name: "Power Mirrors", value: carData.InteriorPoMi || false },
-                        { name: "Power Seats", value: carData.InteriorPose || false },
-                        { name: "Power Windows", value: carData.InteriorPoWi || false },
-                        { name: "Rear Window Defroster", value: carData.InteriorReWiDe || false },
-                        { name: "Rear Window Wiper", value: carData.InteriorReWiWi || false },
-                        { name: "Third Row Seats", value: carData.InteriorThRoSe || false },
-                        { name: "Tinted Glass", value: carData.InteriorTiGl || false },
+                        { name: "Leather Seats", active: carData?.InteriorLeSe || false },
+                        { name: "Power Door Locks", active: carData?.InteriorPoDoLo || false },
+                        { name: "Power Mirrors", active: carData?.InteriorPoMi || false },
+                        { name: "Power Seats", active: carData?.InteriorPose || false },
+                        { name: "Power Windows", active: carData?.InteriorPoWi || false },
+                        { name: "Rear Window Defroster", active: carData?.InteriorReWiDe || false },
+                        { name: "Rear Window Wiper", active: carData?.InteriorReWiWi || false },
+                        { name: "Third Row Seats", active: carData?.InteriorThRoSe || false },
+                        { name: "Tinted Glass", active: carData?.InteriorTiGl || false },
                     ]} />
 
                     {/* Exterior */}
                     <FeatureSection title="Exterior" features={[
-                        { name: "Alloy Wheels", value: carData.ExteriorAlWh || false },
-                        { name: "Power Sliding Door", value: carData.ExteriorPoSlDo || false },
-                        { name: "Sunroof", value: carData.ExteriorSuRo || false },
+                        { name: "Alloy Wheels", active: carData?.ExteriorAlWh || false },
+                        { name: "Power Sliding Door", active: carData?.ExteriorPoSlDo || false },
+                        { name: "Sunroof", active: carData?.ExteriorSuRo || false },
 
                     ]} />
 
                     {/* Selling Points */}
                     <FeatureSection title="Selling Points" features={[
-                        { name: "Customized Wheels", value: carData.SellingPointsCuWh || false },
-                        { name: "Fully Loaded", value: carData.SellingPointsFuLo || false },
-                        { name: "Maintenance History Available", value: carData.SellingPointsMaHiAv || false },
-                        { name: "Brand New Tires", value: carData.SellingPointsBrNeTi || false },
-                        { name: "No Accident History", value: carData.SellingPointsNoAcHi || false },
-                        { name: "Non-Smoking Previous Owner", value: carData.SellingPointsNoSmPrOw || false },
-                        { name: "One Owner History", value: carData.SellingPointsOnOwHi || false },
-                        { name: "Performance-Rated Tires", value: carData.SellingPointsPeRaTi || false },
-                        { name: "Repainted Body", value: carData.SellingPointsReBo || false },
-                        { name: "Turbo Engine", value: carData.SellingPointsTuEn || false },
-                        { name: "Upgraded Audio System", value: carData.SellingPointsUpAuSy || false }
+                        { name: "Customized Wheels", active: carData?.SellingPointsCuWh || false },
+                        { name: "Fully Loaded", active: carData?.SellingPointsFuLo || false },
+                        { name: "Maintenance History Available", active: carData?.SellingPointsMaHiAv || false },
+                        { name: "Brand New Tires", active: carData?.SellingPointsBrNeTi || false },
+                        { name: "No Accident History", active: carData?.SellingPointsNoAcHi || false },
+                        { name: "Non-Smoking Previous Owner", active: carData?.SellingPointsNoSmPrOw || false },
+                        { name: "One Owner History", active: carData?.SellingPointsOnOwHi || false },
+                        { name: "Performance-Rated Tires", active: carData?.SellingPointsPeRaTi || false },
+                        { name: "Repainted Body", active: carData?.SellingPointsReBo || false },
+                        { name: "Turbo Engine", active: carData?.SellingPointsTuEn || false },
+                        { name: "Upgraded Audio System", active: carData?.SellingPointsUpAuSy || false }
                     ]} />
                 </div>
             </div>

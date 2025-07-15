@@ -125,6 +125,7 @@ const CarStock = async ({ params, searchParams }) => {
     const {
         searchKeywords = "",
         bodytype = "",
+        subBodyType = "",
         limit = "50",
         sort = "dateAdded-asc",
         page = "1",
@@ -154,6 +155,7 @@ const CarStock = async ({ params, searchParams }) => {
         carMakes: maker || null,
         carModels: model || null,
         carBodyType: bodytype,
+        subBodyType: subBodyType,
         sortField,
         sortDirection,
         itemsPerPage: Number(limit),
@@ -213,7 +215,7 @@ const CarStock = async ({ params, searchParams }) => {
     }
     // true or false
     // Render with correct userEmail
-    
+
     return (
         <SortProvider>
             <div className={`z-10`}>

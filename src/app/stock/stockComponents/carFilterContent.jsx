@@ -222,6 +222,7 @@ export default function CarFilterContent({ recommendedUrl, saleUrl, totalCount, 
         make: urlMaker ?? "all",
         model: urlModel ?? "all",
         bodyType: "all",
+        subBodyType: "all",
         minPrice: "all",
         maxPrice: "all",
         minYear: "all",
@@ -367,6 +368,42 @@ export default function CarFilterContent({ recommendedUrl, saleUrl, totalCount, 
             })
     }, [filters.make])
 
+    //fetch sub body type with filter.bodytpe === truck
+    const [subBodyTypes, setSubBodyTypes] = useState([]);
+    const [isFetchingSub, setIsFetchingSub] = useState(false);
+
+    useEffect(() => {
+        const selectedBodyType = filters.bodyType;
+
+        // only fetch when it’s exactly “Truck”
+        if (selectedBodyType !== "Truck") {
+            setSubBodyTypes([]);
+            return;
+        }
+
+        setIsFetchingSub(true);
+
+        fetch(
+            `/api/truck-bodytype?docId=${encodeURIComponent(selectedBodyType)}`
+        )
+            .then((res) => {
+                if (!res.ok) throw new Error("Network response was not ok");
+                return res.json();
+            })
+            .then((data) => {
+                // data is already an array
+                setSubBodyTypes(Array.isArray(data) ? data : []);
+            })
+            .catch((err) => {
+                console.error("Error fetching sub‑body types:", err);
+                setSubBodyTypes([]);
+            })
+            .finally(() => {
+                setIsFetchingSub(false);
+            });
+    }, [filters.bodyType]);
+
+
     // -------------------------
     // 3. Filter‐changing logic (same as your existing code)
     // -------------------------
@@ -431,6 +468,7 @@ export default function CarFilterContent({ recommendedUrl, saleUrl, totalCount, 
             make: urlMaker ?? "all",
             model: urlModel ?? "all",
             bodyType: "all",
+            subBodyType: "all",
             minPrice: "all",
             maxPrice: "all",
             minYear: "all",
@@ -466,6 +504,7 @@ export default function CarFilterContent({ recommendedUrl, saleUrl, totalCount, 
             make: "all",
             model: "all",
             bodyType: "all",
+            subBodyType: "all",
             minPrice: "all",
             maxPrice: "all",
             minYear: "all",
@@ -530,6 +569,16 @@ export default function CarFilterContent({ recommendedUrl, saleUrl, totalCount, 
                     })),
                 ],
             },
+            {
+                placeholder: "subBodyType",
+                options: [
+                    { value: "none", label: "Sub-Body Type" },
+                    ...subBodyTypes.map((bodytype) => ({
+                        value: bodytype,
+                        label: bodytype,
+                    })),
+                ],
+            },
         ],
         [
             {
@@ -569,7 +618,7 @@ export default function CarFilterContent({ recommendedUrl, saleUrl, totalCount, 
         const isOnSale = filters.onSale
 
         const {
-            make, model, bodyType, minYear, maxYear,
+            make, model, bodyType, subBodyType, minYear, maxYear,
             minPrice, maxPrice, minMileage, maxMileage,
             color, transmission, minEngineDisplacement,
             maxEngineDisplacement, driveType, steering,
@@ -579,6 +628,7 @@ export default function CarFilterContent({ recommendedUrl, saleUrl, totalCount, 
         const finalMaker = make === "all" ? "" : make
         const finalModel = model === "all" ? "" : model
         const finalBody = bodyType === "all" ? "" : bodyType
+        const finalSubBodyType = subBodyType === "all" ? "" : subBodyType
         const finalMinY = minYear === "all" ? "" : minYear
         const finalMaxY = maxYear === "all" ? "" : maxYear
         const finalMinP = minPrice === "all" ? "" : minPrice
@@ -604,6 +654,7 @@ export default function CarFilterContent({ recommendedUrl, saleUrl, totalCount, 
 
         const qp = {}
         if (finalBody) qp.bodytype = finalBody
+        if (finalSubBodyType) qp.subBodyType = finalSubBodyType
         if (finalMinY) qp.minYear = finalMinY
         if (finalMaxY) qp.maxYear = finalMaxY
         if (finalMinP) qp.minPrice = finalMinP
@@ -669,6 +720,8 @@ export default function CarFilterContent({ recommendedUrl, saleUrl, totalCount, 
             setFilters(f => ({ ...f, onSale: true }));
         }
     }, [isSale]);
+    const isTruck = filters.bodyType === "Truck";
+
     const filterContent = (
         <>
             <Card className="w-full max-w-md">
@@ -701,6 +754,7 @@ export default function CarFilterContent({ recommendedUrl, saleUrl, totalCount, 
                                     make: "Make",
                                     model: "Model",
                                     bodyType: "Body Type",
+                                    subBodyType: 'Sub-Body Type',
                                     minPrice: "Price (min)",
                                     maxPrice: "Price (max)",
                                     minYear: "Year (from)",
@@ -902,6 +956,38 @@ export default function CarFilterContent({ recommendedUrl, saleUrl, totalCount, 
                                     </SelectContent>
                                 </Select>
                             </div>
+
+                            {/*Sub-Body Type */}
+                            <div className="space-y-2">
+                                <Label className="text-sm font-medium">Sub-Body Type</Label>
+                                <Select
+                                    value={filters.subBodyType}
+                                    onValueChange={(value) => handleFilterChange("subBodyType", value)}
+                                    disabled={!isTruck}
+                                >
+                                    <SelectTrigger
+                                        disabled={!isTruck}
+                                        className={`
+          py-[20px] w-full border-blue-200 focus:border-blue-500 focus:ring-blue-500 hover:border-blue-400 transition-colors
+          ${!isTruck ? "opacity-50 pointer-events-none" : ""}
+        `}
+                                    >
+                                        <SelectValue placeholder="All Types" />
+                                    </SelectTrigger>
+                                    <SelectContent
+                                        container={containerRef.current}
+                                        className="z-[9004]"
+                                    >
+                                        <SelectItem value="all">All Types</SelectItem>
+                                        {subBodyTypes.map((type) => (
+                                            <SelectItem key={type} value={type}>
+                                                {type}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
                             {/* Price Range */}
                             <div className="space-y-2">
                                 <Label className="text-sm font-medium">Price Range</Label>
@@ -1319,6 +1405,7 @@ export default function CarFilterContent({ recommendedUrl, saleUrl, totalCount, 
                                 make: 'Make',
                                 model: 'Model',
                                 bodyType: 'Body Type',
+                                subBodyType: 'Sub-Body Type',
                                 minPrice: 'Price (min)',
                                 maxPrice: 'Price (max)',
                                 minYear: 'Year (from)',
@@ -1463,6 +1550,36 @@ export default function CarFilterContent({ recommendedUrl, saleUrl, totalCount, 
                             <SelectContent container={containerRef.current} className="z-[9004]">
                                 <SelectItem value="all">All Types</SelectItem>
                                 {carBodytypes.map((type) => (
+                                    <SelectItem key={type} value={type}>
+                                        {type}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    {/*Sub-Body Type */}
+                    <div className="space-y-2">
+                        <Label className="text-sm font-medium">Sub-Body Type</Label>
+                        <Select
+                            value={filters.subBodyType}
+                            onValueChange={(value) => handleFilterChange("subBodyType", value)}
+                            disabled={!isTruck}
+                        >
+                            <SelectTrigger
+                                disabled={!isTruck}
+                                className={`
+          py-[20px] w-full border-blue-200 focus:border-blue-500 focus:ring-blue-500 hover:border-blue-400 transition-colors
+          ${!isTruck ? "opacity-50 pointer-events-none" : ""}
+        `}
+                            >
+                                <SelectValue placeholder="All Types" />
+                            </SelectTrigger>
+                            <SelectContent
+                                container={containerRef.current}
+                                className="z-[9004]"
+                            >
+                                <SelectItem value="all">All Types</SelectItem>
+                                {subBodyTypes.map((type) => (
                                     <SelectItem key={type} value={type}>
                                         {type}
                                     </SelectItem>

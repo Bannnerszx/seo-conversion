@@ -114,6 +114,7 @@ export default async function StockPage({ params, searchParams }) {
     const {
         searchKeywords = "",
         bodytype = "",
+        subBodyType = "",
         limit = "50",
         sort = "dateAdded-asc",
         page = "1",
@@ -143,6 +144,7 @@ export default async function StockPage({ params, searchParams }) {
         carMakes: maker || null,
         carModels: model || null,
         carBodyType: bodytype,
+        subBodyType: subBodyType,
         sortField,
         sortDirection,
         itemsPerPage: Number(limit),
