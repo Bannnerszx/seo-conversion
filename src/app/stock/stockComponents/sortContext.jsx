@@ -7,8 +7,11 @@ export const SortProvider = ({ children }) => {
   const [sort, setSort] = useState('dateAdded-asc');
   const [profitMap, setProfitMap] = useState(null);
   const [inspectionToggle, setInspectionToggle] = useState(null);
+
+  const [withPhotosOnly, setWithPhotosOnly] = useState(true)
+
   return (
-    <SortContext.Provider value={{ sort, setSort, setProfitMap, profitMap, setInspectionToggle, inspectionToggle }}>
+    <SortContext.Provider value={{ withPhotosOnly, setWithPhotosOnly, sort, setSort, setProfitMap, profitMap, setInspectionToggle, inspectionToggle }}>
       {children}
     </SortContext.Provider>
   );

@@ -23,7 +23,7 @@ export default function AboutContent() {
               <strong>President:</strong> Morishita Kazuki
             </p>
             <p className="mt-2 text-gray-500">
-              <strong>Established:</strong> 1998
+              <strong>Established:</strong> 1979
             </p>
           </div>
         </div>

@@ -1,6 +1,8 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { ArrowDownUp, DollarSign, ListFilter, Filter, Calculator, ChevronLeft, ChevronRight } from "lucide-react"
+import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
+import { ArrowDownUp, DollarSign, Camera, Filter, Calculator, ChevronLeft, ChevronRight } from "lucide-react"
 import Link from 'next/link'
 import {
   Select,
@@ -21,7 +23,7 @@ import {
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Sidebar } from './SideBar'
-
+import { useSort } from './sortContext'
 export default function SearchHeader({
   initialLimit = 50,
   currency,
@@ -40,7 +42,7 @@ export default function SearchHeader({
   const router = useRouter()
   const searchParams = useSearchParams()
   const { setSelectedCurrency, selectedCurrency } = useCurrency()
-
+  const { setWithPhotosOnly, withPhotosOnly } = useSort();
   const defaultSort = `${sortField}-${sortDirection}`
   const [sortValue, setSortValue] = useState(defaultSort)
   const [limitValue, setLimitValue] = useState(String(initialLimit))
@@ -154,11 +156,15 @@ export default function SearchHeader({
   const onFilterClick = () => console.log("Filter clicked")
   const onCalculatorClick = () => console.log("Calculator clicked")
 
+  const handleWithPhotosChange = (checked) => {
+    setWithPhotosOnly(checked)
+  }
 
   return (
     <>
       <div className="mx-auto w-full">
         <div className="z-10 bg-white px-4 py-3">
+
           <div className="mx-auto flex flex-col">
             <div className="min-[1024px]:hidden flex gap-3 mb-3">
               <Button
@@ -178,7 +184,6 @@ export default function SearchHeader({
               </Button>
             </div>
 
-
             <div className="flex items-center justify-between">
               <div className="flex items-baseline gap-2">
                 <span className="text-2xl font-bold">{totalCount}</span>
@@ -187,9 +192,10 @@ export default function SearchHeader({
               <PaginationButtons />
             </div>
 
+
             <TooltipProvider>
               <div className="hidden sm:flex items-center justify-between w-full py-2 gap-2">
-                <div className="max-[767px]:hidden flex items-center gap-1">
+                <div className="max-[767px]:hidden flex items-center gap-4">
                   <span className="text-sm text-gray-600">Sort by</span>
                   <Select value={sortValue} onValueChange={onSortChange}>
                     <SelectTrigger className="w-[180px] h-9 px-3">
@@ -204,6 +210,22 @@ export default function SearchHeader({
                       <SelectItem value="regYearNumber-asc">Year Old to New</SelectItem>
                     </SelectContent>
                   </Select>
+
+                  <div className="flex items-center space-x-2 group">
+                    <Checkbox
+                      id="photos-filter"
+                      checked={withPhotosOnly}
+                      onCheckedChange={handleWithPhotosChange}
+                      className=" rounded border-2 border-gray-300 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 transition-colors duration-200 group-hover:border-blue-400"
+                    />
+                    <Label
+                      htmlFor="photos-filter"
+                      className="text-sm font-medium text-gray-700 cursor-pointer flex items-center gap-1.5 group-hover:text-blue-600 transition-colors duration-200"
+                    >
+                      <Camera className="h-3.5 w-3.5  group-hover:text-blue-500 transition-colors duration-200" />
+                      With photos
+                    </Label>
+                  </div>
                 </div>
 
                 <div className="max-[767px]:hidden flex items-center gap-1">
@@ -279,7 +301,25 @@ export default function SearchHeader({
                 </div>
               </div>
             </TooltipProvider>
+
+            <div className="flex items-center space-x-2 group ml-5 my-4 md:hidden">
+              <Checkbox
+                id="photos-filter"
+                checked={withPhotosOnly}
+                onCheckedChange={handleWithPhotosChange}
+                className="rounded border-2 border-gray-300 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 transition-colors duration-200 group-hover:border-blue-400"
+              />
+              <Label
+                htmlFor="photos-filter"
+                className="text-sm font-medium text-gray-700 cursor-pointer flex items-center gap-1.5 group-hover:text-blue-600 transition-colors duration-200"
+              >
+                <Camera className="h-3.5 w-3.5 group-hover:text-blue-500 transition-colors duration-200" />
+                With photos
+              </Label>
+            </div>
+
           </div>
+
         </div>
 
         <div className="p-4 text-center text-gray-500">

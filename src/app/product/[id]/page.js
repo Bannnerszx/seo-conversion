@@ -85,15 +85,19 @@ export default async function ProductPage({ params, searchParams }) {
     if (cookieStore.get(legacyName)?.value) {
       return (
         <SortProvider>
-          <div className="z-10">
-            <CarProductPageCSR
-              resultsIsFavorited={""} // guest sees no favorites
-              currency={currency}
-              carData={carData}
-              countryArray={countryArray}
-              useAuth={useAuth}
-            />
-            <VehicleSpecifications carData={carData} />
+          <div className="z-10 mt-2">
+            <div style={{ zoom: 0.8, transformOrigin: "top left" }} className='-mt-12'>
+              <CarProductPageCSR
+                resultsIsFavorited={""} // guest sees no favorites
+                currency={currency}
+                carData={carData}
+                countryArray={countryArray}
+                useAuth={useAuth}
+              />
+            </div>
+            <div className='-mt-12'>
+              <VehicleSpecifications carData={carData} />
+            </div>
           </div>
         </SortProvider>
       )
@@ -107,15 +111,20 @@ export default async function ProductPage({ params, searchParams }) {
   if (!sessionCookie) {
     return (
       <SortProvider>
-        <div className="z-10 mt-5">
-          <CarProductPageCSR
-            resultsIsFavorited={""}
-            currency={currency}
-            carData={carData}
-            countryArray={countryArray}
-            useAuth={useAuth}
-          />
-          <VehicleSpecifications carData={carData} />
+        <div className="z-10 mt-2">
+          <div style={{ zoom: 0.8, transformOrigin: "top left" }} className='-mt-12'>
+            <CarProductPageCSR
+              resultsIsFavorited={""}
+              currency={currency}
+              carData={carData}
+              countryArray={countryArray}
+              useAuth={useAuth}
+            />
+            <div className='-mt-12'>
+              <VehicleSpecifications carData={carData} />
+            </div>
+          </div>
+
         </div>
       </SortProvider>
     )
@@ -143,15 +152,21 @@ export default async function ProductPage({ params, searchParams }) {
       // If invalid, render guest UI
       return (
         <SortProvider>
-          <div className="z-10 mt-5">
-            <CarProductPageCSR
-              resultsIsFavorited={""}
-              currency={currency}
-              carData={carData}
-              countryArray={countryArray}
-              useAuth={useAuth}
-            />
-            <VehicleSpecifications carData={carData} />
+          <div className="z-10 mt-2">
+            <div style={{ zoom: 0.8, transformOrigin: "top left" }} className='-mt-12'>
+              <CarProductPageCSR
+                resultsIsFavorited={""}
+                currency={currency}
+                carData={carData}
+                countryArray={countryArray}
+                useAuth={useAuth}
+              />
+
+
+              <div className='-mt-12'>
+                <VehicleSpecifications carData={carData} />
+              </div>
+            </div>
           </div>
         </SortProvider>
       )
@@ -161,15 +176,20 @@ export default async function ProductPage({ params, searchParams }) {
     // On any error, render guest UI
     return (
       <SortProvider>
-        <div className="z-10 mt-5">
-          <CarProductPageCSR
-            resultsIsFavorited={""}
-            currency={currency}
-            carData={carData}
-            countryArray={countryArray}
-            useAuth={useAuth}
-          />
-          <VehicleSpecifications carData={carData} />
+        <div className="z-10 mt-2">
+          <div style={{ zoom: 0.8, transformOrigin: "top left" }} className='-mt-12'>
+            <CarProductPageCSR
+              resultsIsFavorited={""}
+              currency={currency}
+              carData={carData}
+              countryArray={countryArray}
+              useAuth={useAuth}
+            />
+
+            <div className='-mt-12'>
+              <VehicleSpecifications carData={carData} />
+            </div>
+          </div>
         </div>
       </SortProvider>
     )
@@ -182,17 +202,22 @@ export default async function ProductPage({ params, searchParams }) {
   return (
     <SortProvider>
       <ClientAppCheck />
-      <div className="z-10 mt-5">
-        <CarProductPageCSR
-          accountData={accountData}
-          resultsIsFavorited={resultsIsFavorited}
-          currency={currency}
-          carData={carData}
-          countryArray={countryArray}
-          useAuth={useAuth}
-          userEmail={userEmail}
-        />
-        <VehicleSpecifications carData={carData} />
+      <div className="z-10 mt-2">
+        <div style={{ zoom: 0.8, transformOrigin: "top left" }} className='-mt-12'>
+          <CarProductPageCSR
+            accountData={accountData}
+            resultsIsFavorited={resultsIsFavorited}
+            currency={currency}
+            carData={carData}
+            countryArray={countryArray}
+            useAuth={useAuth}
+            userEmail={userEmail}
+          />
+
+          <div className='-mt-12'>
+            <VehicleSpecifications carData={carData} />
+          </div>
+        </div>
       </div>
     </SortProvider>
   )

@@ -16,7 +16,7 @@ import { firestore } from "../../../../firebase/clientApp";
 import { runTransaction, doc, increment } from "firebase/firestore"
 
 
-export default function OrderButton({ accountData, isOrderMounted, setIsOrderMounted, userEmail, chatId, selectedChatData, countryList, invoiceData }) {
+export default function OrderButton({ ipInfo, tokyoTime, accountData, isOrderMounted, setIsOrderMounted, userEmail, chatId, selectedChatData, countryList, invoiceData }) {
     const [ordered, setOrdered] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
     const router = useRouter()
@@ -194,19 +194,6 @@ export default function OrderButton({ accountData, isOrderMounted, setIsOrderMou
         setIsOrderMounted(true);
         router.push(`/chats/ordered/${chatId}`)
         try {
-            // 1) fetch IP & Tokyo time
-            const [ipResp, timeResp] = await Promise.all([
-                fetch(
-                    "https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo"
-                ),
-                fetch(
-                    "https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time"
-                ),
-            ]);
-            const [ipInfo, tokyoTime] = await Promise.all([
-                ipResp.json(),
-                timeResp.json(),
-            ]);
 
 
             // 2) format date
@@ -290,7 +277,7 @@ export default function OrderButton({ accountData, isOrderMounted, setIsOrderMou
         parseFloat(selectedChatData?.carData?.fobPrice)
         * parseFloat(selectedChatData?.currency.jpyToUsd);
 
-const baseFinalPrice = invoiceData?.paymentDetails.totalAmount ? parseFloat(invoiceData?.paymentDetails.totalAmount) - (selectedChatData?.inspection ? 300 : 0) :
+    const baseFinalPrice = invoiceData?.paymentDetails.totalAmount ? parseFloat(invoiceData?.paymentDetails.totalAmount) - (selectedChatData?.inspection ? 300 : 0) :
         basePrice
         + parseFloat(selectedChatData?.carData?.dimensionCubicMeters)
         * parseFloat(selectedChatData?.freightPrice);

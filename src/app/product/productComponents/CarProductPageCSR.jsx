@@ -4,7 +4,7 @@ import { functions } from "../../../../firebase/clientApp"
 import { httpsCallable } from 'firebase/functions'
 import { useState, useEffect, useCallback, useRef } from "react"
 import Image from "next/image"
-import { Download, Heart, ChevronLeft, ChevronRight, Loader2 } from "lucide-react"
+import { Download, Heart, ChevronLeft, ChevronUp, ChevronDown, ChevronRight, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
@@ -90,7 +90,9 @@ async function handleCreateConversation(
     dropdownValuesLocations,
     setShakeCountry,
     setShakePort,
-    insuranceToggle
+    insuranceToggle,
+    ipInfo,
+    tokyoTimeData
 ) {
     setLoadingChat(true);
 
@@ -135,13 +137,7 @@ async function handleCreateConversation(
 
     try {
         // 4) Fetch IP info + Tokyo time in parallel
-        const [ipRes, timeRes] = await Promise.all([
-            fetch('https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo'),
-            fetch('https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time')
-        ]);
-        if (!ipRes.ok || !timeRes.ok) throw new Error("Failed to fetch metadata");
 
-        const [ipInfo, tokyoTimeData] = await Promise.all([ipRes.json(), timeRes.json()]);
         const m = moment(tokyoTimeData.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');
         const formattedTime = m.format('YYYY/MM/DD [at] HH:mm:ss');
         const docId = m.format('YYYY-MM');
@@ -541,13 +537,32 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
             ? images[currentImageIndex]
             : '/placeholder.jpg'
 
-    const THUMB_COUNT = 10
-    const thumbs = Array.from({ length: THUMB_COUNT }, (_, i) =>
-        images?.[i] ?? null
-    )
-
+    const THUMB_COUNT = 10;
+    // fall back to an empty array if images is undefined/null
+    const safeImages = images ?? [];
+    // at least THUMB_COUNT slots, or more if you have more images
+    const thumbnailCount = Math.max(safeImages.length, THUMB_COUNT);
+    const [ipInfo, setIpInfo] = useState(null);
+    const [tokyoTimeData, setTokyoTimeData] = useState(null);
+    useEffect(() => {
+        let mounted = true;
+        Promise.all([
+            fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo").then(r => r.json()),
+            fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time").then(r => r.json()),
+        ])
+            .then(([ip, time]) => {
+                if (!mounted) return;
+                setIpInfo(ip);
+                setTokyoTimeData(time);
+            })
+            .catch(err => {
+                if (!mounted) return;
+                console.error("Preload fetch failed", err);
+            });
+        return () => { mounted = false; };
+    }, []);
     return (
-        <div className="container mx-auto px-4 py-8 z-[9999]">
+        <div className=" mx-auto px-4 py-8 z-[9999]">
             <FloatingAlertPortal
                 show={showAlert}
                 onClose={() => setShowAlert(false)}
@@ -601,324 +616,330 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
                     </div>
                 </div>
             )} */}
-
-            <div className="flex flex-col lg:flex-row justify-between items-start gap-8">
-                {/* Left side - Car images and thumbnails */}
-                <div className="w-full lg:w-1/2">
-                    <div className="flex justify-between items-center mb-4">
-                        <div>
-                            <h1 className="text-3xl font-bold">{carData?.carName}</h1>
-                            <p className="text-sm text-muted-foreground">{carData?.carDescription}</p>
-                        </div>
-                        <div className="flex gap-2">
-                            {user && (
-                                <>
-                                    <Button
-                                        onClick={() => downloadImagesAsZip({ images, setIsDownloading, carData })}
-                                        variant="outline"
-                                        size="sm"
-                                        className="flex items-center gap-1"
-                                    >
-                                        <Download className="h-4 w-4" />
-                                        <span className="hidden sm:inline">Download Images</span>
-                                    </Button>
-                                    <Dialog open={isDownloading} onOpenChange={setIsDownloading}>
-                                        <DialogContent className="sm:max-w-md">
-                                            <DialogHeader>
-                                                <DialogTitle>Downloading Images</DialogTitle>
-                                            </DialogHeader>
-                                            <div className="flex flex-col items-center justify-center py-4">
-                                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                                                <p className="mt-2 text-center text-sm text-muted-foreground">
-                                                    Please wait while we prepare your download...
-                                                </p>
-                                            </div>
-                                        </DialogContent>
-                                    </Dialog>
-                                </>
-                            )}
-
-                            <AnimatedHeartButton
-                                router={router}
-                                resultsIsFavorited={resultsIsFavorited}
-                                product={carData}
-                                userEmail={user}
-                            />
-                        </div>
-                    </div>
-
-                    <div className="relative group">
-
-                        <div className="relative aspect-[4/3] overflow-hidden rounded-md border z-[100]">
-                            {/* <Image
-                                src={images[currentImageIndex]}
-                                alt={carData?.carName}
-                                fill
-                                sizes="(max-width: 768px) 100vw, 50vw"
-                                className="object-cover cursor-pointer"
-                                onClick={toggleFullscreen}
-                                priority
-                            /> */}
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                className="rounded-full bg-white/80 hover:bg-white absolute left-2 bottom-1/2 z-[101]"
-                                onClick={handlePrevImage}
-                            >
-                                <ChevronLeft className="h-6 w-6" />
-                            </Button>
-
-                            <ImageViewer
-                                uri={src}
-                                alt={carData?.carName || 'Product image'}
-                                context="product"
-                            />
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                className="rounded-full bg-white/80 hover:bg-white absolute right-2 bottom-1/2 z-[101]"
-                                onClick={handleNextImage}
-                            >
-                                <ChevronRight className="h-6 w-6" />
-                            </Button>
-                            <div className="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 text-xs rounded">
-                                Real Motor Japan {carData?.referenceNumber}
+            <div className="max-w-screen-2xl mx-auto p-4 font-sans">
+                <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-8">
+                    {/* Left side - Car images and thumbnails */}
+                    <div className="w-full">
+                        {/* TITLE & ACTIONS */}
+                        <div className="flex justify-between items-center mb-4">
+                            <div>
+                                <h1 className="text-3xl font-bold">{carData?.carName}</h1>
+                                <p className="text-sm text-muted-foreground">{carData?.carDescription}</p>
+                            </div>
+                            <div className="flex gap-2">
+                                {user && (
+                                    <>
+                                        <Button
+                                            onClick={() => downloadImagesAsZip({ images, setIsDownloading, carData })}
+                                            variant="outline"
+                                            size="sm"
+                                            className="flex items-center gap-1"
+                                        >
+                                            <Download className="h-4 w-4" />
+                                            <span className="hidden sm:inline">Download Images</span>
+                                        </Button>
+                                        <Dialog open={isDownloading} onOpenChange={setIsDownloading}>
+                                            <DialogContent className="sm:max-w-md">
+                                                <DialogHeader>
+                                                    <DialogTitle>Downloading Images</DialogTitle>
+                                                </DialogHeader>
+                                                <div className="flex flex-col items-center justify-center py-4">
+                                                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                                    <p className="mt-2 text-center text-sm text-muted-foreground">
+                                                        Please wait while we prepare your download...
+                                                    </p>
+                                                </div>
+                                            </DialogContent>
+                                        </Dialog>
+                                    </>
+                                )}
+                                <AnimatedHeartButton
+                                    router={router}
+                                    resultsIsFavorited={resultsIsFavorited}
+                                    product={carData}
+                                    userEmail={user}
+                                />
                             </div>
                         </div>
 
-                    </div>
-                    <div className="mt-2">
-                        {/* make this the positioning context */}
-                        <div className="relative">
-                            {/* Left arrow: positioned inside the same container */}
+                        {/* IMAGE + THUMBNAILS */}
+                        <div className="flex flex-col lg:flex-row gap-4  w-full mx-auto">
+                            {/* MAIN IMAGE WRAPPER */}
+                            <div className="relative w-full inline-block overflow-hidden rounded-md z-[100]">
+                                <button
+                                    className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white p-1 rounded-full z-10"
+                                    onClick={handlePrevImage}
+                                >
+                                    <ChevronLeft className="h-6 w-6" />
+                                </button>
 
+                                <ImageViewer
+                                    uri={src}
+                                    alt={carData?.carName || "Product image"}
+                                    context="product"
+                                />
 
-                            {/* Thumbnails row */}
-                            <div
-                                ref={thumbnailsRef}
-                                className="flex overflow-x-auto gap-2 pb-2 hide-scrollbar"
-                            >
+                                <button
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white p-1 rounded-full z-10"
+                                    onClick={handleNextImage}
+                                >
+                                    <ChevronRight className="h-6 w-6" />
+                                </button>
+
+                                <div className="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 text-xs rounded">
+                                    Real Motor Japan {carData?.referenceNumber}
+                                </div>
+                            </div>
+
+                            {/* THUMBNAILS */}
+                            <div className="relative">
+                                {/* Scrollable thumbnail container */}
+                                <div
+                                    ref={thumbnailsRef}
+                                    className="
+      relative flex flex-row gap-2 w-full overflow-x-auto z-[101]
+      h-auto lg:h-[600px] lg:w-[145px] lg:flex-col lg:overflow-y-auto lg:overflow-x-visible
+    "
+                                >
+                                    <div className="flex flex-row gap-2 px-1 lg:flex-col lg:gap-2 z-10">
+                                        {Array.from({ length: thumbnailCount }).map((_, idx) => {
+                                            const imgSrc = safeImages[idx] ?? "/placeholder.jpg";
+                                            return (
+                                                <div
+                                                    key={idx}
+                                                    onClick={() => handleThumbnailClick(idx)}
+                                                    className={`
+            cursor-pointer overflow-hidden rounded-md border transition
+            ${idx === currentImageIndex
+                                                            ? "ring-2 ring-primary"
+                                                            : "opacity-70 hover:opacity-100"}
+          `}
+                                                    style={{ aspectRatio: "4/3", width: "100px" }}
+                                                >
+                                                    <Image
+                                                        src={imgSrc}
+                                                        alt={`Thumbnail ${idx + 1}`}
+                                                        width={100}
+                                                        height={75}
+                                                        className="object-cover w-full h-full"
+                                                    />
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Floating left scroll button (mobile only) */}
                                 <button
                                     onClick={() => scrollThumbnails(-100)}
-                                    className="absolute left-1 top-8 transform -translate-y-1/2 p-2 bg-white/70 rounded-full shadow z-10 hover:bg-white"
+                                    className="
+      absolute left-2 top-1/2 -translate-y-1/2
+      p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg z-[950]
+      lg:hidden hover:bg-white transition-all
+    "
                                 >
                                     <ChevronLeft className="h-4 w-4" />
                                 </button>
-                                {thumbs.map((image, index) => (
-                                    <div
-                                        key={index}
-                                        id={`thumbnail-${index}`}
-                                        className={`
-          flex-shrink-0 w-20 aspect-[4/3] overflow-hidden rounded-md border cursor-pointer transition-all
-          ${index === currentImageIndex
-                                                ? 'ring-2 ring-primary'
-                                                : 'opacity-70 hover:opacity-100'
-                                            }
-        `}
-                                        onClick={() => handleThumbnailClick(index)}
-                                    >
-                                        <Image
-                                            src={image ?? '/placeholder.jpg'}
-                                            alt={`Thumbnail ${index + 1}`}
-                                            width={100}
-                                            height={75}
-                                            className="object-cover w-full h-full"
-                                        />
-                                    </div>
-                                ))}
+
+                                {/* Floating right scroll button (mobile only) */}
                                 <button
                                     onClick={() => scrollThumbnails(100)}
-                                    className="absolute right-1 top-8 transform -translate-y-1/2 p-2 bg-white/70 rounded-full shadow z-10 hover:bg-white"
+                                    className="
+      absolute right-2 top-1/2 -translate-y-1/2
+      p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg z-[950]
+      lg:hidden hover:bg-white transition-all
+    "
                                 >
                                     <ChevronRight className="h-4 w-4" />
                                 </button>
                             </div>
-
-                            {/* Right arrow: also inside the same relative div */}
-
                         </div>
-                    </div>
-                </div>
 
-                {/* Right side - buttons */}
-                <div className="w-full lg:w-1/2">
-                    <div className="flex justify-end mt-6">
-                        <Select
-                            defaultValue={selectedCurrency.code}
-                            onValueChange={(value) => {
-                                const currencyOptions = [
-                                    { code: "USD", symbol: "USD$", value: 1 },
-                                    { code: "EUR", symbol: "EUR€", value: currency.usdToEur },
-                                    { code: "JPY", symbol: "JPY¥", value: currency.usdToJpy },
-                                    { code: "CAD", symbol: "CAD$", value: currency.usdToCad },
-                                    { code: "AUD", symbol: "AUD$", value: currency.usdToAud },
-                                    { code: "GBP", symbol: "GBP£", value: currency.usdToGbp },
-                                    { code: "ZAR", symbol: "ZAR", value: currency.usdToZar },
-                                ]
-                                const selected = currencyOptions.find((curr) => curr.code === value)
-                                if (selected) setSelectedCurrency(selected)
-                            }}
-                        >
-                            <SelectTrigger className="w-[150px] h-9 px-3 [&_svg]:text-[#0000ff] [&_svg]:stroke-[#0000ff] mx-3 -my-2">
-                                <span className="text-sm font-small sm:inline">Currency:</span>
-                                <SelectValue placeholder="Currency" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {[
-                                    { code: "USD", symbol: "USD$", value: 1 },
-                                    { code: "EUR", symbol: "EUR€", value: currency.usdToEur },
-                                    { code: "JPY", symbol: "JPY¥", value: currency.usdToJpy },
-                                    { code: "CAD", symbol: "CAD$", value: currency.usdToCad },
-                                    { code: "AUD", symbol: "AUD$", value: currency.usdToAud },
-                                    { code: "GBP", symbol: "GBP£", value: currency.usdToGbp },
-                                    { code: "ZAR", symbol: "ZAR", value: currency.usdToZar },
-                                ].map((curr) => (
-                                    <SelectItem key={curr.code} value={curr.code}>
-                                        {curr.code}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+
                     </div>
 
-                    <Card className="my-6 relative overflow-visible">
-                        {/* Watermark overlay */}
-                        {(carData.stockStatus.startsWith("Sold") || carData.stockStatus === "Reserved") && (
-                            <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none">
-                                <span
-                                    className={`
+                    {/* Right side - buttons */}
+                    <div className="w-full">
+                        <div className="flex justify-end mt-6">
+                            <Select
+                                defaultValue={selectedCurrency.code}
+                                onValueChange={(value) => {
+                                    const currencyOptions = [
+                                        { code: "USD", symbol: "USD$", value: 1 },
+                                        { code: "EUR", symbol: "EUR€", value: currency.usdToEur },
+                                        { code: "JPY", symbol: "JPY¥", value: currency.usdToJpy },
+                                        { code: "CAD", symbol: "CAD$", value: currency.usdToCad },
+                                        { code: "AUD", symbol: "AUD$", value: currency.usdToAud },
+                                        { code: "GBP", symbol: "GBP£", value: currency.usdToGbp },
+                                        { code: "ZAR", symbol: "ZAR", value: currency.usdToZar },
+                                    ]
+                                    const selected = currencyOptions.find((curr) => curr.code === value)
+                                    if (selected) setSelectedCurrency(selected)
+                                }}
+                            >
+                                <SelectTrigger className="w-[150px] h-9 px-3 [&_svg]:text-[#0000ff] [&_svg]:stroke-[#0000ff] mx-3 -my-2">
+                                    <span className="text-sm font-small sm:inline">Currency:</span>
+                                    <SelectValue placeholder="Currency" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {[
+                                        { code: "USD", symbol: "USD$", value: 1 },
+                                        { code: "EUR", symbol: "EUR€", value: currency.usdToEur },
+                                        { code: "JPY", symbol: "JPY¥", value: currency.usdToJpy },
+                                        { code: "CAD", symbol: "CAD$", value: currency.usdToCad },
+                                        { code: "AUD", symbol: "AUD$", value: currency.usdToAud },
+                                        { code: "GBP", symbol: "GBP£", value: currency.usdToGbp },
+                                        { code: "ZAR", symbol: "ZAR", value: currency.usdToZar },
+                                    ].map((curr) => (
+                                        <SelectItem key={curr.code} value={curr.code}>
+                                            {curr.code}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <Card className="my-6 relative overflow-visible">
+                            {/* Watermark overlay */}
+                            {(carData.stockStatus.startsWith("Sold") || carData.stockStatus === "Reserved") && (
+                                <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none">
+                                    <span
+                                        className={`
         text-[120px]
         max-[426px]:text-[25px]
         font-bold
         transform -rotate-45
         select-none
         ${carData.stockStatus.startsWith("Sold")
-                                            ? "text-red-500/50"
-                                            : "text-[#ffd700]/50"
-                                        }
+                                                ? "text-red-500/50"
+                                                : "text-[#ffd700]/50"
+                                            }
       `}
-                                >
-                                    {carData.stockStatus.startsWith("Sold")
-                                        ? "SOLD"
-                                        : carData.stockStatus.toUpperCase()}
-                                </span>
-                            </div>
-                        )}
-
-                        {/* Actual card content */}
-                        <CardContent className="relative z-0 p-6">
-                            {/* Background stripe */}
-                            <div className="relative mb-6">
-                                <div className="absolute -inset-6 bg-[#E5EBFD] rounded-t-md" />
-                                <div className="relative grid grid-cols-2 gap-4 p-4">
-                                    <div>
-                                        <p className="text-sm text-muted-foreground">Current FOB Price</p>
-                                        <AnimatedCurrencyPrice
-                                            basePrice={basePrice}
-                                            selectedCurrency={{ symbol: selectedCurrency.symbol, value: selectedCurrency.value }}
-                                            duration={1000}
-                                            selectedPort={selectedPort}
-                                        />
-                                    </div>
-                                    <div>
-                                        <p className="text-sm text-muted-foreground">Total Estimated Price</p>
-                                        <AnimatedCurrencyPrice
-                                            basePrice={profitMap && selectedPort && selectedCountry ? finalPrice : 0}
-                                            selectedCurrency={{ symbol: selectedCurrency.symbol, value: selectedCurrency.value }}
-                                            duration={1000}
-                                            selectedPort={selectedPort}
-                                        />
-                                    </div>
+                                    >
+                                        {carData.stockStatus.startsWith("Sold")
+                                            ? "SOLD"
+                                            : carData.stockStatus.toUpperCase()}
+                                    </span>
                                 </div>
-                            </div>
+                            )}
 
-                            {/* Dropdowns & switches */}
-                            <div className="relative mb-6 z-[9999]">
-                                <div className="absolute -inset-6 bg-[#F2F5FE] -z-10" />
-                                <div className="space-y-2 max-w-full relative z-10 p-4">
-                                    {dropdownGroupsLocations.map((group, gi) => (
-                                        <div key={gi} className="grid gap-4 sm:grid-cols-2">
-                                            {group.map((dd, i) => {
-                                                const shake = (dd.placeholder === "Select Country" && shakeCountry)
-                                                    || (dd.placeholder === "Select Port" && shakePort);
-                                                return (
-                                                    <Dropdown
-                                                        key={i}
-                                                        placeholder={dd.placeholder}
-                                                        options={dd.options}
-                                                        value={dropdownValuesLocations[dd.placeholder] || ""}
-                                                        onChange={v => handleDropdownChangeLocation(dd.placeholder, v)}
-                                                        className={shake ? "animate-shake border-red-500" : ""}
-                                                    />
-                                                );
-                                            })}
-                                        </div>
-                                    ))}
-
-                                    <div className="grid grid-cols-2 gap-8 pt-4">
-                                        <div className="flex items-center space-x-2">
-                                            <Switch
-
-                                                id="inspection"
-                                                checked={checkedValue}
-                                                disabled={inspectionData?.isToggleDisabled || isRequired || carData?.stockStatus?.startsWith("Sold") || carData?.stockStatus === "Reserved"}
-                                                onCheckedChange={checked => {
-                                                    if (!isRequired) setInspectionToggle(checked);
-                                                }}
-                                                className="data-[state=checked]:bg-[#7b9cff]"
+                            {/* Actual card content */}
+                            <CardContent className="relative z-0 p-6">
+                                {/* Background stripe */}
+                                <div className="relative mb-6">
+                                    <div className="absolute -inset-6 bg-[#E5EBFD] rounded-t-md" />
+                                    <div className="relative grid grid-cols-2 gap-4 p-4">
+                                        <div>
+                                            <p className="text-sm text-muted-foreground">Current FOB Price</p>
+                                            <AnimatedCurrencyPrice
+                                                basePrice={basePrice}
+                                                selectedCurrency={{ symbol: selectedCurrency.symbol, value: selectedCurrency.value }}
+                                                duration={1000}
+                                                selectedPort={selectedPort}
                                             />
-                                            <Label htmlFor="inspection">Inspection</Label>
                                         </div>
-                                        <div className="flex items-center space-x-2">
-                                            <Switch id="insurance"
-                                                onCheckedChange={checked => setInsuranceToggle(checked)}
-                                                className="data-[state=checked]:bg-[#7b9cff]" />
-                                            <Label htmlFor="insurance">Insurance</Label>
+                                        <div>
+                                            <p className="text-sm text-muted-foreground">Total Estimated Price</p>
+                                            <AnimatedCurrencyPrice
+                                                basePrice={profitMap && selectedPort && selectedCountry ? finalPrice : 0}
+                                                selectedCurrency={{ symbol: selectedCurrency.symbol, value: selectedCurrency.value }}
+                                                duration={1000}
+                                                selectedPort={selectedPort}
+                                            />
                                         </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            {/* Message & submit */}
-                            <div className="space-y-4 p-4">
-                                <Textarea placeholder="Write your message here" className="min-h-[120px]" ref={textareaRef} />
-                                <div className="flex items-start space-x-2">
-                                    <Checkbox id="terms" />
-                                    <Label htmlFor="terms" className="text-sm pt-0.5">
-                                        I agree to Privacy Policy and Terms of Agreement
-                                    </Label>
+                                {/* Dropdowns & switches */}
+                                <div className="relative mb-6 z-[9999]">
+                                    <div className="absolute -inset-6 bg-[#F2F5FE] -z-10" />
+                                    <div className="space-y-2 max-w-full relative z-10 p-4">
+                                        {dropdownGroupsLocations.map((group, gi) => (
+                                            <div key={gi} className="grid gap-4 sm:grid-cols-2">
+                                                {group.map((dd, i) => {
+                                                    const shake = (dd.placeholder === "Select Country" && shakeCountry)
+                                                        || (dd.placeholder === "Select Port" && shakePort);
+                                                    return (
+                                                        <Dropdown
+                                                            key={i}
+                                                            placeholder={dd.placeholder}
+                                                            options={dd.options}
+                                                            value={dropdownValuesLocations[dd.placeholder] || ""}
+                                                            onChange={v => handleDropdownChangeLocation(dd.placeholder, v)}
+                                                            className={shake ? "animate-shake border-red-500" : ""}
+                                                        />
+                                                    );
+                                                })}
+                                            </div>
+                                        ))}
+
+                                        <div className="grid grid-cols-2 gap-8 pt-4">
+                                            <div className="flex items-center space-x-2">
+                                                <Switch
+
+                                                    id="inspection"
+                                                    checked={checkedValue}
+                                                    disabled={inspectionData?.isToggleDisabled || isRequired || carData?.stockStatus?.startsWith("Sold") || carData?.stockStatus === "Reserved"}
+                                                    onCheckedChange={checked => {
+                                                        if (!isRequired) setInspectionToggle(checked);
+                                                    }}
+                                                    className="data-[state=checked]:bg-[#7b9cff]"
+                                                />
+                                                <Label htmlFor="inspection">Inspection</Label>
+                                            </div>
+                                            <div className="flex items-center space-x-2">
+                                                <Switch id="insurance"
+                                                    onCheckedChange={checked => setInsuranceToggle(checked)}
+                                                    className="data-[state=checked]:bg-[#7b9cff]" />
+                                                <Label htmlFor="insurance">Insurance</Label>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <Button
-                                    disabled={isButtonDisabled}
-                                    onClick={() =>
-                                        handleCreateConversation(
-                                            addChat,
-                                            router,
-                                            setLoadingChat,
-                                            setShowAlert,
-                                            textareaRef,
-                                            freightOrigPrice,
-                                            profitMap,
-                                            selectedCurrency,
-                                            currency,
-                                            inspectionPrice,
-                                            inspectionData,
-                                            carData,
-                                            user,
-                                            dropdownValuesLocations,
-                                            setShakeCountry,
-                                            setShakePort,
-                                            insuranceToggle
-                                        )
-                                    }
-                                    className="w-full bg-blue-600 hover:bg-blue-700 py-6"
-                                >
-                                    Send Inquiry
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
 
+                                {/* Message & submit */}
+                                <div className="space-y-4 p-4">
+                                    <Textarea placeholder="Write your message here" className="min-h-[120px]" ref={textareaRef} />
+                                    <div className="flex items-start space-x-2">
+                                        <Checkbox id="terms" />
+                                        <Label htmlFor="terms" className="text-sm pt-0.5">
+                                            I agree to Privacy Policy and Terms of Agreement
+                                        </Label>
+                                    </div>
+                                    <Button
+                                        disabled={isButtonDisabled}
+                                        onClick={() =>
+                                            handleCreateConversation(
+                                                addChat,
+                                                router,
+                                                setLoadingChat,
+                                                setShowAlert,
+                                                textareaRef,
+                                                freightOrigPrice,
+                                                profitMap,
+                                                selectedCurrency,
+                                                currency,
+                                                inspectionPrice,
+                                                inspectionData,
+                                                carData,
+                                                user,
+                                                dropdownValuesLocations,
+                                                setShakeCountry,
+                                                setShakePort,
+                                                insuranceToggle,
+                                                ipInfo,
+                                                tokyoTimeData
+                                            )
+                                        }
+                                        className="w-full bg-blue-600 hover:bg-blue-700 py-6"
+                                    >
+                                        Send Inquiry
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                    </div>
                 </div>
             </div>
 

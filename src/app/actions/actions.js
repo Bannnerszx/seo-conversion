@@ -4,7 +4,7 @@ import { db, admin, storage, auth } from "@/lib/firebaseAdmin";
 import { FieldValue, FieldPath } from "firebase-admin/firestore";
 import nodemailer from 'nodemailer';
 
-////https://seo-conversion--samplermj.asia-east1.hosted.app
+////https://seo-conversion--real-motor-japan.asia-east1.hosted.app
 // function setCorsHeaders(response) {
 //     response.headers.set('Access-Control-Allow-Origin', '*');
 //     response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -249,11 +249,11 @@ export async function setOrderItem(chatId, selectedChatData, userEmail) {
 
         // Use node-fetch or a server-side compatible fetch method
         const [ipInfoResponse, tokyoTimeResponse] = await Promise.all([
-            fetch('https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo', {
-                headers: { 'Origin': 'https://seo-conversion--samplermj.asia-east1.hosted.app' } // Removed trailing slash
+            fetch('https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo', {
+                headers: { 'Origin': 'https://seo-conversion--real-motor-japan.asia-east1.hosted.app' } // Removed trailing slash
             }),
-            fetch('https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time', {
-                headers: { 'Origin': 'https://seo-conversion--samplermj.asia-east1.hosted.app' }
+            fetch('https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time', {
+                headers: { 'Origin': 'https://seo-conversion--real-motor-japan.asia-east1.hosted.app' }
             })
         ]);
 
@@ -469,11 +469,11 @@ export async function docDelivery(form1Data, chatId, userEmail) {
     });
     // Perform external fetch calls
     const [ipInfoResponse, tokyoTimeResponse] = await Promise.all([
-        fetch('https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo', {
-            headers: { 'Origin': 'https://seo-conversion--samplermj.asia-east1.hosted.app' }
+        fetch('https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo', {
+            headers: { 'Origin': 'https://seo-conversion--real-motor-japan.asia-east1.hosted.app' }
         }),
-        fetch('https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time', {
-            headers: { 'Origin': 'https://seo-conversion--samplermj.asia-east1.hosted.app' }
+        fetch('https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time', {
+            headers: { 'Origin': 'https://seo-conversion--real-motor-japan.asia-east1.hosted.app' }
         })
     ]);
 
@@ -1013,8 +1013,8 @@ export async function getCurrentFtpId() {
 export async function fetchServerTime() {
     try {
         const [tokyoTimeResponse] = await Promise.all([
-            fetch('https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time', {
-                headers: { 'Origin': 'https://seo-conversion--samplermj.asia-east1.hosted.app' }
+            fetch('https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time', {
+                headers: { 'Origin': 'https://seo-conversion--real-motor-japan.asia-east1.hosted.app' }
             })
         ]);
         const tokyoTime = await tokyoTimeResponse.json();
@@ -1169,8 +1169,8 @@ export async function handleSignUp(userEmail, userPassword) {
 
 export async function makeFavorite({ product, userEmail }) {
     const [tokyoTimeResponse] = await Promise.all([
-        fetch('https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time', {
-            headers: { 'Origin': 'https://seo-conversion--samplermj.asia-east1.hosted.app' }
+        fetch('https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time', {
+            headers: { 'Origin': 'https://seo-conversion--real-motor-japan.asia-east1.hosted.app' }
         })
     ]);
 

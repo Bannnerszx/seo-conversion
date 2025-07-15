@@ -73,9 +73,28 @@ const categoryIcons = {
     Mitsubishi: MitsubishiIcon,
 };
 
-function DesktopNavigation() {
-    const [hoveredItem, setHoveredItem] = useState(false)
+function DesktopNavigation({ router }) {
+    const [hoveredItem, setHoveredItem] = useState(null);
 
+    const [isTouch, setIsTouch] = useState(false);
+
+    // detect touch devices
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            setIsTouch(window.matchMedia("(hover: none)").matches);
+        }
+    }, []);
+    const handleStockTap = (href, label) => {
+        if (!isTouch) return; // desktop still uses hover + Link
+        if (hoveredItem !== label) {
+            // first tap opens
+            setHoveredItem(label);
+        } else {
+            // second tap navigates
+            setHoveredItem(null);
+
+        }
+    };
     return (
         <nav className="hidden lg:flex items-center space-x-6 overflow-visible z-[9999]">
             {NAV_LINKS.map((link) => {
@@ -84,15 +103,27 @@ function DesktopNavigation() {
                         <div
                             key={link.href}
                             className="relative overflow-visible"
-                            onMouseEnter={() => link.hasDropdown && setHoveredItem(link.label)}
-                            onMouseLeave={() => setHoveredItem(null)}
+                            onMouseEnter={() => {
+                                if (!isTouch && link.hasDropdown) setHoveredItem(link.label);
+                            }}
+                            onMouseLeave={() => {
+                                if (!isTouch) setHoveredItem(null);
+                            }}
                         >
-                            <Link href={link.href} className="py-5  flex items-center text-gray-600 hover:text-blue-600 transition-colors font-semibold">
+                            <div
+                                role="button"
+                                tabIndex={0}
+                                className="py-5 flex items-center text-gray-600 hover:text-blue-600 transition-colors font-semibold cursor-pointer select-none"
+                                onClick={() => handleStockTap(link.href, link.label)}
+                            >
                                 {link.label}
-                                {link.hasDropdown && <ChevronDown
-                                    className={`ml-1 h-5 w-5 transition-transform duration-200 ${hoveredItem === link.label ? "rotate-180" : "rotate-0"}`}
-                                />}
-                            </Link>
+                                {link.hasDropdown && (
+                                    <ChevronDown
+                                        className={`ml-1 h-5 w-5 transition-transform duration-200 ${hoveredItem === link.label ? "rotate-180" : "rotate-0"
+                                            }`}
+                                    />
+                                )}
+                            </div>
 
 
                             <div
@@ -330,6 +361,24 @@ function MobileMenu({ isOpen, setIsOpen }) {
                         <SheetTitle className="sr-only">Menu</SheetTitle>
                     </SheetHeader>
                     <div className="flex flex-col space-y-4 mt-8">
+                        <div className="items-center space-x-2 mx-auto">
+                            <span className="text-gray-700 font-bold whitespace-nowrap">
+                                Proud members of
+                            </span>
+                            <Link
+                                href="https://www.jumvea.or.jp/jpn/members/Yanagisawa-706"
+                                target="_blank"
+                                className="block mt-4"
+                            >
+                                <img
+                                    src="/jumvea.png"
+                                    alt="JUMVEA"
+                                    width={120}
+                                    height={38}
+                                    className="block"
+                                />
+                            </Link>
+                        </div>
                         {NAV_LINKS.map((link) => {
                             if (link.href === "/stock") {
                                 return (
@@ -491,7 +540,7 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
     const pathname = usePathname()
 
 
-  
+
     useEffect(() => {
         fetch('/api/show-banner', {
             credentials: 'same-origin',  // or 'include'
@@ -504,15 +553,38 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
 
     if (pathname === "/") {
         return (
-            <div ref={headerRef} className="z-[8500]">
+            <div ref={headerRef} className="z-[7500]">
                 {showBanner && !isFixed && (
                     <div className="w-full">
                         <InfoBannerSlider />
                     </div>
                 )}
-                <div className=" bg-white/90 p-2 flex justify-end mr-4">
+                <div className="bg-white/90 p-2 flex items-center justify-end md:justify-between mr-4 z-[9500]">
+                    {/* left side: span + logo */}
+                    <div className="hidden md:flex items-center space-x-2">
+                        <span className="text-gray-700 font-bold whitespace-nowrap">
+                            Proud members of
+                        </span>
+                        <Link
+                            href="https://www.jumvea.or.jp/jpn/members/Yanagisawa-706"
+                            target="_blank"
+                            className="block"
+                        >
+                            <img
+                                src="/jumvea.png"
+                                alt="JUMVEA"
+                                width={120}
+                                height={38}
+                                className="block"
+                            />
+                        </Link>
+                    </div>
+
+                    {/* right side: currency dropdown */}
                     <CurrencyDropdown currency={currency} />
                 </div>
+
+
                 <header
                     className={`${isFixed ? "fixed top-0 z-[50] bg-white/80" : "z-[50]"} shadow-md backdrop-blur-lg h-[75px] w-full  border-solid border-b-4 border-[#0000ff]`}
                 >
@@ -550,36 +622,48 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
     return (
         <div className="z-[5000]">
 
-            <header ref={headerRef}
+            <header
                 className="
-      fixed top-0 left-0 right-0 z-50
-      h-[75px] w-full
-      bg-white/80 shadow-md
-      border-b-4 border-[#0000ff]
-    "
+    fixed top-0 left-0 right-0 z-50
+    h-[75px] w-full
+    bg-white/80 shadow-md
+    border-b-4 border-[#0000ff]
+  "
             >
-                <div className="flex items-center justify-between h-full z-[9999]">
+                <div className="flex items-center justify-between h-full px-4 z-[9999]">
+                    {/* left side: RMJ logo + nav */}
                     <div className="flex items-center space-x-8 overflow-visible">
-                        <Link href="/" className="h-auto overflow-hidden">
+                        <Link href="/" className="flex items-center">
                             <ImageHeader
                                 src="/rmj.webp"
                                 alt="REAL MOTOR JAPAN"
                                 width={250}
                                 height={65}
-                                quality={75} // compress more aggressively
-                                priority // LCP priority
+                                quality={75}
+                                priority
                                 sizes="(max-width: 640px) 150px, 250px"
                                 style={{ width: "250px", height: "70px", objectFit: "cover" }}
                             />
                         </Link>
+
+                        {/* new JUMVEA block */}
+
+
                         <DesktopNavigation />
                     </div>
-                    <div className="flex items-center space-x-5 mr-5 z-[9999]">
+
+                    {/* right side: auth & mobile menu */}
+                    <div className="flex items-center space-x-5 mr-5">
                         <DesktopAuth counts={counts} />
-                        <MobileMenu counts={counts} isOpen={isMenuOpen} setIsOpen={setIsMenuOpen} />
+                        <MobileMenu
+                            counts={counts}
+                            isOpen={isMenuOpen}
+                            setIsOpen={setIsMenuOpen}
+                        />
                     </div>
                 </div>
             </header>
+
             {showBanner && (
                 <div ref={headerRef} className="fixed top-[75px] left-0 right-0 w-full">
                     <InfoBannerSlider />

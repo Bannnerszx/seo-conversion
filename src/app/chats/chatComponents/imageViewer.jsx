@@ -145,7 +145,7 @@ const ImageViewer = ({ uri, alt = "Shared image", context }) => {
         <>
             {/* Thumbnail image */}
             <div
-                className="mt-2 rounded-lg overflow-hidden cursor-pointer"
+                className="border w-full rounded-lg overflow-hidden cursor-pointer aspect-[4/3]"
                 onClick={openModal}
             >
                 {context === 'product' ? (
@@ -154,12 +154,12 @@ const ImageViewer = ({ uri, alt = "Shared image", context }) => {
                         alt={alt}
                         fill
                         sizes="(max-width: 768px) 100vw, 50vw"
-                        className="object-cover cursor-pointer"
+                        className="object-cover cursor-pointer "
                         priority
                     />
                 ) : (
                     <Image
-                        src={uri || "/placeholder.svg"}
+                        src={uri || "/placeholder.jpg"}
                         alt={alt || "Image thumbnail"}
                         width={300}
                         height={150}

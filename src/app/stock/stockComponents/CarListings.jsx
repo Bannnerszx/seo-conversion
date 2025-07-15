@@ -108,8 +108,8 @@ function CarCard({
         relative
        
         w-full
-        h-64 
-        max-[650px]:w-full max-[650px]:h-64                  
+        h-[450px] 
+        max-[650px]:w-full max-[650px]:h-[320px]               
         min-[1170px]:w-[26rem]       
         min-[1170px]:h-auto     
         max-[1023px]:w-[26rem]       
@@ -118,14 +118,23 @@ function CarCard({
 
       "
         >
-          <Image
-            src={imageUrl ? imageUrl : '/placeholder.jpg'}
-            alt={carName}
-            fill
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            className="object-cover"
-            priority
-          />
+          <Link
+            href={
+              countryParams && portParams
+                ? `/product/${stockID}?country=${countryParams}&port=${portParams}`
+                : `/product/${stockID}`
+            }
+          >
+            <Image
+              src={imageUrl ? imageUrl : '/placeholder.jpg'}
+              alt={carName}
+              fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              className="object-cover"
+              priority
+            />
+          </Link>
+
 
           <Badge variant="secondary" className="absolute left-4 top-4 bg-white/90 font-medium">
             <SteeringWheel className="mr-2 h-4 w-4" />
@@ -236,13 +245,16 @@ function CarCard({
 export default function CarListings({ loadingSkeleton, resultsIsFavorited, products, currency, country, port, userEmail }) {
   console.log(userEmail, 'carlistings')
   const router = useRouter()
+  const { withPhotosOnly } = useSort();
+  const filtered = products
+    ?.filter(car => car.fobPriceNumber)
+    .filter(car => !withPhotosOnly || (car.images?.length ?? 0) > 0);
   return (
     <div className="space-y-4 p-2 mx-auto w-full">
-  
       <ScrollToTop />
 
-      {products?.length ? (
-        products.map((car, index) => (
+      {filtered && filtered.length > 0 ? (
+        filtered.map((car, index) => (
           <CarCard
             key={index}
             {...car}
@@ -267,7 +279,7 @@ export default function CarListings({ loadingSkeleton, resultsIsFavorited, produ
       )}
     </div>
   );
-};
+}
 
 
 

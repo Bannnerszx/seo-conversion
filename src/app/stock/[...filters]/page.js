@@ -9,6 +9,8 @@ import { SortProvider } from "../stockComponents/sortContext";
 import CarFilter from "../stockComponents/CarFilter";
 import { notFound } from "next/navigation";
 import { DynamicBreadcrumbs } from "@/app/components/Breadcrumbs";
+import BannerAwareAside from "../stockComponents/BannerAwareAside";
+import BreadCrumbChild from "../stockComponents/BreadCrumbChild";
 // Generate dynamic metadata based on filters and searchParams
 export async function generateMetadata({ params, searchParams }) {
     const p = await params;
@@ -202,10 +204,10 @@ export default async function StockPage({ params, searchParams }) {
     const saleUrl = filters.includes('sale')
     return (
         <SortProvider>
-            <div className="z-10 ">
+            <div className="z-10">
 
                 <div className="flex flex-col lg:flex-row gap-8">
-                    <aside className="hidden lg:block max-w-1/3 sticky top-[80px] self-start">
+                    <BannerAwareAside>
                         <CarFilter
                             urlMaker={maker}
                             urlModel={model}
@@ -224,11 +226,12 @@ export default async function StockPage({ params, searchParams }) {
                             recommendedUrl={recommendedUrl}
                             saleUrl={saleUrl}
                         />
-                    </aside>
+                    </BannerAwareAside>
                     <div className="w-full">
-                        <div className="px-6 absolute top-32">
+                        <BreadCrumbChild>
                             <DynamicBreadcrumbs maxItems={5} />
-                        </div>
+                        </BreadCrumbChild>
+
                         {/* <div className="px-6 mt-24">
                             <DynamicBreadcrumbs maxItems={5} />
                         </div> */}

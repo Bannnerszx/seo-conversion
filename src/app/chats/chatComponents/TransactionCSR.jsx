@@ -29,6 +29,26 @@ export default function TransactionCSR({ vehicleStatus, accountData, isMobileVie
         setAttachedFile(file);
 
     };
+    const [ipInfo, setIpInfo] = useState(null);
+    const [tokyoTime, setTokyoTime] = useState(null);
+    useEffect(() => {
+        let mounted = true;
+        Promise.all([
+            fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo").then(r => r.json()),
+            fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time").then(r => r.json()),
+        ])
+            .then(([ip, time]) => {
+                if (!mounted) return;
+                setIpInfo(ip);
+                setTokyoTime(time);
+            })
+            .catch(err => {
+                if (!mounted) return;
+                console.error("Preload fetch failed", err);
+               
+            });
+        return () => { mounted = false; };
+    }, []);
     const handleSendMessage = async (e) => {
         if (
             loadingSent ||
@@ -45,22 +65,6 @@ export default function TransactionCSR({ vehicleStatus, accountData, isMobileVie
 
         try {
             // Fetch IP info and Tokyo time concurrently.
-            const [ipInfoResponse, tokyoTimeResponse] = await Promise.all([
-                fetch('https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo'),
-                fetch('https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time')
-            ]);
-
-            if (!ipInfoResponse.ok) {
-                throw new Error("Failed to fetch IP Info");
-            }
-            if (!tokyoTimeResponse.ok) {
-                throw new Error("Failed to fetch Tokyo Time");
-            }
-
-            const [ipInfo, tokyoTime] = await Promise.all([
-                ipInfoResponse.json(),
-                tokyoTimeResponse.json()
-            ]);
 
             // Format the received Tokyo time using moment.js
             const momentDate = moment(tokyoTime?.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');

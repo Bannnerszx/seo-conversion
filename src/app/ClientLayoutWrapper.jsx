@@ -18,7 +18,7 @@ export default function ClientLayoutWrapper({ children, currency, userEmail }) {
 
   // Paths where we never show the footer
   const footerHideExact = [
-    "/login", "/login/",
+    "/login", "/login/","/favorites","/orders","/profile",
     "/accountCreation", "/accountCreation/",
     "/forgotpassword", "/forgotpassword/",
     "/signup", "/signup/", "/chats", "/chats/"
@@ -69,8 +69,7 @@ export default function ClientLayoutWrapper({ children, currency, userEmail }) {
     window.addEventListener('resize', updateBreadcrumbTop);
     return () => window.removeEventListener('resize', updateBreadcrumbTop);
   }, [hideHeader, showBanner]);
-  const isRoot = pathname === '/';
-  console.log(breadcrumbTop)
+console.log(showBanner,'breadcrumb wrapper')
   return (
     <div className="flex flex-col overflow-x-clip">
 
@@ -79,35 +78,14 @@ export default function ClientLayoutWrapper({ children, currency, userEmail }) {
         <Header showBanner={showBanner} setShowBanner={setShowBanner} headerRef={headerRef} currency={currency} userEmail={userEmail} />
       )}
 
-
-      {!hideBreadcrumbs && (
-        <div
-          className="px-6 py-3 absolute h-[85px] z-[9800]"
-          style={{ top: `${breadcrumbTop}px` }}
-        >
-          <DynamicBreadcrumbs maxItems={5} />
-        </div>
-      )}
-      {/* {!hideBreadcrumbs && (
-        <div
-          className="px-6 py-3 z-[500] mt-24"
-        >
-          <DynamicBreadcrumbs maxItems={5} />
-        </div>
-      )} */}
-      <div
-
-        style={
-          isRoot
-            ? { zIndex: 900 }
-            : { '--bt': `${breadcrumbTop}px`, zIndex: 900 }
-        }
-        className={isRoot ? '' : 'mt-[var(--bt)]'}
-      >
+      <div className="relative">
+        {!hideBreadcrumbs && (
+          <div className={`${showBanner ? `mt-32`:`mt-28`} px-6`}>
+            <DynamicBreadcrumbs maxItems={5} />
+          </div>
+        )}
         {children}
       </div>
-      {/* {children} */}
-
 
       {/* only footer */}
       {!hideFooter && (

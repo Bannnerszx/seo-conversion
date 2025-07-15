@@ -112,10 +112,18 @@ export default function Footer() {
             <div>
               <p className="text-sm font-semibold text-gray-900">Find Car</p>
               <ul className="mt-4 space-y-2">
-                {["Browse All Stock", "Sale Cars", "Recommended Cars", "Luxury Cars"].map((item) => (
-                  <li key={item}>
-                    <Link href="/stock" className="text-sm text-gray-600 hover:text-primary">
-                      {item}
+                {[
+                  { label: "Browse All Stock", href: "/stock" },
+                  { label: "Sale Cars", href: "/stock/recommended/sale" },
+                  { label: "Recommended Cars", href: "/stock/recommended" },
+                  { label: "Luxury Cars", href: "/stock" },  // adjust if your real route is different
+                ].map(({ label, href }) => (
+                  <li key={label}>
+                    <Link
+                      href={href}
+                      className="text-sm text-gray-600 hover:text-primary"
+                    >
+                      {label}
                     </Link>
                   </li>
                 ))}

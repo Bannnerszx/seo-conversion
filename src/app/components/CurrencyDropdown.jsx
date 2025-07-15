@@ -27,7 +27,7 @@ export default function CurrencyDropdown({ currency }) {
                     {selectedCurrency.code}
                     <ChevronDown className="h-4 w-4" />
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
+                <DropdownMenuContent align="end" className="z-[9999]">
                     {currencies.map((curr) => (
                         <DropdownMenuItem
                             key={curr.code}

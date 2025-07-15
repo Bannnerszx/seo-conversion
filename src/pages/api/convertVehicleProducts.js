@@ -16,8 +16,12 @@ export default async function handler(req, res) {
     let updatedCount = 0;
 
     while (true) {
-      // Build the query: order by document ID, limit to batchSize
-      let query = collectionRef.orderBy(FieldPath.documentId()).limit(batchSize);
+      // Only documents with stockStatus == "On-Sale"
+      let query = collectionRef
+        .where('stockStatus', '==', 'On-Sale')
+        .orderBy(FieldPath.documentId())
+        .limit(batchSize);
+
       if (lastDoc) {
         query = query.startAfter(lastDoc);
       }
@@ -38,7 +42,6 @@ export default async function handler(req, res) {
           updates[`${key}Number`] = Number.isFinite(num) ? num : null;
         });
 
-        // If there is at least one field to update, write it back and log success
         if (Object.keys(updates).length) {
           await docSnap.ref.update(updates);
           updatedCount++;
@@ -53,7 +56,6 @@ export default async function handler(req, res) {
         }
       }
 
-      // Remember the last document in this batch, to fetch the next page
       lastDoc = snapshot.docs[snapshot.docs.length - 1];
     }
 

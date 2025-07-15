@@ -12,7 +12,7 @@ import { Autocomplete } from "./autoComplete"
 import { useRouter } from "@bprogress/next"
 import AnimatedFilter from "./AnimatedFilter"
 
-// import ConvertVehicleProductsButton from "./convertVehicleProducts"
+//  import ConvertVehicleProductsButton from "./convertVehicleProducts"
 
 const ENGINE_DISPLACEMENT_OPTIONS = [
     { value: "500", label: "500cc" },
@@ -245,55 +245,71 @@ export default function CarFilterContent({ recommendedUrl, saleUrl, totalCount, 
     useEffect(() => {
         const qs = new URLSearchParams();
 
+        // build your id → code map once per render
+        const featureCodeMap = FEATURES.reduce((m, f) => {
+            m[f.id] = f.code;
+            return m;
+        }, {});
+
         Object.entries(filters).forEach(([key, val]) => {
             // skip null/undefined
             if (val == null) return;
 
             // skip "all" or empty/whitespace-only strings
             if (
-                typeof val === 'string' &&
-                (val === 'all' || val.trim() === '')
+                typeof val === "string" &&
+                (val === "all" || val.trim() === "")
             ) {
                 return;
             }
 
-            // decide what param name your API actually wants:
+            // map your keys to API params
             let paramName = key;
             switch (key) {
-                case 'make':
-                    paramName = 'carMakes';
+                case "make":
+                    paramName = "carMakes";
                     break;
-                case 'model':
-                    paramName = 'carModels';
+                case "model":
+                    paramName = "carModels";
                     break;
-                case 'bodyType':
-                    paramName = 'carBodyType';
+                case "bodyType":
+                    paramName = "carBodyType";
                     break;
-                case 'query':
-                    paramName = 'searchKeywords';
+                case "query":
+                    paramName = "searchKeywords";
                     break;
-                case 'recommended':
-                    paramName = 'isRecommended';
+                case "recommended":
+                    paramName = "isRecommended";
                     break;
-                case 'onSale':
-                    paramName = 'isSale';
+                case "onSale":
+                    paramName = "isSale";
                     break;
                 default:
-                    /* keep key as-is for numeric ranges, color, transmission, etc. */
                     break;
             }
 
-            // features array
-            if (key === 'features') {
+            // —— features: convert IDs to numeric codes —— 
+            if (key === "features") {
                 if (Array.isArray(val) && val.length) {
-                    qs.set(paramName, JSON.stringify(val));
+                    // map each feature ID to its code, drop any invalids
+                    const numericFeatures = val
+                        .map(fid => featureCodeMap[fid])
+                        .filter(c => typeof c === "number");
+
+                    // send as JSON array (back-end will JSON.parse it)
+                    qs.set("features", JSON.stringify(numericFeatures));
+
+                    // — or, if you prefer multiple params:
+                    // numericFeatures.forEach(code =>
+                    //   qs.append("features", String(code))
+                    // );
                 }
                 return;
             }
 
             // boolean flags
-            if (typeof val === 'boolean') {
-                if (val) qs.set(paramName, 'true');
+            if (typeof val === "boolean") {
+                if (val) qs.set(paramName, "true");
                 return;
             }
 
@@ -301,8 +317,10 @@ export default function CarFilterContent({ recommendedUrl, saleUrl, totalCount, 
             qs.set(paramName, String(val));
         });
 
-        console.log('fetch /api/vehicle-total-count?' + qs.toString());
-        fetch(`/api/vehicle-total-count?${qs.toString()}`)
+        const queryString = qs.toString();
+        console.log("fetch /api/vehicle-total-count?" + queryString);
+
+        fetch(`/api/vehicle-total-count?${queryString}`)
             .then(r => {
                 if (!r.ok) throw new Error(r.statusText);
                 return r.json();
@@ -310,9 +328,8 @@ export default function CarFilterContent({ recommendedUrl, saleUrl, totalCount, 
             .then(({ totalCount }) => {
                 setTotalCountLocal(totalCount);
             })
-            .catch(err => console.error('count fetch failed:', err));
+            .catch(err => console.error("count fetch failed:", err));
     }, [JSON.stringify(filters), router.asPath]);
-
 
     const queryValue = filters.query;
 

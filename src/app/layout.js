@@ -13,6 +13,7 @@ import { cookies } from "next/headers"
 import Script from "next/script"
 import { fetchNotificationCounts } from "./actions/actions"
 import ClientAppCheck from "../../firebase/ClientAppCheck"
+import {  BannerProvider } from "./components/BannerContext"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -148,9 +149,10 @@ export default async function RootLayout({ children }) {
                 userEmail={isValid ? userEmail : null}
                 currency={currency}
               >
-            
+                <BannerProvider>
+
                   {children}
-              
+                </BannerProvider>
               </ClientLayoutWrapper>
             </CurrencyProvider>
           </Providers>
