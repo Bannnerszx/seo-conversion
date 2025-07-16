@@ -6,7 +6,7 @@ import PriceCalculatorCard from "./carCalculatorContent"
 
 
 
-export default function CarFilter({ saleUrl, recommendedUrl, totalCount, urlMaker, urlModel, isSale, isRecommended, countryArray, initialMaker = "", initialModel = "", carFiltersServer, carMakes, carBodytypes, country, port }) {
+export default function CarFilter({ currency,saleUrl, recommendedUrl, totalCount, urlMaker, urlModel, isSale, isRecommended, countryArray, initialMaker = "", initialModel = "", carFiltersServer, carMakes, carBodytypes, country, port }) {
     const [showBanner, setShowBanner] = useState(false);
 
     useEffect(() => {
@@ -30,7 +30,7 @@ export default function CarFilter({ saleUrl, recommendedUrl, totalCount, urlMake
   `}>
             <div className="mx-auto space-y-3 mb-6">
 
-                <CarFilterContent saleUrl={saleUrl} recommendedUrl={recommendedUrl} totalCount={totalCount} urlMaker={urlMaker} urlModel={urlModel} isSale={isSale} isRecommended={isRecommended} onClose={onClose} carMakes={carMakes} carBodytypes={carBodytypes} />
+                <CarFilterContent currency={currency} saleUrl={saleUrl} recommendedUrl={recommendedUrl} totalCount={totalCount} urlMaker={urlMaker} urlModel={urlModel} isSale={isSale} isRecommended={isRecommended} onClose={onClose} carMakes={carMakes} carBodytypes={carBodytypes} />
 
 
 

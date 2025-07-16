@@ -82,7 +82,7 @@ export default async function handler(req, res) {
     features = "[]", // might be JSON, CSV, or repeated
     isRecommended = "false",
     isSale = "false",
-    currency = "1",
+    currency,
     // New parameters for sorting and pagination
     page = "1",
     limit = "20",
@@ -98,7 +98,7 @@ export default async function handler(req, res) {
     return isNaN(n) ? 0 : n;
   };
   const curr = num(currency);
-
+  console.log(currency, 'inside')
   // 3) build base filter
   const filter = { stockStatus: "On-Sale" };
   if (recommendedFlag) filter.isRecommended = true;
@@ -117,8 +117,8 @@ export default async function handler(req, res) {
   if (steering) filter.steering = steering;
 
   // numeric ranges
-  if (num(minPrice) > 0) filter.fobPriceNumber = { ...(filter.fobPriceNumber || {}), $gte: num(minPrice) / curr };
-  if (num(maxPrice) > 0) filter.fobPriceNumber = { ...(filter.fobPriceNumber || {}), $lte: num(maxPrice) / curr };
+  if (Number(minPrice) > 0) filter.fobPriceNumber = { ...(filter.fobPriceNumber || {}), $gte: Number(minPrice) / currency };
+  if (Number(maxPrice) > 0) filter.fobPriceNumber = { ...(filter.fobPriceNumber || {}), $lte: Number(maxPrice) / currency };
   if (num(minYear) > 0) filter.regYearNumber = { ...(filter.regYearNumber || {}), $gte: num(minYear) };
   if (num(maxYear) > 0) filter.regYearNumber = { ...(filter.regYearNumber || {}), $lte: num(maxYear) };
   if (num(minMileage) > 0) filter.mileageNumber = { ...(filter.mileageNumber || {}), $gte: num(minMileage) };

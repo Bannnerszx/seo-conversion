@@ -210,7 +210,7 @@ const STEERING = [
 
 
 
-export default function CarFilterContent({ recommendedUrl, saleUrl, totalCount, urlMaker, urlModel, isSale, isRecommended, onClose, carMakes, carBodytypes, context }) {
+export default function CarFilterContent({ currency, recommendedUrl, saleUrl, totalCount, urlMaker, urlModel, isSale, isRecommended, onClose, carMakes, carBodytypes, context }) {
 
 
     const router = useRouter()
@@ -245,7 +245,7 @@ export default function CarFilterContent({ recommendedUrl, saleUrl, totalCount, 
     console.log(totalCountLocal)
     useEffect(() => {
         const qs = new URLSearchParams();
-
+        qs.set("currency", String(currency))
         // build your id → code map once per render
         const featureCodeMap = FEATURES.reduce((m, f) => {
             m[f.id] = f.code;
@@ -263,6 +263,7 @@ export default function CarFilterContent({ recommendedUrl, saleUrl, totalCount, 
             ) {
                 return;
             }
+
 
             // map your keys to API params
             let paramName = key;
@@ -284,6 +285,18 @@ export default function CarFilterContent({ recommendedUrl, saleUrl, totalCount, 
                     break;
                 case "onSale":
                     paramName = "isSale";
+                    break;
+                case "minPrice":
+                    // leave it as “minPrice” so our server can pick it up
+                    paramName = "minPrice";
+                    break;
+                case "maxPrice":
+                    // leave it as “minPrice” so our server can pick it up
+                    paramName = "maxPrice";
+                    break;
+                case "minMileage":
+                    // leave it as “minPrice” so our server can pick it up
+                    paramName = "minMileage";
                     break;
                 default:
                     break;
@@ -330,7 +343,7 @@ export default function CarFilterContent({ recommendedUrl, saleUrl, totalCount, 
                 setTotalCountLocal(totalCount);
             })
             .catch(err => console.error("count fetch failed:", err));
-    }, [JSON.stringify(filters), router.asPath]);
+    }, [JSON.stringify(filters), router.asPath, currency]);
 
     const queryValue = filters.query;
 

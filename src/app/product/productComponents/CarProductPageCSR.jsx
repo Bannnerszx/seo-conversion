@@ -62,7 +62,12 @@ const Dropdown = ({ placeholder, options, value, onChange, className = '' }) => 
                 <SelectTrigger className={`bg-white ${className}`}>
                     <SelectValue placeholder={placeholder} />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent
+                    side="bottom"
+                    align="start"
+                    sideOffset={1}
+                    className="max-h-[40vh] overflow-y-auto"
+                >
                     {options.map((option, index) => (
                         <SelectItem key={index} value={option.value}>
                             {option.label}

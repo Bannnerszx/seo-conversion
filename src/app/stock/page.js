@@ -222,6 +222,7 @@ const CarStock = async ({ params, searchParams }) => {
                 <div className="flex flex-col lg:flex-row gap-8">
                     <BannerAwareAside>
                         <CarFilter
+                            currency={currency?.jpyToUsd}
                             userEmail={userEmail}
                             isRecommended={isRecommended}
                             carFiltersServer={carFilters}

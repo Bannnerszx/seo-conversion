@@ -233,7 +233,7 @@ export async function fetchVehicleProductsByPage({
   isRecommended = null,
   isSale = null
 }) {
-
+ 
   const FEATURES = [
     { id: "SafetySystemAnBrSy", label: "Anti-Lock Brakes", code: 1 },
     { id: "SafetySystemDrAi", label: "Driver Airbag", code: 2 },
