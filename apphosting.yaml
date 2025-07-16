@@ -14,19 +14,27 @@ env:
   - variable: SESSION_COOKIE_NAME
     value: "session"
 
-  # 3) Your public URL
+  # 3-1) Your public URL
   - variable: NEXT_PUBLIC_APP_URL
     value: "https://www.realmotor.jp"
     availability:
       - BUILD
       - RUNTIME
+
+  # 3-2) Your public URL dev
+  # - variable: NEXT_PUBLIC_APP_URL
+  #   value: "https://dev.realmotor.jp"
+  #   availability:
+  #     - BUILD
+  #     - RUNTIME
       
   - variable: NEXT_PUBLIC_MAINTENANCE_MODE
     value: "false"
 
-  # - variable: API_KEY
-  #   secret: projects/854100669672/secrets/mongo-db-account-secret-key-viewer/versions/2
-  
-
+  # 5-1) prod mode
   - variable: API_KEY
-    secret: projects/879567069316/secrets/mongSource/versions/1
+    secret: projects/854100669672/secrets/mongo-db-account-secret-key-viewer/versions/2
+  
+  # 5-2) dev mode
+  # - variable: API_KEY
+  #   secret: projects/879567069316/secrets/mongSource/versions/1

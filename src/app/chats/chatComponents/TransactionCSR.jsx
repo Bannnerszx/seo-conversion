@@ -31,6 +31,8 @@ export default function TransactionCSR({ vehicleStatus, accountData, isMobileVie
     };
     const [ipInfo, setIpInfo] = useState(null);
     const [tokyoTime, setTokyoTime] = useState(null);
+
+    // Initial load on mount
     useEffect(() => {
         let mounted = true;
         Promise.all([
@@ -45,52 +47,72 @@ export default function TransactionCSR({ vehicleStatus, accountData, isMobileVie
             .catch(err => {
                 if (!mounted) return;
                 console.error("Preload fetch failed", err);
-               
             });
         return () => { mounted = false; };
     }, []);
+
     const handleSendMessage = async (e) => {
-        if (
-            loadingSent ||
-            isLoading ||
-            (!newMessage.trim() && !attachedFile)
-        ) {
+        if (loadingSent || isLoading || (!newMessage.trim() && !attachedFile)) {
             return;
         }
-        setLoadingSent(true)
+        setLoadingSent(true);
         e.preventDefault();
 
-        // If there is no text and no file, do nothing.
         if (!newMessage.trim() && !attachedFile) return;
 
         try {
-            // Fetch IP info and Tokyo time concurrently.
+            let currentIpInfo = ipInfo;
+            let currentTokyoTime = tokyoTime;
 
-            // Format the received Tokyo time using moment.js
-            const momentDate = moment(tokyoTime?.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');
+            // Try to fetch fresh data with a timeout, but don't block if it fails
+            try {
+                const fetchPromise = Promise.all([
+                    fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo").then(r => r.json()),
+                    fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time").then(r => r.json()),
+                ]);
+
+                // Add a timeout to prevent hanging
+                const timeoutPromise = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Timeout')), 5000)
+                );
+
+                const [freshIp, freshTime] = await Promise.race([fetchPromise, timeoutPromise]);
+                currentIpInfo = freshIp;
+                currentTokyoTime = freshTime;
+
+                // Update state with fresh data for next time
+                setIpInfo(freshIp);
+                setTokyoTime(freshTime);
+            } catch (fetchError) {
+                console.warn("Failed to fetch fresh data, using cached values:", fetchError);
+                // Continue with cached values
+            }
+
+            // If we still don't have any data (even cached), we need to handle this
+            if (!currentIpInfo || !currentTokyoTime) {
+                throw new Error("No IP info or time data available");
+            }
+
+            // Format the time
+            const momentDate = moment(currentTokyoTime?.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');
             const formattedTime = momentDate.format('YYYY/MM/DD [at] HH:mm:ss');
 
             // Extract IP info details
-            const ip = ipInfo.ip;
-            const ipCountry = ipInfo.country_name;
-            const ipCountryCode = ipInfo.country_code;
+            const ip = currentIpInfo.ip;
+            const ipCountry = currentIpInfo.country_name;
+            const ipCountryCode = currentIpInfo.country_code;
 
+            // Rest of your existing logic...
             if (attachedFile) {
-                // If a file is attached, prepare a message that includes the file.
-                // If no text is provided, set a default text.
-                const messageValueToSend = newMessage.trim() ? newMessage : "File attached.";
-
                 await updateCustomerFiles({
                     chatId,
                     selectedFile: attachedFile,
                     userEmail,
-                    messageValue: messageValueToSend,
-                    ipInfo: ipInfo,
+                    messageValue: newMessage.trim() ? newMessage : "File attached.",
+                    ipInfo: currentIpInfo,
                     formattedTime: formattedTime
                 });
-                console.log('File (and optional text) message sent successfully.');
             } else if (newMessage.trim()) {
-                // If only a text message exists, prepare the payload
                 const bodyData = {
                     chatId,
                     newMessage,
@@ -101,7 +123,6 @@ export default function TransactionCSR({ vehicleStatus, accountData, isMobileVie
                     ipCountryCode,
                 };
 
-                // Send text-only message via your admin API route.
                 const apiResponse = await fetch("/api/sendMessage", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -113,20 +134,14 @@ export default function TransactionCSR({ vehicleStatus, accountData, isMobileVie
                 }
             }
 
-            // Clear input fields on success.
             setNewMessage("");
             setAttachedFile(null);
-            setLoadingSent(false)
+            setLoadingSent(false);
         } catch (error) {
             console.error("Error sending message:", error);
-            setLoadingSent(false)
-        } finally {
-            setNewMessage("");
-            setAttachedFile(null);
-            setLoadingSent(false)
+            setLoadingSent(false);
         }
     };
-
 
     // Scroll to bottom when messages change
 
