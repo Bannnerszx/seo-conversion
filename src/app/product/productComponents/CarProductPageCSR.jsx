@@ -4,7 +4,7 @@ import { functions } from "../../../../firebase/clientApp"
 import { httpsCallable } from 'firebase/functions'
 import { useState, useEffect, useCallback, useRef } from "react"
 import Image from "next/image"
-import { Download, Heart, ChevronLeft, ChevronUp, ChevronDown, ChevronRight, Loader2 } from "lucide-react"
+import { Download, Heart, ChevronLeft, ChevronRight, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
