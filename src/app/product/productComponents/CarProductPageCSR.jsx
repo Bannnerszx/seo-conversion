@@ -57,7 +57,7 @@ const Dropdown = ({ placeholder, options, value, onChange, className = '' }) => 
 
     // Render the Select component after hydration
     return (
-        <div className={`relative inline-block w-full ${className}`}>
+        <div className={`relative inline-block w-full ${className}`} style={{ zoom: 1.25, transformOrigin: "top left" }}>
             <Select value={decodeURIComponent(value)} onValueChange={onChange}>
                 <SelectTrigger className={`bg-white ${className}`}>
                     <SelectValue placeholder={placeholder} />
