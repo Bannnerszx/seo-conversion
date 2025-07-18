@@ -64,8 +64,7 @@ export default async function AccountCreation() {
   const accountData    = await getAccountData(userEmail)
   const oldId          = await getOldId(userEmail)
   const currentUserId  = await getCurrentFtpId()
-  const serverTime     = await fetchServerTime()
-
+  
     return (
         <div className="flex min-h-screen justify-center bg-[#fafafa] relative overflow-hidden">
             <ClientAppCheck />
@@ -103,7 +102,7 @@ export default async function AccountCreation() {
             </div>
             <AccounCreationCSR
                 userEmail={userEmail}
-                serverTime={serverTime}
+          
                 currentUserId={currentUserId}
                 oldId={oldId}
                 countryList={countryList}

@@ -3,6 +3,7 @@ import { useRouter } from "next/navigation";
 import React, { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import moment from "moment"
 import {
     Card,
     CardContent,
@@ -26,6 +27,34 @@ export default function AccounCreationCSR({ countryList, accountData, oldId, cur
     const [cityList, setCityList] = useState([]);
     const dataRef = useRef({ country: null, city: "" });
 
+    const [tokyoTime, setTokyoTime] = useState(null)
+
+    useEffect(() => {
+        let mounted = true
+
+        fetch(
+            "https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time"
+        )
+            .then((r) => r.json())
+            .then((data) => {
+                if (!mounted) return
+
+                // parse the incoming datetime string
+                // assume data.datetime is something like "2025-04-25T14:39:56.000Z"
+                const momentDate = moment(data?.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');
+                const formattedTime = momentDate.format('YYYY/MM/DD [at] HH:mm:ss');
+
+                setTokyoTime(formattedTime)
+            })
+            .catch((err) => {
+                if (!mounted) return
+                console.error("Preload fetch failed", err)
+            })
+
+        return () => {
+            mounted = false
+        }
+    }, [])
     // user-facing labels
     const fieldLabels = {
         firstName: "First Name",
@@ -148,7 +177,7 @@ export default function AccounCreationCSR({ countryList, accountData, oldId, cur
                 textPhoneNumber: payload.phoneNumber,
                 textStreet: payload.address,
                 textZip: payload.postalCode,
-                accountCreated: serverTime,
+                dateOfCreation: tokyoTime,
                 client_id: oldId ? oldId : newId,
                 currentId: currentUserId,
                 keywords: generatedKeywords,

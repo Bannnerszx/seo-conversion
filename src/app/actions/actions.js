@@ -1090,7 +1090,7 @@ export async function submitUserData({
     textPhoneNumber,
     textStreet,
     textZip,
-    accountCreated,
+    dateOfCreation,
     client_id,
     currentId,
     keywords = [],
@@ -1105,7 +1105,7 @@ export async function submitUserData({
         !textPhoneNumber ||
         !textStreet ||
         !textZip ||
-        !accountCreated ||
+        !dateOfCreation ||
         client_id == null ||
         currentId == null
     ) {
@@ -1136,7 +1136,7 @@ export async function submitUserData({
                 textStreet,
                 textZip,
                 textEmail: userEmail,
-                accountCreated,
+                dateOfCreation,
                 keywords,
             },
             { merge: true }
