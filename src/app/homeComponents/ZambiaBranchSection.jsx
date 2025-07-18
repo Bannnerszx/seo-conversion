@@ -49,7 +49,7 @@ export default function ZambiaBranchSection() {
                             <div className="flex items-start gap-2">
                                 <MapPin className="h-4 w-4 text-blue-600 mt-1" />
                                 <div className="text-sm">
-                                    <p className="font-medium">Plot # 5017 Saise Road, Roads Park</p>
+                                    <p className="font-medium">Plot # 13, House # 5017, Near Qurrat Academy, Saise Road, Rhodes Park</p>
                                     <p className="text-muted-foreground">
                                         Lusaka, Zambia
                                     </p>
@@ -147,7 +147,7 @@ export default function ZambiaBranchSection() {
                                         Contact Zambia Office
                                     </a>
                                 </Button>
-                                <Button variant="outline" className="w-full bg-transparent">
+                                <Button asChild variant="outline" className="w-full bg-transparent">
                                     <a
                                         href="https://wa.me/819039065223"
                                         target="_blank"

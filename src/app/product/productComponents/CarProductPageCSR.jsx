@@ -63,17 +63,8 @@ const Dropdown = ({ placeholder, options, value, onChange, className = '' }) => 
                     <SelectValue placeholder={placeholder} />
                 </SelectTrigger>
                 <SelectContent
-                    side="bottom"               // prefer below…
-                    align="start"               // left‑align with trigger
-                    sideOffset={4}              // a few pixels of breathing room
-                    // allow Popper to shift/flip to keep it fully on screen:
-                    collisionPadding={{  bottom: 8, left: 8, right: 8 }}
-                    className="
-    overflow-y-auto 
-    max-h-[80vh]             /* on the smallest screens, let it grow to 80% of viewport */
-    sm:max-h-[60vh]          /* on sm+ viewports clamp at 60% */
-    lg:max-h-[40vh]          /* on lg+ viewports clamp at 40% */
-  "
+               
+                    className="max-h-[calc(100vh-19rem)]"
                 >
                     {options.map((option, idx) => (
                         <SelectItem key={idx} value={option.value}>
