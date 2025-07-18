@@ -62,19 +62,7 @@ const Dropdown = ({ placeholder, options, value, onChange, className = '' }) => 
                 <SelectTrigger className={`bg-white ${className}`}>
                     <SelectValue placeholder={placeholder} />
                 </SelectTrigger>
-                <SelectContent
-                    side="bottom"
-                    align="start"
-                    sideOffset={4}
-                    collisionPadding={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    className="
-    w-[var(--radix-select-trigger-width)]
-    overflow-y-auto
-    max-h-[80vh]
-    sm:max-h-[60vh]
-    lg:max-h-[40vh]
-  "
-                >
+                <SelectContent>
                     {options.map((option, idx) => (
                         <SelectItem key={idx} value={option.value}>
                             {option.label}
