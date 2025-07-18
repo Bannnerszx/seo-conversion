@@ -1,6 +1,6 @@
 "use client"
 import Link from "next/link"
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Paperclip, Send, X, Download } from "lucide-react"
@@ -13,6 +13,9 @@ import DeliveryAddress from "./deliveryAddress"
 import { updateCustomerFiles } from "@/app/actions/actions"
 import ChatMessage from "./messageLinks"
 import moment from "moment"
+import WarningDialog from "./warningDialog"
+const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
+
 export default function TransactionCSR({ vehicleStatus, accountData, isMobileView, isDetailView, handleBackToList, bookingData, countryList, currency, dueDate, handleLoadMore, invoiceData, userEmail, contact, messages, onSendMessage, isLoading, chatId, chatMessages }) {
     const [newMessage, setNewMessage] = useState("");
 
@@ -22,13 +25,39 @@ export default function TransactionCSR({ vehicleStatus, accountData, isMobileVie
     const fileInputRef = useRef(null);
     const [attachedFile, setAttachedFile] = useState(null);
     const [loadingSent, setLoadingSent] = useState(false)
+    const [warningOpen, setWarningOpen] = useState(false)
+    const [warningMessage, setWarningMessage] = useState("")
 
+    //Get the notification error
     const handleFileUpload = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        setAttachedFile(file);
+        const file = e.target.files?.[0]
+        if (!file) return
 
-    };
+        if (file.size > MAX_FILE_SIZE) {
+            const sizeMB = (file.size / (1024 * 1024)).toFixed(1)
+            setWarningMessage(
+                `File size (${sizeMB} MB) exceeds the ${MAX_FILE_SIZE / (1024 * 1024)} MB limit.`
+            )
+            setWarningOpen(true)
+
+            // clear the input so selecting the same file again will retrigger onChange
+            if (fileInputRef.current) fileInputRef.current.value = ""
+            return
+        }
+
+        setAttachedFile(file)
+    }
+    const handleDialogOpenChange = useCallback((open) => {
+        if (!open) {
+            // clear everything
+            if (fileInputRef.current) fileInputRef.current.value = ""
+            setAttachedFile(null)
+            setWarningMessage("")
+            setWarningOpen(false)
+        } else {
+            setWarningOpen(true)
+        }
+    }, [])
     const [ipInfo, setIpInfo] = useState(null);
     const [tokyoTime, setTokyoTime] = useState(null);
 
@@ -211,7 +240,13 @@ export default function TransactionCSR({ vehicleStatus, accountData, isMobileVie
         <div className="flex flex-col h-full">
 
 
-
+            <WarningDialog
+                open={warningOpen}
+                onOpenChange={handleDialogOpenChange}
+                title="File Size Warning"
+                description={warningMessage}
+                confirmText="OK"
+            />
 
             <div className="relative w-full">
 

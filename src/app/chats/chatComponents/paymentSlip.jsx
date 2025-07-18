@@ -1,6 +1,6 @@
 "use client"
 import { format } from "date-fns"
-import { useState, useRef , useEffect} from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { CheckCircle, X, Calendar as CalendarIcon, Upload, RefreshCw, Paperclip } from "lucide-react"
@@ -13,16 +13,9 @@ import Modal from "@/app/components/Modal"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { updatePaymentNotifications } from "@/app/actions/actions"
 import { useCurrency } from "@/providers/CurrencyContext"
-const animationStyles = {
-    "@keyframes scaleIn": {
-        "0%": { transform: "scale(0)", opacity: "0" },
-        "100%": { transform: "scale(1)", opacity: "1" },
-    },
-    "@keyframes fadeIn": {
-        "0%": { opacity: "0" },
-        "100%": { opacity: "1" },
-    },
-}
+import WarningDialog from "./warningDialog"
+const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
+
 
 export default function PaymentSlip({ chatId, selectedChatData, userEmail, invoiceData }) {
     const selectedCurrencyCode = selectedChatData?.selectedCurrencyExchange; // e.g. "JPY"
@@ -67,13 +60,38 @@ export default function PaymentSlip({ chatId, selectedChatData, userEmail, invoi
     const [attachedFile, setAttachedFile] = useState(null);
     const [errors, setErrors] = useState({ name: false, date: false, file: false });
     const fileInputRef = useRef(null);
+    const [warningOpen, setWarningOpen] = useState(false)
+    const [warningMessage, setWarningMessage] = useState("")
 
     const handleFileUpload = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        setAttachedFile(file);
+        const file = e.target.files?.[0]
+        if (!file) return
 
-    };
+        if (file.size > MAX_FILE_SIZE) {
+            const sizeMB = (file.size / (1024 * 1024)).toFixed(1)
+            setWarningMessage(
+                `File size (${sizeMB} MB) exceeds the ${MAX_FILE_SIZE / (1024 * 1024)} MB limit.`
+            )
+            setWarningOpen(true)
+
+            // clear the input so selecting the same file again will retrigger onChange
+            if (fileInputRef.current) fileInputRef.current.value = ""
+            return
+        }
+
+        setAttachedFile(file)
+    }
+    const handleDialogOpenChange = useCallback((open) => {
+        if (!open) {
+            // clear everything
+            if (fileInputRef.current) fileInputRef.current.value = ""
+            setAttachedFile(null)
+            setWarningMessage("")
+            setWarningOpen(false)
+        } else {
+            setWarningOpen(true)
+        }
+    }, [])
     const triggerError = (field) => {
         setErrors((e) => ({ ...e, [field]: true }));
         setTimeout(() => setErrors((e) => ({ ...e, [field]: false })), 400);
@@ -82,8 +100,8 @@ export default function PaymentSlip({ chatId, selectedChatData, userEmail, invoi
     const [ipInfo, setIpInfo] = useState(null);
     const [tokyoTime, setTokyoTime] = useState(null);
 
-  
-    
+
+
     useEffect(() => {
         let mounted = true;
         Promise.all([
@@ -101,106 +119,106 @@ export default function PaymentSlip({ chatId, selectedChatData, userEmail, invoi
             });
         return () => { mounted = false; };
     }, []);
-const handleSendMessage = async (e) => {
-    e.preventDefault();
-    setPaymentVisible(false);
-    
-    // ⏸️ 1) Don't do anything if we're already in-flight
-    if (isSubmitting) return;
+    const handleSendMessage = async (e) => {
+        e.preventDefault();
+        setPaymentVisible(false);
 
-    // clear previous field errors
-    setErrors({ name: false, date: false, file: false });
+        // ⏸️ 1) Don't do anything if we're already in-flight
+        if (isSubmitting) return;
 
-    // 2) validation
-    if (!nameOfRemitter.trim()) {
-        triggerError("name");
-        return; // note: we haven't flipped isSubmitting yet, so no spinner lock
-    }
-    if (!date) {
-        triggerError("date");
-        return;
-    }
-    if (!attachedFile) {
-        triggerError("file");
-        return;
-    }
+        // clear previous field errors
+        setErrors({ name: false, date: false, file: false });
 
-    // 3) safe to start submitting
-    setIsSubmitting(true);
-    try {
-        // prepare your payload
-        const calendarETD = format(date, "yyyy/MM/dd");
-        const messageData = `Wire Date: ${calendarETD}
+        // 2) validation
+        if (!nameOfRemitter.trim()) {
+            triggerError("name");
+            return; // note: we haven't flipped isSubmitting yet, so no spinner lock
+        }
+        if (!date) {
+            triggerError("date");
+            return;
+        }
+        if (!attachedFile) {
+            triggerError("file");
+            return;
+        }
+
+        // 3) safe to start submitting
+        setIsSubmitting(true);
+        try {
+            // prepare your payload
+            const calendarETD = format(date, "yyyy/MM/dd");
+            const messageData = `Wire Date: ${calendarETD}
 
 Name of Remitter: ${nameOfRemitter}
 
 ${newMessage.trim()}
 `;
 
-        let currentIpInfo = ipInfo;
-        let currentTokyoTime = tokyoTime;
+            let currentIpInfo = ipInfo;
+            let currentTokyoTime = tokyoTime;
 
-        // Try to fetch fresh data with a timeout, but don't block if it fails
-        try {
-            const fetchPromise = Promise.all([
-                fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo").then(r => r.json()),
-                fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time").then(r => r.json()),
-            ]);
+            // Try to fetch fresh data with a timeout, but don't block if it fails
+            try {
+                const fetchPromise = Promise.all([
+                    fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo").then(r => r.json()),
+                    fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time").then(r => r.json()),
+                ]);
 
-            // Add a timeout to prevent hanging
-            const timeoutPromise = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Timeout')), 5000)
-            );
+                // Add a timeout to prevent hanging
+                const timeoutPromise = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Timeout')), 5000)
+                );
 
-            const [freshIp, freshTime] = await Promise.race([fetchPromise, timeoutPromise]);
-            currentIpInfo = freshIp;
-            currentTokyoTime = freshTime;
-            
-            // Update state with fresh data for next time
-            setIpInfo(freshIp);
-            setTokyoTime(freshTime);
-        } catch (fetchError) {
-            console.warn("Failed to fetch fresh data, using cached values:", fetchError);
-            // Continue with cached values
+                const [freshIp, freshTime] = await Promise.race([fetchPromise, timeoutPromise]);
+                currentIpInfo = freshIp;
+                currentTokyoTime = freshTime;
+
+                // Update state with fresh data for next time
+                setIpInfo(freshIp);
+                setTokyoTime(freshTime);
+            } catch (fetchError) {
+                console.warn("Failed to fetch fresh data, using cached values:", fetchError);
+                // Continue with cached values
+            }
+
+            // If we still don't have any data (even cached), we need to handle this
+            if (!currentIpInfo || !currentTokyoTime) {
+                throw new Error("No IP info or time data available");
+            }
+
+            const formattedTime = moment(currentTokyoTime.datetime, "YYYY/MM/DD HH:mm:ss.SSS")
+                .format("YYYY/MM/DD [at] HH:mm:ss");
+
+            // your core update call
+            await updatePaymentNotifications({
+                nameOfRemitter,
+                calendarETD,
+                selectedFile: attachedFile,
+                chatId,
+                userEmail,
+                messageValue: messageData,
+                ipInfo: currentIpInfo,
+                formattedTime,
+            });
+
+            // clear form on success
+            setNameOfRemitter("");
+            setDate(null);
+            setNewMessage("");
+            setAttachedFile(null);
+
+        } catch (err) {
+            console.error(err);
+            // re-use your triggerError calls if you want to shake the fields
+            triggerError("name");
+            triggerError("date");
+            triggerError("file");
+        } finally {
+            // 4) ALWAYS unlock the form
+            setIsSubmitting(false);
         }
-
-        // If we still don't have any data (even cached), we need to handle this
-        if (!currentIpInfo || !currentTokyoTime) {
-            throw new Error("No IP info or time data available");
-        }
-
-        const formattedTime = moment(currentTokyoTime.datetime, "YYYY/MM/DD HH:mm:ss.SSS")
-            .format("YYYY/MM/DD [at] HH:mm:ss");
-
-        // your core update call
-        await updatePaymentNotifications({
-            nameOfRemitter,
-            calendarETD,
-            selectedFile: attachedFile,
-            chatId,
-            userEmail,
-            messageValue: messageData,
-            ipInfo: currentIpInfo,
-            formattedTime,
-        });
-
-        // clear form on success
-        setNameOfRemitter("");
-        setDate(null);
-        setNewMessage("");
-        setAttachedFile(null);
-
-    } catch (err) {
-        console.error(err);
-        // re-use your triggerError calls if you want to shake the fields
-        triggerError("name");
-        triggerError("date");
-        triggerError("file");
-    } finally {
-        // 4) ALWAYS unlock the form
-        setIsSubmitting(false);
-    }
-};
+    };
     const currency =
         currencies.find((c) => c.code === selectedCurrencyCode)
         || currencies[0];
@@ -211,7 +229,13 @@ ${newMessage.trim()}
 
     return (
         <>
-
+            <WarningDialog
+                open={warningOpen}
+                onOpenChange={handleDialogOpenChange}
+                title="File Size Warning"
+                description={warningMessage}
+                confirmText="OK"
+            />
             <Button
                 size="sm"
                 onClick={handlePaymentSlip}

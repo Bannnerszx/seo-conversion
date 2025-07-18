@@ -416,7 +416,7 @@ export default function ChatPageCSR({ view, accountData, userEmail, currency, fe
     // e.g. "/chats" or "/chats/123"
     // detail view whenever we're on /chats/<something>
     const isDetail = segments[0] === 'chats' && segments.length > 1;
-    console.log(isDetail)
+  
     useEffect(() => {
         if (!userEmail || !selectedContact?.invoiceNumber) return
 

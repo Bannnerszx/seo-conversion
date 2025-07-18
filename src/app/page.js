@@ -14,6 +14,7 @@ import RecommendedSection from './homeComponents/RecommendedSection';
 import MobileSignupBanner from './homeComponents/mobileSignUpBanner';
 
 import DesktopSignUpBanner from './homeComponents/desktopSignUpBanner';
+import ZambiaBranchSection from './homeComponents/ZambiaBranchSection';
 // generateMetadata is only for SEO metadata
 export async function generateMetadata() {
 
@@ -371,6 +372,9 @@ export default async function Home() {
       <ClientWrapper id="world-map">
         <div id="world-map" className="relative z-70 p-4">
           <WorldMapSection />
+        </div>
+        <div id="zambia-section" className="relative z-80 p-4">
+          <ZambiaBranchSection />
         </div>
         <div className="space-y-4 mx-auto w-full max-w-7xl mb-4">
           <SignupBanner
