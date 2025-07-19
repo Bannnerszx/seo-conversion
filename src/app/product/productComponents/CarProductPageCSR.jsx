@@ -116,7 +116,7 @@ async function handleCreateConversation(
     }
     const { exists, missingFields } = await checkUserExist(user)
     if (!exists || (missingFields && missingFields.length > 0)) {
-        redirect("/accountCreation")
+       return router.push("/accountCreation")
     }
 
 
