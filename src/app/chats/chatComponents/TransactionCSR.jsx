@@ -1,5 +1,7 @@
 "use client"
 import Link from "next/link"
+import { functions } from "../../../../firebase/clientApp"
+import { httpsCallable } from "firebase/functions"
 import { useState, useRef, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -10,7 +12,6 @@ import ActionButtonsChat from "./actionButtonsChat"
 import { AnnouncementBar } from "./announcementBar"
 import PreviewInvoice from "./previewInvoice"
 import DeliveryAddress from "./deliveryAddress"
-import { updateCustomerFiles } from "@/app/actions/actions"
 import ChatMessage from "./messageLinks"
 import moment from "moment"
 import WarningDialog from "./warningDialog"
@@ -18,7 +19,8 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
 
 export default function TransactionCSR({ vehicleStatus, accountData, isMobileView, isDetailView, handleBackToList, bookingData, countryList, currency, dueDate, handleLoadMore, invoiceData, userEmail, contact, messages, onSendMessage, isLoading, chatId, chatMessages }) {
     const [newMessage, setNewMessage] = useState("");
-
+    const sendMessage = httpsCallable(functions, 'sendMessage');
+    const updateCustomerFiles = httpsCallable(functions, 'updateCustomerFiles');
     const scrollAreaRef = useRef(null)
     const endOfMessagesRef = useRef(null);
     const startOfMessagesRef = useRef(null);
@@ -30,23 +32,32 @@ export default function TransactionCSR({ vehicleStatus, accountData, isMobileVie
 
     //Get the notification error
     const handleFileUpload = (e) => {
-        const file = e.target.files?.[0]
-        if (!file) return
+        const file = e.target.files?.[0];
+        if (!file) return;
 
         if (file.size > MAX_FILE_SIZE) {
-            const sizeMB = (file.size / (1024 * 1024)).toFixed(1)
+            const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
             setWarningMessage(
                 `File size (${sizeMB} MB) exceeds the ${MAX_FILE_SIZE / (1024 * 1024)} MB limit.`
-            )
-            setWarningOpen(true)
-
-            // clear the input so selecting the same file again will retrigger onChange
-            if (fileInputRef.current) fileInputRef.current.value = ""
-            return
+            );
+            setWarningOpen(true);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+            return;
         }
 
-        setAttachedFile(file)
-    }
+        const reader = new FileReader();
+        reader.onload = () => {
+            // reader.result is "data:<mime>;base64,<data>"
+            const base64 = reader.result.split(",")[1];
+            setAttachedFile({
+                name: file.name,
+                type: file.type,
+                data: base64,
+            });
+        };
+        reader.readAsDataURL(file);
+    };
+
     const handleDialogOpenChange = useCallback((open) => {
         if (!open) {
             // clear everything
@@ -132,15 +143,23 @@ export default function TransactionCSR({ vehicleStatus, accountData, isMobileVie
             const ipCountryCode = currentIpInfo.country_code;
 
             // Rest of your existing logic...
+
             if (attachedFile) {
-                await updateCustomerFiles({
+                const fileData = {
                     chatId,
                     selectedFile: attachedFile,
                     userEmail,
                     messageValue: newMessage.trim() ? newMessage : "File attached.",
                     ipInfo: currentIpInfo,
                     formattedTime: formattedTime
-                });
+                }
+
+                const result = await updateCustomerFiles(fileData);
+                console.log("Function returned successfully [file upload function]:", result);
+
+                if (!result) {
+                    throw new Error("Failed to send message via function API");
+                }
             } else if (newMessage.trim()) {
                 const bodyData = {
                     chatId,
@@ -152,14 +171,11 @@ export default function TransactionCSR({ vehicleStatus, accountData, isMobileVie
                     ipCountryCode,
                 };
 
-                const apiResponse = await fetch("/api/sendMessage", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(bodyData),
-                });
+                const result = await sendMessage(bodyData);
+                console.log("Function returned successfully:", result);
 
-                if (!apiResponse.ok) {
-                    throw new Error("Failed to send message via admin API");
+                if (!result) {
+                    throw new Error("Failed to send message via function API");
                 }
             }
 
@@ -500,10 +516,24 @@ export function ChatInput({
                         <Paperclip className="h-4 w-4 text-gray-500" />
                         <span className="text-sm font-medium">
                             {attachedFile.name}
-                            <span className="text-gray-500 text-xs ml-1">({(attachedFile.size / 1024).toFixed(1)} KB)</span>
+                            <span className="text-gray-500 text-xs ml-1">
+                                (
+                                {(
+                                    /* Base64 → bytes ≈ length * 3/4, then to KB */
+                                    (attachedFile.data.length * 3) / 4 / 1024
+                                ).toFixed(1)}{" "}
+                                KB
+                                )
+                            </span>
                         </span>
                     </div>
-                    <Button type="button" variant="ghost" size="sm" onClick={() => setAttachedFile(null)} className="h-6 w-6 p-0">
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setAttachedFile(null)}
+                        className="h-6 w-6 p-0"
+                    >
                         <X className="h-4 w-4" />
                     </Button>
                 </div>
