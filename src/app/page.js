@@ -28,7 +28,7 @@ export async function generateMetadata() {
         "Affordable, quality used vehicles sourced in Japan since 1979.",
       images: [
         {
-          url: "/rmj.webp",
+          url: `www.realmotor.jp/rmj.webp`,
           width: 1200,
           height: 630,
           alt: "REAL MOTOR JAPAN Banner",
@@ -40,7 +40,7 @@ export async function generateMetadata() {
       title: "REAL MOTOR JAPAN",
       description:
         "Affordable, quality used vehicles sourced in Japan since 1979.",
-      images: ["/rmj.webp"],
+      images: [`www.realmotor.jp/rmj.webp`],
     },
   };
 }
