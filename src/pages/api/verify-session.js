@@ -2,6 +2,9 @@
 import { admin } from "@/lib/firebaseAdmin"
 import { deleteCookie } from "cookies-next/server"
 
+// In-memory cache for session verification
+const sessionCache = new Map()
+
 export default async function handler(req, res) {
   // 1️⃣ Read comma-separated list of all legacy cookie names and the current cookie name
   const OLD_NAMES_ENV = process.env.OLD_SESSION_COOKIE_NAMES 
@@ -27,19 +30,29 @@ export default async function handler(req, res) {
     return res.status(200).json({ valid: false })
   }
 
+  // Check cache for session verification
+  if (sessionCache.has(sessionCookie)) {
+    return res.status(200).json(sessionCache.get(sessionCookie))
+  }
+
   // 5️⃣ Attempt to verify the current session cookie with Firebase Admin
   try {
     const decodedClaims = await admin
       .auth()
       .verifySessionCookie(sessionCookie, /* checkRevoked= */ true)
 
-    return res.status(200).json({
+    const response = {
       valid: true,
       claims: {
         uid: decodedClaims.uid,
         email: decodedClaims.email || null,
       },
-    })
+    }
+
+    // Cache the verification result
+    sessionCache.set(sessionCookie, response)
+
+    return res.status(200).json(response)
   } catch {
     // 6️⃣ If invalid or expired, delete it and return invalid
     deleteCookie(COOKIE_NAME, { req, res, path: "/" })

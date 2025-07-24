@@ -9,6 +9,7 @@ import { doc, query, collection, where, orderBy, limit, onSnapshot, startAfter, 
 import { firestore } from "../../../../firebase/clientApp"
 import { loadMoreMessages } from "@/app/actions/actions"
 import { SortProvider } from "@/app/stock/stockComponents/sortContext"
+import TransactionCSRLoader from "./TransactionCSRLoader"
 
 let lastVisible = null;
 export function subscribeToChatList(
@@ -207,10 +208,10 @@ const fetchVehicleStatuses = (stockIDs, updateStatuses) => {
     };
 };
 
-export default function ChatPageCSR({ view, accountData, userEmail, currency, fetchInvoiceData, countryList }) {
-    //change this to the server side token
+export default function ChatPageCSR({ view, accountData, userEmail, currency, fetchInvoiceData, countryList, prefetchedData }) {
+    const [chatList, setChatList] = useState(prefetchedData?.map(chat => ({ id: chat.id, ...chat })) || []);
+    const [selectedContact, setSelectedContact] = useState(prefetchedData?.[0] || null);
     const [searchQuery, setSearchQuery] = useState("")
-    const [chatList, setChatList] = useState([])
     const [hasMore, setHasMore] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
     const [vehicleStatus, setVehicleStatus] = useState([]);
@@ -220,13 +221,13 @@ export default function ChatPageCSR({ view, accountData, userEmail, currency, fe
     const segments = pathname
         .split('/')                              // ["", "chats", "ordered", "12345"]
         .filter(Boolean)   // e.g. "/chats/chat_2024040429_ryowell0921@gmail.com"
-    const [selectedContact, setSelectedContact] = useState(null)
     const { messages, sendMessage, isLoading } = useCustomChat(selectedContact?.id)
     const [chatId, setChatId] = useState("")
     const [chatMessages, setChatMessages] = useState([])
     const [invoiceData, setInvoiceData] = useState({})
     const [lastTimestamp, setLastTimestamp] = useState("")
     const [isMobileView, setIsMobileView] = useState(false)
+    const [isLoadingTransaction, setIsLoadingTransaction] = useState(false);
 
     // Check if we're on mobile view
     useEffect(() => {
@@ -246,17 +247,29 @@ export default function ChatPageCSR({ view, accountData, userEmail, currency, fe
     const isDetailView = segments[0] === 'chats' && segments.length > 1
 
     useEffect(() => {
+        if (!chatId) {
+            console.warn("chatId is not set. Messages cannot be fetched or scrolled.");
+            return;
+        }
+
         // Subscribe to real-time updates
         const unsubscribe = subscribeToMessages(chatId, (msgs) => {
-            setChatMessages(msgs)
+            if (!msgs || msgs.length === 0) {
+                console.warn("No messages fetched for chatId:", chatId);
+            } else {
+                console.log("Fetched messages:", msgs);
+            }
+
+            setChatMessages(msgs);
+
             // Set the last timestamp (cursor) based on the oldest message in the array
             if (msgs && msgs.length > 0) {
-                setLastTimestamp(msgs[msgs.length - 1].timestamp)
+                setLastTimestamp(msgs[msgs.length - 1].timestamp);
             }
-        })
+        });
 
         // Clean up the listener on unmount or when chatId changes
-        return () => unsubscribe()
+        return () => unsubscribe();
     }, [chatId])
 
     useEffect(() => {
@@ -315,12 +328,46 @@ export default function ChatPageCSR({ view, accountData, userEmail, currency, fe
         }
     }, [pathname, userEmail, router])
 
-    const handleSelectContact = (contact) => {
-        router.push(`/chats/${contact.id}`)
+    const handleSelectContact = async (contact) => {
+        console.log("handleSelectContact called with contact:", contact);
+        // Prevent reloading if the selected contact is the current chat
+        if (contact.id === chatId) {
+            console.log("Contact is already selected, skipping update.");
+            return;
+        }
+
+        // Set loading state
+        setIsLoadingTransaction(true);
+
+        // Clear all state variables
+        setSelectedContact(null);
+        setChatMessages([]);
+        setLastTimestamp(null);
+        setInvoiceData({});
+        setBookingData({});
+
+        // Find prefetched contact and route
+        const prefetchedContact = prefetchedData.find(item => item.id === contact.id);
+        if (prefetchedContact) {
+            setSelectedContact(prefetchedContact);
+        }
+
+        console.log("Navigating to chat route for contact:", contact.id);
+        router.push(`/chats/${contact.id}`);
     }
 
+    // Monitor pathname changes to update loading state
+    useEffect(() => {
+        if (isLoadingTransaction) {
+            setIsLoadingTransaction(false);
+        }
+    }, [pathname]);
+
     const handleBackToList = () => {
-        router.push("/chats")
+        router.push({
+            pathname: "/chats",
+            query: { prefetchedData: JSON.stringify(prefetchedData) },
+        });
     }
 
     const [loadMain, setLoadMain] = useState(true)
@@ -347,10 +394,8 @@ export default function ChatPageCSR({ view, accountData, userEmail, currency, fe
             console.error("Error loading more messages:", error)
         }
     };
-    const [isLoadingChat, setIsLoadingChat] = useState(false)
     useEffect(() => {
         if (!userEmail) return
-        setIsLoadingChat(true)
         const trimmedQuery = searchQuery.trim()
 
         // If there's no search query, use default subscription
@@ -370,19 +415,12 @@ export default function ChatPageCSR({ view, accountData, userEmail, currency, fe
             setChatList(newChatList)
             setHasMore(newChatList.length === 12)
         })
-        setIsLoadingChat(false)
         return () => unsubscribe();
 
     }, [userEmail, searchQuery])
 
 
-    useEffect(() => {
-        // Reset state when chatId changes
-        setChatMessages([])
-        setLastTimestamp(null)
-        setInvoiceData({})
-        setBookingData({})
-    }, [chatId])
+
 
     const [error, setError] = useState()
 
@@ -416,7 +454,7 @@ export default function ChatPageCSR({ view, accountData, userEmail, currency, fe
     // e.g. "/chats" or "/chats/123"
     // detail view whenever we're on /chats/<something>
     const isDetail = segments[0] === 'chats' && segments.length > 1;
-  
+
     useEffect(() => {
         if (!userEmail || !selectedContact?.invoiceNumber) return
 
@@ -440,21 +478,19 @@ export default function ChatPageCSR({ view, accountData, userEmail, currency, fe
         // cleanup on unmount or deps change
         return () => unsubscribe()
     }, [selectedContact?.invoiceNumber, userEmail]);
-
+    console.log('server', prefetchedData)
     return (
         <SortProvider>
-
             <div className="flex h-screen bg-gray-50">
-
                 {/* LIST PANE */}
                 <aside
                     className={`
-            ${!isDetail ? 'block' : 'hidden'}
-            md:block
-            w-full md:w-[350px]
-            border-r border-gray-200
-            overflow-y-auto
-          `}
+                        ${!isDetail && !isLoadingTransaction ? 'block' : 'hidden'}
+                        md:block
+                        w-full md:w-[350px]
+                        border-r border-gray-200
+                        overflow-y-auto
+                    `}
                 >
                     <TransactionList
                         searchQuery={searchQuery}
@@ -467,6 +503,7 @@ export default function ChatPageCSR({ view, accountData, userEmail, currency, fe
                         selectedContact={selectedContact}
                         onSelectContact={handleSelectContact}
                         chatId={chatId}
+                        setChatId={setChatId} // Pass setChatId as a prop
                         loadMore={loadMore}
                         userEmail={userEmail}
                         setChatList={setChatList}
@@ -476,61 +513,76 @@ export default function ChatPageCSR({ view, accountData, userEmail, currency, fe
                 </aside>
 
                 {/* DETAIL PANE */}
-                <main
-                    className={`
-            ${isDetail ? 'block' : 'hidden'}
-            md:block
-            flex-1
-            h-full
-            overflow-y-auto
-          `}
-                >
-                    {isDetail ? (
-                        <TransactionCSR
-                            vehicleStatus={vehicleStatus}
-                            accountData={accountData}
-                            isMobileView={true}
-                            isDetailView={isDetail}
-                            handleBackToList={handleBackToList}
-                            bookingData={bookingData}
-                            countryList={countryList}
-                            currency={currency}
-                            dueDate={invoiceData?.formattedDate}
-                            handleLoadMore={handleLoadMore}
-                            invoiceData={invoiceData.invoiceData}
-                            chatId={chatId}
-                            userEmail={userEmail}
-                            chatMessages={chatMessages}
-                            contact={selectedContact}
-                            messages={messages}
-                            onSendMessage={sendMessage}
-                            isLoading={isLoading}
-                        />
-                    ) : chatList.length > 0 ? (
-                        <div className="flex flex-col items-center justify-center h-full text-center p-8">
-                            <h3 className="text-xl font-medium text-gray-600">
-                                Select a transaction
-                            </h3>
+                {isLoadingTransaction ? (
+                    isMobileView ? (
+                        <div className="h-screen w-screen">
+                            <TransactionCSRLoader />
                         </div>
                     ) : (
-                        <div className="flex flex-col items-center justify-center h-full text-center p-8">
-                            <h3 className="text-xl font-medium text-gray-600">
-                                No orders yet
-                            </h3>
-                            <p className="mt-2 text-gray-500">
-                                Browse our car stock and add vehicles to your order list.
-                            </p>
-                            <Link
-                                href="/stock"
-                                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                            >
-                                Browse Car Stock
-                            </Link>
+                        <div className="
+                    md:block
+                    flex-1
+                    h-full
+                    overflow-y-auto">
+                            <TransactionCSRLoader />
                         </div>
-                    )}
-                </main>
+                    )
+                ) : (
+                    <main
+                        className={`
+                    ${isDetail ? 'block' : 'hidden'}
+                    md:block
+                    flex-1
+                    h-full
+                    overflow-y-auto
+                `}
+                    >
+                        {isDetail ? (
+                            <TransactionCSR
+                                vehicleStatus={vehicleStatus}
+                                accountData={accountData}
+                                isMobileView={true}
+                                isDetailView={isDetail}
+                                handleBackToList={handleBackToList}
+                                bookingData={bookingData}
+                                countryList={countryList}
+                                currency={currency}
+                                dueDate={invoiceData?.formattedDate}
+                                handleLoadMore={handleLoadMore}
+                                invoiceData={invoiceData.invoiceData}
+                                chatId={chatId}
+                                userEmail={userEmail}
+                                chatMessages={chatMessages}
+                                contact={selectedContact}
+                                messages={messages}
+                                onSendMessage={sendMessage}
+                                isLoading={isLoading}
+                                isLoadingTransaction={isLoadingTransaction} // Pass the prop
+                            />
+                        ) : chatList.length > 0 ? (
+                            <div className="flex flex-col items-center justify-center h-full text-center p-8">
+                                <h3 className="text-xl font-medium text-gray-600">Select a transaction</h3>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center h-full text-center p-8">
+                                <h3 className="text-xl font-medium text-gray-600">
+                                    No orders yet
+                                </h3>
+                                <p className="mt-2 text-gray-500">
+                                    Browse our car stock and add vehicles to your order list.
+                                </p>
+                                <Link
+                                    href="/stock"
+                                    className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                                >
+                                    Browse Car Stock
+                                </Link>
+                            </div>
+                        )}
+                    </main>
+                )}
 
             </div>
         </SortProvider>
-    )
+    );
 }

@@ -1,11 +1,49 @@
 'use server'
 import ChatPageCSR from "./chatComponents/pageCSR";
-import { admin } from "@/lib/firebaseAdmin";
+import {  db } from "@/lib/firebaseAdmin";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { fetchCurrency } from "../../../services/fetchFirebaseData";
 import { getCountries, checkUserExist, getAccountData } from "../actions/actions";
 import { Toaster } from "sonner";
+
+async function fetchPrefetchedData(userEmail) {
+    try {
+        const chatsQuery = db.collection('chats')
+            .where('participants.customer', '==', userEmail)
+            .orderBy('lastMessageDate', 'desc')
+            .limit(12);
+
+        const chatsSnapshot = await chatsQuery.get();
+     
+        const data = await Promise.all(
+            chatsSnapshot.docs.map(async (chatDoc) => {
+                const chatData = { id: chatDoc.id, ...chatDoc.data() };
+         
+                const messagesQuery = db.collection('chats').doc(chatDoc.id).collection('messages')
+                    .orderBy('timestamp', 'desc')
+                    .limit(15);
+
+                const messagesSnapshot = await messagesQuery.get();
+             
+                const messages = messagesSnapshot.docs.map(messageDoc => ({
+                    id: messageDoc.id,
+                    ...messageDoc.data(),
+                    timestamp: messageDoc.data().timestamp ? messageDoc.data().timestamp.toString() : null,
+                }));
+
+                return { ...chatData, messages };
+            })
+        );
+
+  
+        return data;
+    } catch (error) {
+        console.error("Error prefetching data with Admin SDK:", error);
+        return [];
+    }
+}
+
 export async function generateMetadata() {
   return {
     title: 'Transactions | REAL MOTOR JAPAN',
@@ -13,7 +51,6 @@ export async function generateMetadata() {
   };
 };
 
-//Test
 export default async function ChatPage() {
   // 1️⃣ Read comma-separated list of all legacy cookie names and the current cookie name
   const OLD_NAMES_ENV = process.env.OLD_SESSION_COOKIE_NAMES
@@ -82,7 +119,13 @@ export default async function ChatPage() {
   // 🔟 Fetch account data
   const accountData = await getAccountData(userEmail)
 
-  // 1️⃣1️⃣ Render the Chat page
+  // 1️⃣1️⃣ Fetch prefetched data for /chats route
+  const prefetchedData = await fetchPrefetchedData(userEmail);
+
+  // Validate chat ownership
+
+
+  // 1️⃣2️⃣ Render the Chat page
   return (
     <>
       <Toaster />
@@ -91,6 +134,7 @@ export default async function ChatPage() {
         userEmail={userEmail}
         currency={currency}
         countryList={countryList}
+        prefetchedData={prefetchedData}
       />
     </>
   )

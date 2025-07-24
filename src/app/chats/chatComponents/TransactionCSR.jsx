@@ -189,12 +189,18 @@ export default function TransactionCSR({ vehicleStatus, accountData, isMobileVie
     };
 
     // Scroll to bottom when messages change
+    useEffect(() => {
+        if (!chatId || !isDetailView) {
+            console.warn("chatId or isDetailView is not set. Messages cannot be fetched or scrolled.");
+            return;
+        }
 
-    // useEffect(() => {
-    //     if (endOfMessagesRef.current) {
-    //         endOfMessagesRef.current.scrollIntoView({ behavior: "smooth" })
-    //     }
-    // }, [chatMessages])
+        // Scroll to bottom when messages change
+        if (endOfMessagesRef.current) {
+            endOfMessagesRef.current.scrollIntoView({ behavior: "smooth" });
+        }
+    }, [chatMessages, isDetailView]);
+
     // const invoiceData = '';
 
     // const baseFinalPrice = (basePrice) + (parseFloat(carData?.dimensionCubicMeters) * parseFloat(profitMap));

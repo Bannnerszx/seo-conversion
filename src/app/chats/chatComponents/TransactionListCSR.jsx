@@ -55,7 +55,8 @@ export default function TransactionList({
   setSearchQuery,
   searchQuery,
   setChatList,
-  chatList
+  chatList,
+  setChatId, // <-- Added setChatId here
 }) {
   const [isOpen, setIsOpen] = useState(false)
 
@@ -280,8 +281,9 @@ export default function TransactionList({
                           ${isReservedOrSold && "opacity-50"}
                       `}
                           onClick={() => {
-                            onSelectContact(contact)
-                            markRead(contact.id)
+                            setChatId(contact.id); // Update chatId immediately
+                            onSelectContact(contact);
+                            markRead(contact.id);
                           }}
                         >
 

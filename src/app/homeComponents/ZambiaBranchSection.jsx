@@ -9,6 +9,7 @@ import {
     Car,
     Shield,
     Wrench,
+    Contact,
 } from "lucide-react"
 import {
     Card,
@@ -58,11 +59,11 @@ export default function ZambiaBranchSection() {
                             <div className="flex flex-col space-y-2">
                                 <div className="flex items-center gap-2">
                                     <Phone className="h-4 w-4 text-blue-600" />
-                                    <p className="text-sm font-medium">+260 976 887 356</p>
+                                    <p className="text-sm font-medium">+260 772 114 575</p>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <Phone className="h-4 w-4 text-blue-600" />
-                                    <p className="text-sm font-medium">+260 777 590 058</p>
+                                    <Contact className="h-4 w-4 text-blue-600" />
+                                    <p className="text-sm font-medium">Mr. Mwale</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
@@ -104,8 +105,12 @@ export default function ZambiaBranchSection() {
                             <div className="flex items-center gap-2">
                                 <Phone className="h-4 w-4 text-blue-600" />
                                 <div className="text-sm">
-                                    <p className="font-medium">+260 976 887 356</p>
+                                    <p className="font-medium">+260 772 114 476</p>
                                 </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Contact className="h-4 w-4 text-blue-600" />
+                                <p className="text-sm font-medium">Mr. Sikapizye</p>
                             </div>
                             <div className="flex items-center gap-2">
                                 <Mail className="h-4 w-4 text-blue-600" />

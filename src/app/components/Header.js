@@ -212,55 +212,43 @@ function DesktopAuth() {
     if (user) {
         return (
             <div className="flex items-center gap-4 font-semibold z-[9999]">
-                <Link
-                    href="/chats"
-                    className="relative flex flex-col items-center justify-center rounded-lg transition group
-        min-[1117px]:flex-row min-[1117px]:gap-2 min-[1117px]:px-4 min-[1117px]:py-2
-        min-[1117px]:transparent min-[1117px]:rounded-sm"
-                >
-                    <div className="relative flex items-center">
-                        <MessageSquare
-                            className={`
-            w-7 h-7
-            min-[1117px]:text-[#0000ff]
-            min-[320px]:text-[#0000ff]
-            transform transition-transform duration-200 ease-in-out
-            group-hover:-translate-y-1
-          `}
-                        />
-
-                        <span
-                            className="absolute -top-2 left-3 inline-flex items-center justify-center 
-              w-5 h-5 text-xs font-semibold text-white bg-red-500 rounded-full
-              transform transition-transform duration-200 ease-in-out group-hover:-translate-y-1"
-                        >
-                            <NotificationCount userEmail={user} />
-                        </span>
-                    </div>
-
-                    <span className="text-sm min-[1117px]:text-gray-700 min-[320px]:text-gray-700">Transactions</span>
-                </Link>
 
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <button
-                            className="w-15 h-15 flex flex-col items-center justify-center rounded-lg transition group
-                  min-[1117px]:flex-row min-[1117px]:gap-2 min-[1117px]:px-4 min-[1117px]:py-2
-                  min-[1117px]:transparent min-[1117px]:rounded-sm z-[9999]"
+                            className="relative w-15 h-15 flex flex-col items-center justify-center rounded-lg transition group
+             min-[1117px]:flex-row min-[1117px]:gap-2 min-[1117px]:px-4 min-[1117px]:py-2
+             min-[1117px]:bg-transparent min-[1117px]:rounded-sm z-[9999]"
                         >
-                            <CircleUser
-                                className={`
-    w-7 h-7
-    min-[1117px]:text-[#0000ff]
-    min-[320px]:text-[#0000ff]
-    z-[9999]
-    transform
-    transition-transform duration-200 ease-in-out
-    group-hover:-translate-y-1
-  `}
-                            />
-                            <span className="text-sm min-[1117px]:text-gray-700 min-[320px]:text-gray-700">Account</span>
+                            {/* wrap icon + badge in a relative box */}
+                            <div className="relative">
+                                <CircleUser
+                                    className="
+        w-7 h-7
+        min-[1117px]:text-[#0000ff]
+        min-[320px]:text-[#0000ff]
+        z-[9999]
+        transform transition-transform duration-200 ease-in-out
+        group-hover:-translate-y-1
+      "
+                                />
+                                <span
+                                    className="
+        absolute -top-2 -right-1    /* adjust to taste */
+        inline-flex items-center justify-center
+        w-5 h-5 text-xs font-semibold text-white bg-red-500 rounded-full
+        transform transition-transform duration-200 ease-in-out group-hover:-translate-y-1
+      "
+                                >
+                                    <NotificationCount userEmail={user} />
+                                </span>
+                            </div>
+
+                            <span className="text-sm min-[1117px]:text-gray-700 min-[320px]:text-gray-700">
+                                Account
+                            </span>
                         </button>
+
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56 z-[9999]">
                         <DropdownMenuItem asChild>
@@ -371,10 +359,10 @@ function MobileMenu({ isOpen, setIsOpen }) {
                                 className="block mt-4"
                             >
                                 <img
-                                    src="/jumvea.png"
+                                    src="/jumvea.webp"
                                     alt="JUMVEA"
                                     width={120}
-                                    height={38}
+                                    height={39}
                                     className="block"
                                 />
                             </Link>
@@ -559,26 +547,9 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
                         <InfoBannerSlider />
                     </div>
                 )}
-                <div className="bg-white/90 p-2 flex items-center justify-end md:justify-between mr-4 z-[9500]">
+                <div className="bg-white/90 p-2 flex items-center justify-end mr-4 z-[9500]">
                     {/* left side: span + logo */}
-                    <div className="hidden md:flex items-center space-x-2">
-                        <span className="text-gray-700 font-bold whitespace-nowrap">
-                            Proud members of
-                        </span>
-                        <Link
-                            href="https://www.jumvea.or.jp/jpn/members/Yanagisawa-706"
-                            target="_blank"
-                            className="block"
-                        >
-                            <img
-                                src="/jumvea.png"
-                                alt="JUMVEA"
-                                width={120}
-                                height={38}
-                                className="block"
-                            />
-                        </Link>
-                    </div>
+
 
                     {/* right side: currency dropdown */}
                     <CurrencyDropdown currency={currency} />
@@ -605,6 +576,25 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
                             <DesktopNavigation counts={counts} />
                         </div>
                         <div className="flex items-center space-x-5 mr-5">
+                            <div className="hidden lg:flex flex-col items-center justify-center h-full">
+                                <Link
+                                    href="https://www.jumvea.or.jp/jpn/members/Yanagisawa-706"
+                                    target="_blank"
+                                    className="overflow-hidden"
+                                >
+                                    <ImageHeader
+                                        src="/jumvea.webp"
+                                        alt="REAL MOTOR JAPAN"
+                                        width={100}
+                                        height={39}
+                                        quality={80}
+                                        priority
+                                        sizes="(max-width: 640px) 150px, 250px"
+                                        // enforce max-height so it never pushes over 75px
+                                        className="max-h-[60px] w-auto"
+                                    />
+                                </Link>
+                            </div>
                             <DesktopAuth counts={counts} />
                             <MobileMenu counts={counts} isOpen={isMenuOpen} setIsOpen={setIsMenuOpen} />
                         </div>
@@ -653,7 +643,28 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
                     </div>
 
                     {/* right side: auth & mobile menu */}
-                    <div className="flex items-center space-x-5 mr-5">
+                    <div className="flex items-center space-x-5 mr-5 h-[75px]">
+                        {/* logo + label wrapper */}
+                    <div className="hidden lg:flex flex-col items-center justify-center h-full">
+                            <Link
+                                href="https://www.jumvea.or.jp/jpn/members/Yanagisawa-706"
+                                target="_blank"
+                                className="overflow-hidden"
+                            >
+                                <ImageHeader
+                                    src="/jumvea.webp"
+                                    alt="REAL MOTOR JAPAN"
+                                    width={100}
+                                    height={39}
+                                    quality={80}
+                                    priority
+                                    sizes="(max-width: 640px) 150px, 250px"
+                                    // enforce max-height so it never pushes over 75px
+                                    className="max-h-[60px] w-auto"
+                                />
+                            </Link>
+                        </div>
+
                         <DesktopAuth counts={counts} />
                         <MobileMenu
                             counts={counts}
@@ -661,6 +672,8 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
                             setIsOpen={setIsMenuOpen}
                         />
                     </div>
+
+
                 </div>
             </header>
 

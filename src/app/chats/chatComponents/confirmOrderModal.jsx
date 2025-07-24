@@ -5,7 +5,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { CheckCircle, AlertTriangle, X, Bell, Copy } from "lucide-react"
-import { setOrderItem } from "@/app/actions/actions"
+
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import Modal from "@/app/components/Modal"

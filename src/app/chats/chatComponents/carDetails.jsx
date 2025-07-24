@@ -16,12 +16,12 @@ export default function CarDetails({ chatId, handleBackToList, isMobileView, isD
     // 2) build your lookup table
     const currencies = [
         { code: "USD", symbol: "USD$", value: 1 },
-        { code: "EUR", symbol: "€", value: contact?.currency.usdToEur },
-        { code: "JPY", symbol: "¥", value: contact?.currency.usdToJpy },
-        { code: "CAD", symbol: "CAD$", value: contact?.currency.usdToCad },
-        { code: "AUD", symbol: "AUD$", value: contact?.currency.usdToAud },
-        { code: "GBP", symbol: "GBP£", value: contact?.currency.usdToGbp },
-        { code: "ZAR", symbol: "R", value: contact?.currency.usdToZar },
+        { code: "EUR", symbol: "€", value: contact?.currency?.usdToEur },
+        { code: "JPY", symbol: "¥", value: contact?.currency?.usdToJpy },
+        { code: "CAD", symbol: "CAD$", value: contact?.currency?.usdToCad },
+        { code: "AUD", symbol: "AUD$", value: contact?.currency?.usdToAud },
+        { code: "GBP", symbol: "GBP£", value: contact?.currency?.usdToGbp },
+        { code: "ZAR", symbol: "R", value: contact?.currency?.usdToZar },
     ];
 
     // 3) find the matching currency (fallback to USD if nothing matches)
