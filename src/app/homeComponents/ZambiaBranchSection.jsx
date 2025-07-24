@@ -66,6 +66,16 @@ export default function ZambiaBranchSection() {
                                     <p className="text-sm font-medium">Mr. Mwale</p>
                                 </div>
                             </div>
+                            <div className="flex flex-col space-y-2">
+                                <div className="flex items-center gap-2">
+                                    <Phone className="h-4 w-4 text-blue-600" />
+                                    <p className="text-sm font-medium">+260 772 114 476</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Contact className="h-4 w-4 text-blue-600" />
+                                    <p className="text-sm font-medium">Mr. Sikapizye</p>
+                                </div>
+                            </div>
                             <div className="flex items-center gap-2">
                                 <Mail className="h-4 w-4 text-blue-600" />
                                 <div className="text-sm">
@@ -105,12 +115,12 @@ export default function ZambiaBranchSection() {
                             <div className="flex items-center gap-2">
                                 <Phone className="h-4 w-4 text-blue-600" />
                                 <div className="text-sm">
-                                    <p className="font-medium">+260 772 114 476</p>
+                                    <p className="font-medium">+260 772 114 575</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
                                 <Contact className="h-4 w-4 text-blue-600" />
-                                <p className="text-sm font-medium">Mr. Sikapizye</p>
+                                <p className="text-sm font-medium">Mr. Mwale</p>
                             </div>
                             <div className="flex items-center gap-2">
                                 <Mail className="h-4 w-4 text-blue-600" />
