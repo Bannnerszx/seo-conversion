@@ -650,7 +650,7 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
                     {/* right side: auth & mobile menu */}
                     <div className="flex items-center space-x-5 mr-5 h-[75px]">
                         {/* logo + label wrapper */}
-                        <div className="hidden lg:flex flex-col items-center justify-center h-full">
+                        <div className="hidden lg:flex lg:flex-col items-center justify-center h-full space-y-1">
                             <Link
                                 href="https://www.jumvea.or.jp/jpn/members/Yanagisawa-706"
                                 target="_blank"
@@ -664,12 +664,13 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
                                     quality={80}
                                     priority
                                     sizes="(max-width: 640px) 150px, 250px"
-                                    // enforce max-height so it never pushes over 75px
-                                    className="max-h-[60px] w-auto"
+                                    className="max-h-[35px] w-auto mx-auto"
                                 />
                             </Link>
+                            <p className="text-sm font-bold text-gray-700 text-center">
+                                Proud member
+                            </p>
                         </div>
-
                         <DesktopAuth counts={counts} />
                         <MobileMenu
                             counts={counts}

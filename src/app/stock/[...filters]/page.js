@@ -85,24 +85,37 @@ export default async function StockPage({ params, searchParams }) {
     ]);
 
     // Extract maker/model
-    const makerToken = filters.find(f => !["recommended", "sale"].includes(f) && carMakesList.includes(f.toUpperCase()));
-    const modelToken = makerToken ? filters[filters.indexOf(makerToken) + 1] : null;
+    function decodeMake(f) {
+        return decodeURIComponent(f)     // URL decode %20 → space
+            .replace(/-/g, ' ')            // optional: turn hyphens into spaces
+            .trim()
+            .toUpperCase();
+    }
 
-    const maker = makerToken ? decodeURIComponent(makerToken).toUpperCase() : null;
-    const model = modelToken ? decodeURIComponent(modelToken).toUpperCase() : null;
+    // find the first filter that, once decoded, is one of your makes
+    const makerToken = filters.find(
+        f => !["recommended", "sale"].includes(f)
+            && carMakesList.includes(decodeMake(f))
+    );
+
+    // the “model” is still simply the next segment
+    const modelToken = makerToken
+        ? filters[filters.indexOf(makerToken) + 1]
+        : null;
+
+    // now decode both for use in your queries
+    const maker = makerToken ? decodeMake(makerToken) : null;
+    const model = modelToken ? decodeMake(modelToken) : null;
+
+    // re‑run your “invalid” logic, but remember to use decodeMake() there too:
     const makerIdx = filters.indexOf(makerToken);
     const invalid = filters.filter((f, idx) => {
-        // always allow our “flags”
         if (f === "recommended" || f === "sale") return false;
 
-        const up = f.toUpperCase();
-        // allow any known maker
+        const up = decodeMake(f);               // <-- decode here
         if (carMakesList.includes(up)) return false;
-
-        // allow the one segment immediately after the makerToken (the model)
         if (makerToken && idx === makerIdx + 1) return false;
 
-        // everything else is invalid
         return true;
     });
 

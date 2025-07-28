@@ -8,7 +8,7 @@ const ZambiaChecker = () => {
   const ipInfo = useIpInfo();
 
   // List of countries that should trigger the popup
-  const popupCountries = ["Poland", "Germany", "Netherlands", "Zambia", "Germany", "Japan"];
+  const popupCountries = ["Zambia", "Tanzania"];
 
   // If we don’t yet have IP info, render nothing
   if (!ipInfo) return null;
