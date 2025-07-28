@@ -69,7 +69,9 @@ export default function ClientLayoutWrapper({ children, currency, userEmail }) {
     window.addEventListener('resize', updateBreadcrumbTop);
     return () => window.removeEventListener('resize', updateBreadcrumbTop);
   }, [hideHeader, showBanner]);
-console.log(showBanner,'breadcrumb wrapper')
+
+
+
   return (
     <div className="flex flex-col overflow-x-clip">
 

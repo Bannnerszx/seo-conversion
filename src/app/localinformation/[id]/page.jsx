@@ -4,7 +4,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import { notFound } from 'next/navigation'
 
-import { MapPin, Phone, LocateIcon as LocationIcon } from 'lucide-react'
+import { MapPin, Phone, LocateIcon as LocationIcon , Contact} from 'lucide-react'
 import { ImageCarousel } from '../localInformationComponents/image-carousel'
 export async function generateStaticParams() {
     const filePath = path.join(process.cwd(), 'services', 'countryInformation.json')
@@ -90,7 +90,7 @@ export default async function LocalInformation({ params }) {
     ]
 
 
-    if (decodedId === "Zambia") {
+     if (decodedId === "Zambia") {
         return (
             <div className="min-h-screen bg-white relative mt-20">
                 <div className="absolute inset-0 w-full h-full z-[9]">
@@ -140,9 +140,12 @@ export default async function LocalInformation({ params }) {
 
                                 <div className="flex items-start mb-3">
                                     <Phone className="text-blue-700 mr-3 mt-1 flex-shrink-0" />
-                                    <p className="text-gray-700">+260976887356</p>
+                                    <p className="text-gray-700">+260 772 114 575</p>
                                 </div>
-
+                                <div className="flex items-center mb-1">
+                                    <Contact className="text-blue-700 mr-2 mt-1 flex-shrink-0" />
+                                    <p className="text-gray-700">Mr. Mwale</p>
+                                </div>
                                 <div className="flex items-start mb-6">
                                     <LocationIcon className="text-blue-700 mr-3 mt-1 flex-shrink-0" />
                                     <div>
@@ -183,20 +186,24 @@ export default async function LocalInformation({ params }) {
 
                                 <div className="flex items-start mb-1">
                                     <Phone className="text-blue-700 mr-3 mt-1 flex-shrink-0" />
-                                    <p className="text-gray-700">+260976887356</p>
+                                    <p className="text-gray-700">+260 772 114 575</p>
                                 </div>
                                 <div className="flex items-start mb-3 ml-8">
-                                    <p className="text-gray-700">+260777590058</p>
+                                    <p className="text-gray-700">+260 772 114 476</p>
                                 </div>
-
+                                <div className="flex items-start mb-1">
+                                    <Contact className="text-blue-700 mr-2 mt-1 flex-shrink-0" />
+                                    <p className="text-gray-700">Mr. Mwale</p>
+                                </div>
+                                <div className="flex items-start mb-3 ml-8">
+                                    <p className="text-gray-700">Mr. Sikapizye</p>
+                                </div>
                                 <div className="flex items-start mb-6">
                                     <LocationIcon className="text-blue-700 mr-3 mt-1 flex-shrink-0" />
                                     <div>
-                                        <p className="text-gray-700">Plot # 5017</p>
-                                        <p className="text-gray-700">Saise Road,</p>
-                                        <p className="text-gray-700">Roads Park,</p>
-                                        <p className="text-gray-700">Lusaka,</p>
-                                        <p className="text-gray-700">Zambia.</p>
+                                        <p className="text-gray-700">Plot # 13, House # 5017</p>
+                                        <p className="text-gray-700">Near Qurrat Academy, Saise Road, Roads Park,</p>
+                                        <p className="text-gray-700">Lusaka, Zambia.</p>
                                     </div>
                                 </div>
 

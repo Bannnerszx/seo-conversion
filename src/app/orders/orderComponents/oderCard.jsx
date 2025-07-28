@@ -7,6 +7,15 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { fetchBookingData, fetchInvoiceData } from "@/app/actions/actions";
 import PreviewInvoice from "@/app/chats/chatComponents/previewInvoice";
+
+
+async function fetchChatData(chatId) {
+  const res = await fetch(`/api/get-chat-data?chatId=${chatId}`)
+  if (!res.ok) throw new Error(`Chat fetch failed: ${res.status}`)
+  return res.json()
+}
+
+
 export default function OrderCard({ order, currency, userEmail }) {
   const fobDollar = parseFloat(currency.jpyToUsd) * parseFloat(order.carData?.fobPrice) || 0;
   const [showModal, setShowModal] = useState(false);
@@ -15,7 +24,37 @@ export default function OrderCard({ order, currency, userEmail }) {
   const [bookingData, setBookingData] = useState(null);
   const [hasFetchedInvoice, setHasFetchedInvoice] = useState(false);
   const [hasFetchedBooking, setHasFetchedBooking] = useState(false);
-  console.log()
+  function formatToShortDate(ts) {
+    // remove the “ at …” part so Date can parse it
+    const cleaned = ts.replace(/ at.*$/, '')
+    const date = new Date(cleaned)
+    return date.toLocaleDateString('en-US', {
+      month: 'short',   // “Jun”
+      day: '2-digit', // “23”
+      year: 'numeric'  // “2025”
+    })
+  }
+  function formatToTime(ts) {
+    let dateObj
+
+    if (ts?.toDate) {
+      // Firestore Timestamp
+      dateObj = ts.toDate()
+    } else {
+      // Remove the millisecond fraction, normalize slashes, and drop "at"
+      const cleaned = ts
+        .replace(/\.\d+/, '')       // "2025/06/23 at 11:26:13"
+        .replace(/\//g, '-')        // "2025-06-23 at 11:26:13"
+        .replace(' at ', ' ')       // "2025-06-23 11:26:13"
+      dateObj = new Date(cleaned)
+    }
+
+    return dateObj.toLocaleTimeString('en-US', {
+      hour12: true,
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  }
   const openModal = async () => {
     setShowModal(true);
 
@@ -26,7 +65,7 @@ export default function OrderCard({ order, currency, userEmail }) {
       !hasFetchedInvoice && !hasFetchedBooking
     ) {
       try {
-        const [dataInvoice, dataBooking] = await Promise.all([
+        const [dataInvoice, dataBooking, chatData] = await Promise.all([
           fetchInvoiceData({ invoiceNumber: order.invoiceNumber }),
           fetchBookingData({
             userEmail,
@@ -36,6 +75,7 @@ export default function OrderCard({ order, currency, userEmail }) {
 
         setInvoiceData(dataInvoice);
         setBookingData(dataBooking);
+
         setHasFetchedInvoice(true);
         setHasFetchedBooking(true);
       } catch (err) {
@@ -43,6 +83,52 @@ export default function OrderCard({ order, currency, userEmail }) {
       }
     }
   };
+  function extractTime(ts) {
+    const m = ts.match(/(\d{1,2}:\d{2}\s*(?:AM|PM))/i)
+    return m ? m[1] : ''
+  }
+  function extractDate(ts) {
+    // split off the date portion
+    const [datePart] = ts.split(' ')
+    const [day, month, year] = datePart.split('/').map(Number)
+    // JS months are 0‑indexed
+    const dateObj = new Date(year, month - 1, day)
+
+    return dateObj.toLocaleDateString('en-US', {
+      month: 'short',  // “Jun”
+      day: '2-digit',// “24”
+      year: 'numeric' // “2025”
+    })
+  }
+  function extractDateFromLog(log) {
+    // split off everything after the first space
+    const [datePart] = log.split(' ')
+    const [day, month, year] = datePart.split('/').map(Number)
+    const dateObj = new Date(year, month - 1, day)
+    return dateObj.toLocaleDateString('en-US', {
+      month: 'short',  // "Jul"
+      day: '2-digit',// "08"
+      year: 'numeric' // "2025"
+    })
+  }
+
+
+  function extractTimeFromLog(log) {
+    const m = log.match(/(\d{1,2}:\d{2}\s*(?:AM|PM))/i)
+    return m ? m[1] : ''
+  }
+
+  const rawTs = order?.payments?.[0]?.timestamp
+  const rawBookingTs = bookingData?.exportCert?.timestamp
+  const rawBookingShippingTs = bookingData?.shippingInfo?.lastUpdated
+  const rawBookingSi = bookingData?.sI?.lastUpdated
+  const date = rawTs ? formatToShortDate(rawTs) : 'TBA'
+  const time = rawTs ? formatToTime(rawTs) : 'TBA'
+  const dateBooking = rawBookingTs ? extractDate(rawBookingTs) : 'TBA'
+  const dateShipping = rawBookingShippingTs ? extractDateFromLog(rawBookingShippingTs) : 'TBA'
+  const timeShipping = rawBookingShippingTs ? extractTimeFromLog(rawBookingShippingTs) : 'TBA'
+  const dateSi = rawBookingSi ? extractDateFromLog(rawBookingSi) : 'TBA'
+  const timeSi = rawBookingSi ? extractTimeFromLog(rawBookingSi) : 'TBA'
   const carOrder = {
     id: "T202406909/RM-21",
     title: "2009 NISSAN NOTE",
@@ -75,17 +161,17 @@ export default function OrderCard({ order, currency, userEmail }) {
         status: order.stepIndicator.value >= 4 ? "completed" : "in-progress",
         actionTaker: "RMJ",
         action: "Payment Confirmed.",
-        date: "April 10, 2023",
-        time: "09:30",
-        location: "Tokyo, Japan",
+        date: date,
+        time: time,
+        location: "Nagoya, Japan",
       },
       {
         stage: "Booking",
         status: "completed",
         actionTaker: "RMJ",
         action: "Coordinated with shipping company.",
-        date: "April 15, 2023",
-        time: "14:45",
+        date: date,
+        time: time,
         location: "Tokyo, Japan",
       },
       {
@@ -93,8 +179,8 @@ export default function OrderCard({ order, currency, userEmail }) {
         status: bookingData?.exportCert?.url ? "completed" : "in-progress",
         actionTaker: "RMJ",
         action: "Uploaded Export Certificate",
-        date: "April 20, 2023",
-        time: "08:15",
+        date: dateBooking,
+        time: bookingData?.exportCert?.timestamp ? extractTime(bookingData?.exportCert?.timestamp) : 'TBA',
         location: "Yokohama Port, Japan",
       },
       {
@@ -102,8 +188,8 @@ export default function OrderCard({ order, currency, userEmail }) {
         status: bookingData?.shippingInfo?.departure?.etd_jst ? "completed" : "in-progress",
         actionTaker: "Shipping Company",
         action: "Updated shipping information.",
-        date: "May 5, 2023",
-        time: "19:20",
+        date: dateShipping,
+        time: timeShipping,
         location: "Destination Port",
       },
       {
@@ -111,8 +197,8 @@ export default function OrderCard({ order, currency, userEmail }) {
         status: bookingData?.sI?.url ? "completed" : "in-progress",
         actionTaker: "Shipping Company",
         action: "Uploaded Shipping information details.",
-        date: "May 10, 2023",
-        time: "10:30",
+        date: dateSi,
+        time: timeSi,
         location: "Destination Country",
       },
       {

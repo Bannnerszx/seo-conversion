@@ -320,104 +320,60 @@ export default function OrderButton({ ipInfo, tokyoTime, accountData, isOrderMou
 
                                 {/* Content */}
                                 <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
-                                    {/* Warning Message */}
-                                    <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 sm:p-4 rounded">
-                                        <div className="flex items-start gap-2 sm:gap-3">
-                                            <Bell className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-600 mt-0.5 animate-bounce" />
+                                    <div className="bg-red-50 border-l-4 border-red-500 p-3 rounded">
+                                        <div className="flex gap-2">
+                                            <AlertTriangle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
                                             <div>
-                                                <h4 className="font-semibold text-yellow-800 mb-1 sm:mb-2 text-sm sm:text-base">
-                                                    IMPORTANT: Include Invoice Number in Bank Transfer
-                                                </h4>
-                                                <p className="text-yellow-700 text-xs sm:text-sm leading-relaxed">
-                                                    When making your bank transfer, you <strong>MUST</strong> include the invoice number in the
-                                                    transfer description/reference field. This is essential for us to identify your payment and
-                                                    process your order.
+                                                <h4 className="font-semibold text-red-800">Critical Requirements</h4>
+                                                <p className="text-red-700 text-sm mt-1">
+                                                    Both invoice number and charge type must be correct or payment will fail.
                                                 </p>
                                             </div>
                                         </div>
                                     </div>
 
                                     {/* Invoice Number */}
-                                    <div className="bg-gray-50 border-2 border-gray-200 rounded-lg p-3 sm:p-4">
-                                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                                            Your Invoice Number:
-                                        </label>
-                                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                                            <code className="flex-1 bg-white border border-gray-300 rounded px-2 sm:px-3 py-2 font-mono text-sm sm:text-lg font-bold text-blue-600 text-center sm:text-left">
-                                                {`RMJ-${selectedChatData?.invoiceNumber}`}
+                                    <div className="bg-gray-50 border rounded-lg p-3">
+                                        <label className="block text-sm font-medium mb-2">Invoice Number:</label>
+                                        <div className="flex gap-2">
+                                            <code className="flex-1 bg-white border rounded px-3 py-2 font-mono text-lg font-bold text-blue-600">
+                                                RMJ-{selectedChatData?.invoiceNumber}
                                             </code>
-                                            <Button
-                                                onClick={copyInvoiceNumber}
-                                                variant="outline"
-                                                size="sm"
-                                                className="flex items-center justify-center gap-2 bg-transparent text-xs sm:text-sm py-2"
-                                            >
-                                                {copied ? (
-                                                    <>
-                                                        <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
-                                                        Copied!
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Copy className="h-3 w-3 sm:h-4 sm:w-4" />
-                                                        Copy
-                                                    </>
-                                                )}
+                                            <Button onClick={copyInvoiceNumber} variant="outline" size="sm">
+                                                {copied ? <CheckCircle className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
                                             </Button>
                                         </div>
                                     </div>
 
-                                    {/* Instructions */}
-                                    <div className="space-y-2 sm:space-y-3">
-                                        <h4 className="font-semibold text-gray-900 text-sm sm:text-base">Payment Instructions:</h4>
-                                        <ol className="list-decimal list-inside space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-gray-700">
-                                            <li>Copy the invoice number above</li>
-                                            <li>Go to your bank's online banking or visit a branch</li>
+                                    {/* Payment Steps */}
+                                    <div>
+                                        <h4 className="font-semibold mb-2">Payment Steps:</h4>
+                                        <ol className="list-decimal list-inside space-y-2 text-sm">
                                             <li>
-                                                Make a transfer for <strong>`{currency.symbol} {Math.ceil(finalPrice).toLocaleString()}`</strong> to our account
+                                                Transfer{" "}
+                                                <strong>
+                                                    {currency.symbol} {Math.ceil(finalPrice).toLocaleString()}
+                                                </strong>{" "}
+                                                to our account
                                             </li>
-                                            <li className="bg-red-50 p-2 sm:p-3 rounded border-l-4 border-red-400 animate-pulse">
-                                                <strong className="text-red-800">
-                                                    PASTE THE INVOICE NUMBER ({`RMJ-${selectedChatData?.invoiceNumber}`}) in the transfer description/reference field
-                                                </strong>
+                                            <li className="bg-yellow-50 p-2 rounded border-l-2 border-yellow-500">
+                                                <strong>Add invoice number to reference: RMJ-{selectedChatData?.invoiceNumber}</strong>
                                             </li>
-                                            <li>Send us the transfer receipt via email or chat</li>
+                                            <li className="bg-red-50 p-2 rounded border-l-2 border-red-500">
+                                                <strong>Set charge type to "OUR" (not "SHA") - you pay transfer fee</strong>
+                                                <div className="text-red-700 text-xs mt-1">
+                                                    Kindly be advised that future transactions with deductions upon receipt may be considered insufficient
+                                                    payments.
+                                                </div>
+                                            </li>
+                                            <li>Send transfer receipt</li>
                                         </ol>
                                     </div>
 
-                                    {/* Warning Box */}
-                                    <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4 animate-pulse">
-                                        <div className="flex items-start gap-2">
-                                            <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-red-600 mt-0.5 flex-shrink-0" />
-                                            <div className="text-xs sm:text-sm">
-                                                <p className="font-semibold text-red-800 mb-1">
-                                                    ⚠️ Without the invoice number, your payment cannot be processed!
-                                                </p>
-                                                <p className="text-red-700">
-                                                    This may cause delays in shipping your vehicle. Please double-check that you've included the
-                                                    invoice number before confirming the transfer.
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Action Buttons */}
-                                    <div className="flex flex-col gap-2 sm:gap-3 pt-2 sm:pt-4">
-                                        <Button
-                                            onClick={() => setIsOrderMounted(false)}
-                                            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 text-sm sm:text-base"
-                                        >
-                                            <CheckCircle className="mr-2 h-4 w-4" />I Understand - Proceed to Payment
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            onClick={copyInvoiceNumber}
-                                            className="w-full bg-transparent text-sm sm:text-base py-3"
-                                        >
-                                            <Copy className="mr-2 h-4 w-4" />
-                                            Copy Invoice Number Again
-                                        </Button>
-                                    </div>
+                                    {/* Action Button */}
+                                    <Button onClick={() => setIsOrderMounted(false)} className="w-full bg-green-600 hover:bg-green-700">
+                                        <CheckCircle className="mr-2 h-4 w-4" />I Understand - Proceed
+                                    </Button>
                                 </div>
                             </CardContent>
                         </Card>

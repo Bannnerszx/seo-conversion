@@ -13,7 +13,10 @@ import { cookies } from "next/headers"
 import Script from "next/script"
 import { fetchNotificationCounts } from "./actions/actions"
 import ClientAppCheck from "../../firebase/ClientAppCheck"
-import {  BannerProvider } from "./components/BannerContext"
+import { BannerProvider } from "./components/BannerContext"
+import { IpInfoProvider } from "@/providers/IpInfoContext";
+import ZambiaChecker from "./components/ZambiaChecker"
+import SafeCssScanner from "./components/SafeCssScanner"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -133,30 +136,33 @@ export default async function RootLayout({ children }) {
             style={{ display: 'none', visibility: 'hidden' }}
           />
         </noscript>
-
+        <SafeCssScanner />
         <ClientAppCheck />
 
-        {/* 
-          Wrap everything in AuthProviderServer. 
-          • If isValid===false (or there was that old session), we pass decodedToken={null}. 
-          • If isValid===true, we pass decodedToken={userEmail}. 
-        */}
-        <AuthProviderServer decodedToken={isValid ? userEmail : null}>
-          <Providers>
-            <CurrencyProvider currency={currency}>
-              <ClientLayoutWrapper
-                counts={notificationCount}
-                userEmail={isValid ? userEmail : null}
-                currency={currency}
-              >
-                <BannerProvider>
+        <IpInfoProvider>
+          <ZambiaChecker />
+          {/* 
+            Wrap everything in AuthProviderServer. 
+            • If isValid===false (or there was that old session), we pass decodedToken={null}. 
+            • If isValid===true, we pass decodedToken={userEmail}. 
+          */}
+          <AuthProviderServer decodedToken={isValid ? userEmail : null}>
+            <Providers>
+              <CurrencyProvider currency={currency}>
+                <ClientLayoutWrapper
+                  counts={notificationCount}
+                  userEmail={isValid ? userEmail : null}
+                  currency={currency}
+                >
+                  <BannerProvider>
 
-                  {children}
-                </BannerProvider>
-              </ClientLayoutWrapper>
-            </CurrencyProvider>
-          </Providers>
-        </AuthProviderServer>
+                    {children}
+                  </BannerProvider>
+                </ClientLayoutWrapper>
+              </CurrencyProvider>
+            </Providers>
+          </AuthProviderServer>
+        </IpInfoProvider>
 
         <Script
           id="firebase-auth-iframe"

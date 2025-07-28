@@ -120,13 +120,11 @@ export default function MainOrderPage({ count, userEmail, currency, accountData 
     return () => unsubscribe()
   }, [userEmail]);
 
-  console.log('chatlist', chatList)
-
+  
   // Sample data based on your transaction list
 
 
   //booking and invoice data
-
 
 
 

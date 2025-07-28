@@ -73,7 +73,7 @@ export default async function OrderPage() {
   if (!exists || (missingFields && missingFields.length > 0)) {
     redirect("/accountCreation")
   }
-
+  
   // 9️⃣ Fetch any needed data
   const currency    = await fetchCurrency()
   const accountData = await getAccountData(userEmail)
