@@ -31,14 +31,16 @@ export default function SearchHeader({
   totalCount,
   children,
   sortField = 'dateAdded',
-  sortDirection = 'asc',
+  sortDirection = 'desc',
   currentPage = 1,
   country = '',
   port = '',
   carMakes,
   carBodytypes,
-  countryArray
+  countryArray,
+  context
 }) {
+
   const router = useRouter()
   const searchParams = useSearchParams()
   const { setSelectedCurrency, selectedCurrency } = useCurrency()
@@ -156,10 +158,17 @@ export default function SearchHeader({
   const onFilterClick = () => console.log("Filter clicked")
   const onCalculatorClick = () => console.log("Calculator clicked")
 
-  const handleWithPhotosChange = (checked) => {
-    setWithPhotosOnly(checked)
-  }
+  useEffect(() => {
+    if (context === 'query') {
+      setWithPhotosOnly(false);
+    }
+    // if context changes away from 'query', we leave whatever the user last toggled
+  }, [context]);
 
+  // 3) Always let the user toggle
+  const handleWithPhotosChange = (e) => {
+    setWithPhotosOnly(e.target.checked);
+  };
   return (
     <>
       <div className="mx-auto w-full">

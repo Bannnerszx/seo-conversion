@@ -129,7 +129,7 @@ export default async function StockPage({ params, searchParams }) {
         bodytype = "",
         subBodyType = "",
         limit = "50",
-        sort = "dateAdded-asc",
+        sort = "dateAdded-desc",
         page = "1",
         country = "",
         port = "",
@@ -216,7 +216,8 @@ export default async function StockPage({ params, searchParams }) {
         }
     }
     const recommendedUrl = filters.includes('recommended')
-    const saleUrl = filters.includes('sale')
+    const saleUrl = filters.includes('sale');
+    const context = 'query';
     return (
         <SortProvider>
             <div className="z-10">
@@ -258,6 +259,7 @@ export default async function StockPage({ params, searchParams }) {
                             </p>
                         </section>
                         <SearchHeader
+                            context={context}
                             totalCount={totalCount}
                             initialLimit={Number(limit)}
                             products={products}
