@@ -84,44 +84,45 @@ export default async function StockPage({ params, searchParams }) {
         fetchCurrency(),
     ]);
 
-    // Extract maker/model
-    function decodeMake(f) {
-        return decodeURIComponent(f)     // URL decode %20 → space
-            .replace(/-/g, ' ')            // optional: turn hyphens into spaces
-            .trim()
-            .toUpperCase();
-    }
-
-    // find the first filter that, once decoded, is one of your makes
-    const makerToken = filters.find(
-        f => !["recommended", "sale"].includes(f)
-            && carMakesList.includes(decodeMake(f))
+    // 1) normalize your carMakesList once
+    const normalizedMakes = carMakesList.map(m =>
+        m.trim().toUpperCase()
     );
 
-    // the “model” is still simply the next segment
+    // 2) helper to only URL‑decode and uppercase
+    function normalizeFilter(f) {
+        return decodeURIComponent(f).trim().toUpperCase();
+    }
+
+    // 3) find the makerToken
+    const makerToken = filters.find(f =>
+        !["recommended", "sale"].includes(f) &&
+        normalizedMakes.includes(normalizeFilter(f))
+    );
+
+    // 4) model is still the next segment
     const modelToken = makerToken
         ? filters[filters.indexOf(makerToken) + 1]
         : null;
 
-    // now decode both for use in your queries
-    const maker = makerToken ? decodeMake(makerToken) : null;
-    const model = modelToken ? decodeMake(modelToken) : null;
+    // 5) pull them in uppercase for your queries
+    const maker = makerToken ? normalizeFilter(makerToken) : null;
+    const model = modelToken ? normalizeFilter(modelToken) : null;
 
-    // re‑run your “invalid” logic, but remember to use decodeMake() there too:
+    // 6) your invalid check also uses normalizeFilter()
     const makerIdx = filters.indexOf(makerToken);
     const invalid = filters.filter((f, idx) => {
         if (f === "recommended" || f === "sale") return false;
-
-        const up = decodeMake(f);               // <-- decode here
-        if (carMakesList.includes(up)) return false;
+        const up = normalizeFilter(f);
+        if (normalizedMakes.includes(up)) return false;
         if (makerToken && idx === makerIdx + 1) return false;
-
         return true;
     });
 
     if (invalid.length > 0) {
         return notFound();
     }
+
     const sp = await searchParams
     // Extract searchParams
     const {
