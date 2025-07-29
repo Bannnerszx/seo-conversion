@@ -243,7 +243,43 @@ export default function OrderCard({ order, currency, userEmail }) {
       Tel: invoiceData?.notifyParty?.contactNumber,
     },
   }
+  const [images, setImages] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  console.log(images, 'log')
+  const carId = order?.carData?.stockID
+  useEffect(() => {
+    let cancelled = false;
 
+    async function loadImages() {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/car-images/${carId}`);
+        if (!res.ok) throw new Error(`Error ${res.status}`);
+        const json = await res.json();
+        if (!cancelled) {
+          setImages(Array.isArray(json.images) ? json.images : []);
+        }
+      } catch (err) {
+        if (!cancelled) setError(err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    if (carId) {
+      loadImages();
+    } else {
+      setLoading(false);
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [carId]);
+  const src = images[0]
+    || order.carData.images?.[0]
+    || '/placeholder.jpg';
   return (
     <div className="bg-white rounded-lg border overflow-hidden">
       <div className="p-4">
@@ -252,7 +288,7 @@ export default function OrderCard({ order, currency, userEmail }) {
           <div className="md:w-2/5 lg:w-1/3">
             <div className="relative aspect-[4/3] w-full overflow-hidden rounded-md">
               <Image
-                src={order.carData.images?.[0] ?? "/placeholder.jpg"}
+                src={src}
                 alt={`${order.carData.regYear} ${order.carData.make} ${order.carData.model}` || "Product Image"}
                 fill
                 className="object-cover"
