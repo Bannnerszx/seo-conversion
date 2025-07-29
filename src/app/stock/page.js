@@ -215,7 +215,7 @@ const CarStock = async ({ params, searchParams }) => {
     }
     // true or false
     // Render with correct userEmail
-
+    const context = 'query'
     return (
         <SortProvider>
             <div className={`z-10`}>
@@ -250,6 +250,7 @@ const CarStock = async ({ params, searchParams }) => {
                             </p>
                         </section>
                         <SearchHeader
+                        context={context}
                             totalCount={totalCount}
                             initialLimit={Number(limit)}
                             products={products}

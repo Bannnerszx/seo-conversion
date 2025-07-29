@@ -11,8 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useParams } from 'next/navigation'
 import { useRouter } from '@bprogress/next'
+
 import { useCurrency } from '@/providers/CurrencyContext'
 import {
   Tooltip,
@@ -40,9 +41,19 @@ export default function SearchHeader({
   countryArray,
   context
 }) {
+  const params = useParams()
+  // URLSearchParams for ?foo=bar
+  const searchParams = useSearchParams()
 
   const router = useRouter()
-  const searchParams = useSearchParams()
+  const filters = Array.isArray(params.filters) ? params.filters : []
+
+  // build a plain object of all ?query= pairs
+  const queryParams = {}
+  for (const key of searchParams.keys()) {
+    queryParams[key] = searchParams.get(key)
+  }
+
   const { setSelectedCurrency, selectedCurrency } = useCurrency()
   const { setWithPhotosOnly, withPhotosOnly } = useSort();
   const defaultSort = `${sortField}-${sortDirection}`
@@ -157,17 +168,18 @@ export default function SearchHeader({
 
   const onFilterClick = () => console.log("Filter clicked")
   const onCalculatorClick = () => console.log("Calculator clicked")
+  const hasQueryParams = Array.from(searchParams.keys()).length > 0
+
+  const isPureStock = filters.length === 0 && !hasQueryParams
 
   useEffect(() => {
-    if (context === 'query') {
-      setWithPhotosOnly(false);
-    }
-    // if context changes away from 'query', we leave whatever the user last toggled
-  }, [context]);
+    setWithPhotosOnly(isPureStock)
+  }, [isPureStock])
+
 
   // 3) Always let the user toggle
   const handleWithPhotosChange = (e) => {
-    setWithPhotosOnly(e.target.checked);
+    setWithPhotosOnly(e);
   };
   return (
     <>

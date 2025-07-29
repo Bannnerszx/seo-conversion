@@ -70,9 +70,7 @@ const Dropdown = ({ placeholder, options, value, onChange, className = '' }) => 
   className="
     w-[var(--radix-select-trigger-width)]
     overflow-y-auto
-    max-h-[80vh]
-    sm:max-h-[60vh]
-    lg:max-h-[40vh]
+    max-h-[20vh]
   "
 >
                     {options.map((option, idx) => (
