@@ -277,9 +277,7 @@ export default function OrderCard({ order, currency, userEmail }) {
       cancelled = true;
     };
   }, [carId]);
-  const src = images[0]
-    || order.carData.images?.[0]
-    || '/placeholder.jpg';
+  const src = images[0] ? images[0] : '/placeholder.jpg';
   return (
     <div className="bg-white rounded-lg border overflow-hidden">
       <div className="p-4">
