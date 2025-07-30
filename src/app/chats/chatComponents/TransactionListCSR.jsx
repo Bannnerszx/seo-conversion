@@ -101,52 +101,99 @@ export default function TransactionList({
     },
     [userEmail]
   )
+  const [imagesMap, setImagesMap] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function loadAllImages() {
+      setLoading(true);
+      const map = {};
+
+      // 2. Kick off a fetch for each chat’s stockID
+      await Promise.all(
+        chatList.map(async (chat) => {
+          const id = chat?.carData?.stockID;
+          if (!id) return;
+          try {
+            const res = await fetch(`/api/car-images/${id}`);
+            if (!res.ok) throw new Error(res.statusText);
+            const { images } = await res.json();
+            map[id] = Array.isArray(images) ? images : [];
+          } catch (e) {
+            map[id] = [];               // on error, just set empty
+          }
+        })
+      );
+
+      // only update state if we’re still mounted
+      if (!cancelled) {
+        setImagesMap(map);
+        setLoading(false);
+      }
+    }
+
+    if (chatList.length) {
+      loadAllImages();
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [chatList]);
   // map Firestore data to your UI shape
-  const contacts = chatList.map((chat) => ({
 
-    id: chat?.id,
-    name: chat?.carData?.carName || "Unknown Car",
-    avatar: chat?.carData?.images ? chat?.carData?.images[0] : '/placeholder.jpg',
-    status: chat?.status || "offline",
-    lastMessage: chat?.lastMessage || "",
-    time: (() => {
-      if (!chat?.lastMessageDate) return "";
+  const contacts = chatList.map((chat) => {
+    const stock = chat?.carData?.stockID;
+    const imgs = imagesMap[stock] || [];           // grab the fetched array
+    return {
+      id: chat.id,
+      name: chat.carData?.carName || "Unknown Car",
+      avatar: imgs[0] || "/placeholder.jpg",         // first fetched image or placeholder
+      status: chat.status || "offline",
+      lastMessage: chat.lastMessage || "",
+      time: (() => {
+        if (!chat?.lastMessageDate) return "";
 
-      let raw = chat?.lastMessageDate;
-      let normalized;
+        let raw = chat?.lastMessageDate;
+        let normalized;
 
-      if (typeof raw === "string") {
-        // Split date and time
-        let [datePart, timePart] = raw.split(" at ");
+        if (typeof raw === "string") {
+          // Split date and time
+          let [datePart, timePart] = raw.split(" at ");
 
-        // If no “.” in the seconds, append “.000”
-        if (!timePart.includes(".")) {
-          timePart += ".000";
+          // If no “.” in the seconds, append “.000”
+          if (!timePart.includes(".")) {
+            timePart += ".000";
+          }
+
+          // Build an ISO-ish string and swap slashes for dashes
+          normalized = `${datePart} ${timePart}`.replace(/\//g, "-");
+        } else {
+          // Firestore timestamp
+          const d = new Date(raw.seconds * 1000);
+          return d.toLocaleDateString(undefined, {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          });
         }
 
-        // Build an ISO-ish string and swap slashes for dashes
-        normalized = `${datePart} ${timePart}`.replace(/\//g, "-");
-      } else {
-        // Firestore timestamp
-        const d = new Date(raw.seconds * 1000);
+        const d = new Date(normalized);
         return d.toLocaleDateString(undefined, {
           month: "short",
           day: "numeric",
           year: "numeric",
         });
-      }
+      })(),
+      customerRead: chat.customerRead,
+      stockID: stock,
+    };
+  });
 
-      const d = new Date(normalized);
-      return d.toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      });
-    })(),
-    customerRead: chat?.customerRead,
-    stockID: chat?.carData?.stockID,
-  }))
+
+
   const zoom = useZoomLevel()
 
 
@@ -255,7 +302,7 @@ export default function TransactionList({
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-         
+
           </div>
 
           <div className="flex-1 overflow-y-auto" style={{ height: "calc(100% - 88px)" }}>
