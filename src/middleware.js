@@ -95,19 +95,19 @@ export async function middleware(request) {
       const chatId = segments[1]
       try {
         const trackerRes = await fetch(
-          `${origin}/api/getChatTracker?chatId=${encodeURIComponent(chatId)}`,
+          `${ORINAL_URL}/api/getChatTracker?chatId=${encodeURIComponent(chatId)}`,
           { headers: { cookie: request.headers.get('cookie') ?? '' } } // Forward cookies
         )
         if (trackerRes.ok) {
           const { tracker } = await trackerRes.json()
           if (tracker === 3) {
             return NextResponse.redirect(
-              new URL(`/chats/ordered/${chatId}`, origin)
+              new URL(`/chats/ordered/${chatId}`, ORINAL_URL)
             )
           }
           if (tracker >= 4) {
             return NextResponse.redirect(
-              new URL(`/chats/payment/${chatId}`, origin)
+              new URL(`/chats/payment/${chatId}`, ORINAL_URL)
             )
           }
         }
@@ -115,7 +115,7 @@ export async function middleware(request) {
         console.error('Failed to fetch chat tracker:', e)
       }
       // If tracker doesn't require a redirect, rewrite to show the main chat component
-      return NextResponse.rewrite(new URL('/chats', origin))
+      return NextResponse.rewrite(new URL('/chats', ORINAL_URL))
     }
 
     // B) If it's already /ordered or /payment, rewrite to show the main chat component
@@ -123,7 +123,7 @@ export async function middleware(request) {
       segments.length === 3 &&
       (segments[1] === 'ordered' || segments[1] === 'payment')
     ) {
-      return NextResponse.rewrite(new URL('/chats', origin))
+      return NextResponse.rewrite(new URL('/chats', ORINAL_URL))
     }
 
     // C) For any other /chats/* URL, just let it pass (or redirect to /chats)
