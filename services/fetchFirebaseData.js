@@ -118,20 +118,42 @@ export async function fetchPorts(selectedCountry) {
 //fetch newVehicles
 export async function fetchNewVehicle() {
   try {
-    let queryRef = db.collection('VehicleProducts')
+    // Build a query that only selects the five fields we need
+    let queryRef = db
+      .collection('VehicleProducts')
+      .select(
+        'fobPriceNumber',
+        'carName',
+        'regYearNumber',
+        'regMonth',
+        'images'
+      )
       .where('imageCount', '>', 0)
-      .where('stockStatus', '==', 'On-Sale');
-    queryRef = queryRef.orderBy('dateAdded', 'desc');
-    queryRef = queryRef.limit(6);
+      .where('stockStatus', '==', 'On-Sale')
+      .orderBy('dateAdded', 'desc')
+      .limit(6);
+
     const snapshot = await queryRef.get();
     const newProducts = [];
+
     snapshot.forEach((doc) => {
-      newProducts.push({ id: doc.id, ...doc.data() });
+      const data = doc.data();
+      newProducts.push({
+        id: doc.id,
+        fobPrice: data.fobPriceNumber,
+        carName: data.carName,
+        regYear: data.regYearNumber,
+        regMonth: data.regMonth,
+        images: Array.isArray(data.images) ? data.images : []
+      });
     });
+
     return newProducts;
-  }
-  catch {
-    console.error(`Error fetching vehicle products for make: ${carMakes} and model: ${carModels}:`, error);
+  } catch (error) {
+    console.error(
+      'Error fetching vehicle products:',
+      error
+    );
     return [];
   }
 }
@@ -233,7 +255,7 @@ export async function fetchVehicleProductsByPage({
   isRecommended = null,
   isSale = null
 }) {
- 
+
   const FEATURES = [
     { id: "SafetySystemAnBrSy", label: "Anti-Lock Brakes", code: 1 },
     { id: "SafetySystemDrAi", label: "Driver Airbag", code: 2 },

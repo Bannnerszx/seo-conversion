@@ -208,7 +208,7 @@ const fetchVehicleStatuses = (stockIDs, updateStatuses) => {
     };
 };
 
-export default function ChatPageCSR({ view, accountData, userEmail, currency, fetchInvoiceData, countryList, prefetchedData }) {
+export default function ChatPageCSR({ accountData, userEmail, currency, fetchInvoiceData, countryList, prefetchedData }) {
     const [chatList, setChatList] = useState(prefetchedData?.map(chat => ({ id: chat.id, ...chat })) || []);
     const [selectedContact, setSelectedContact] = useState(prefetchedData?.[0] || null);
     const [searchQuery, setSearchQuery] = useState("")
