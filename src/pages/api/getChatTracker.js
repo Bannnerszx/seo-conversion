@@ -16,6 +16,6 @@ export default async function handler(req, res) {
         return res.status(200).json({ tracker });
     } catch (e) {
         console.error('API error fetching tracker:', e);
-        return res.status(500).json({error: 'Internal server error'})
+        return res.status(500).json({ error: 'Internal server error' })
     }
 }

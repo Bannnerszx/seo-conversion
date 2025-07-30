@@ -1,5 +1,5 @@
 import Image from "next/image"
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import TimelineStatus from "./timelineStatus"
 import { useRouter } from "next/navigation";
 import { ChevronLeft } from "lucide-react"
@@ -42,6 +42,45 @@ export default function CarDetails({ chatId, handleBackToList, isMobileView, isD
     const inspectionSurcharge = contact?.inspection ? 300 * currency.value : 0;
     const insuranceSurcharge = contact?.insurance ? 50 * currency.value : 0
     const finalPrice = (baseFinalPrice * currency.value + inspectionSurcharge + insuranceSurcharge);
+
+
+    const [images, setImages] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    console.log(images, 'log')
+    const carId = contact?.carData?.stockID
+    useEffect(() => {
+        let cancelled = false;
+
+        async function loadImages() {
+            setLoading(true);
+            try {
+                const res = await fetch(`/api/car-images/${carId}`);
+                if (!res.ok) throw new Error(`Error ${res.status}`);
+                const json = await res.json();
+                if (!cancelled) {
+                    setImages(Array.isArray(json.images) ? json.images : []);
+                }
+            } catch (err) {
+                if (!cancelled) setError(err);
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        }
+
+        if (carId) {
+            loadImages();
+        } else {
+            setLoading(false);
+        }
+
+        return () => {
+            cancelled = true;
+        };
+    }, [carId]);
+    const src = images[0] ? images[0] : '/placeholder.jpg';
+
+
     return (
 
         <div className="w-full overflow-x-auto mx-auto rounded-sm p-4 font-sans bg-white">
@@ -64,9 +103,7 @@ export default function CarDetails({ chatId, handleBackToList, isMobileView, isD
                     <div className="relative w-20 h-20 overflow-hidden rounded-[50%] border border-gray-200">
                         <Image
                             src={
-                                contact?.carData?.images?.length > 0
-                                    ? contact?.carData?.images[0]
-                                    : '/placeholder.jpg'
+                                src
                             }
                             alt={
                                 contact?.carData?.carName
