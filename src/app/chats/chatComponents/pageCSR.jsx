@@ -229,6 +229,39 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
     const [isMobileView, setIsMobileView] = useState(false)
     const [isLoadingTransaction, setIsLoadingTransaction] = useState(false);
 
+    useEffect(() => {
+        // split & drop any empty strings
+        const segments = pathname.split('/').filter(Boolean)
+        // segments = ["chats", "<chatId>"] for a bare chat page
+        if (segments[0] !== 'chats' || segments.length !== 2) {
+            // not /chats/<chatId> exactly, so do nothing
+            return
+        }
+
+        const chatId = segments[1]
+
+        async function redirectIfNeeded() {
+            try {
+                const res = await fetch(
+                    `/api/getChatTracker?chatId=${encodeURIComponent(chatId)}`,
+                    { cache: 'no-store' }
+                )
+                if (!res.ok) return
+
+                const { tracker } = await res.json()
+                if (tracker === 3) {
+                    router.replace(`/chats/ordered/${chatId}`)
+                } else if (tracker >= 4) {
+                    router.replace(`/chats/payment/${chatId}`)
+                }
+                // else: still in-progress, stay put
+            } catch (err) {
+                console.error('Tracker check failed:', err)
+            }
+        }
+
+        redirectIfNeeded()
+    }, [pathname, router])
     // Check if we're on mobile view
     useEffect(() => {
         const checkMobileView = () => {
