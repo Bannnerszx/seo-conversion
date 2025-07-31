@@ -139,19 +139,19 @@ export async function middleware(request) {
   // ── 3) fetch tracker and redirect if needed
   try {
     const trackerRes = await fetch(
-      `${ORINAL_URL}/api/getChatTracker?chatId=${encodeURIComponent(chatId)}`,
+      `${origin}/api/getChatTracker?chatId=${encodeURIComponent(chatId)}`,
       { next: { revalidate: 5 } }
     )
     if (trackerRes.ok) {
       const { tracker } = await trackerRes.json()
       if (tracker === 3) {
         return NextResponse.redirect(
-          new URL(`/chats/ordered/${chatId}`, ORINAL_URL)
+          new URL(`/chats/ordered/${chatId}`, origin)
         )
       }
       if (tracker >= 4) {
         return NextResponse.redirect(
-          new URL(`/chats/payment/${chatId}`, ORINAL_URL)
+          new URL(`/chats/payment/${chatId}`, origin)
         )
       }
     }
@@ -224,7 +224,7 @@ export async function middleware(request) {
   const isSpecial = parts[2] === 'ordered' || parts[2] === 'payment'
 
   if (isDeepChat && !isSpecial) {
-    return NextResponse.rewrite(new URL('/chats', ORINAL_URL))
+    return NextResponse.rewrite(new URL('/chats', origin))
   }
 
   return response

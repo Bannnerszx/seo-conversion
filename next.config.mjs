@@ -31,23 +31,20 @@ const nextConfig = {
 
 
 
-  async rewrites() {
-    return [
-      {
-        source: '/chats/:chatId',
-        destination: '/chats',
-      },
-      {
-        source: '/chats/ordered/:chatId',
-        destination: '/chats',
-      },
-      {
-        source: '/chats/payment/:chatId',
-        destination: '/chats',
-      },
+async rewrites() {
+  return [
+    
+    {
+      source: '/chats/ordered/:chatId',
+      destination: '/chats',
+    },
+    {
+      source: '/chats/payment/:chatId',
+      destination: '/chats',
+    },
 
-    ]
-  }
+  ]
+}
 }
 
 export default withAnalyzer(nextConfig)

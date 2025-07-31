@@ -98,7 +98,7 @@ export default function Footer() {
             <div>
               <p className="text-sm font-semibold text-gray-900">Body Types</p>
               <ul className="mt-4 space-y-2">
-                {["Couper", "Convertible", "Sedan", "Wagon", "Hatchback", "Van/Minivan", "Truck", "SUV"].map((type) => (
+                {["Coupe", "Convertible", "Sedan", "Wagon", "Hatchback", "Van/Minivan", "Truck", "SUV", "Mini Vehicle", "Pickup", "Bus", "Machinery"].map((type) => (
                   <li key={type}>
                     <Link href={`/stock/?bodytype=${decodeURIComponent(type)}`} className="text-sm text-gray-600 hover:text-primary">
                       {type}
@@ -110,7 +110,7 @@ export default function Footer() {
             <div>
               <p className="text-sm font-semibold text-gray-900">Truck Bodytypes</p>
               <ul className="mt-4 space-y-2">
-                {["Dump", "Flat Body", "Aluminum Van", "Aluminum Wing", "Hatchback", "Refrigerated Van", "Mixer Truck", "Tractor"].map((type) => (
+                {["Dump", "Flat Body", "Aluminum Van", "Aluminum Wing", "Crane", "Hook Lift", "Garbage Truck", "Aerial Platform", "Self Loader", "Refrigerated Van", "Mixer Truck", "Tractor"].map((type) => (
                   <li key={type}>
                     <Link href={`/stock/?bodytype=Truck&subBodyType=${decodeURIComponent(type)}`} className="text-sm text-gray-600 hover:text-primary">
                       {type}
