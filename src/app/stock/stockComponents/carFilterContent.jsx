@@ -12,8 +12,6 @@ import { Autocomplete } from "./autoComplete"
 import { useRouter } from "@bprogress/next"
 import AnimatedFilter from "./AnimatedFilter"
 
-//  import ConvertVehicleProductsButton from "./convertVehicleProducts"
-
 const ENGINE_DISPLACEMENT_OPTIONS = [
     { value: "500", label: "500cc" },
     { value: "1000", label: "1,000cc" },
@@ -959,7 +957,7 @@ export default function CarFilterContent({ currency, recommendedUrl, saleUrl, to
                                     <SelectTrigger className="py-[20px] w-full border-blue-200 focus:border-blue-500 focus:ring-blue-500 hover:border-blue-400 transition-colors">
                                         <SelectValue placeholder="All Types" />
                                     </SelectTrigger>
-                                    <SelectContent container={containerRef.current} className="z-[9004]">
+                                    <SelectContent container={containerRef.current} className="z-[9004] h-[40vh]">
                                         <SelectItem value="all">All Types</SelectItem>
                                         {carBodytypes.map((type) => (
                                             <SelectItem key={type} value={type}>
@@ -989,7 +987,7 @@ export default function CarFilterContent({ currency, recommendedUrl, saleUrl, to
                                     </SelectTrigger>
                                     <SelectContent
                                         container={containerRef.current}
-                                        className="z-[9004]"
+                                        className="z-[9004] h-[40vh]"
                                     >
                                         <SelectItem value="all">All Types</SelectItem>
                                         {subBodyTypes.map((type) => (
@@ -1127,7 +1125,7 @@ export default function CarFilterContent({ currency, recommendedUrl, saleUrl, to
                                     <SelectTrigger className="py-[20px] w-full border-blue-200 focus:border-blue-500 focus:ring-blue-500 hover:border-blue-400 transition-colors">
                                         <SelectValue placeholder="All Fuel Types" />
                                     </SelectTrigger>
-                                    <SelectContent container={containerRef.current} className="z-[9004]">
+                                    <SelectContent container={containerRef.current} className="z-[9004] max-h-[40vh]">
                                         <SelectItem value="all">All Fuel Types</SelectItem>
                                         {FUEL_TYPES.map((fuel) => (
                                             <SelectItem key={fuel.id} value={fuel.label}>
@@ -1376,15 +1374,18 @@ export default function CarFilterContent({ currency, recommendedUrl, saleUrl, to
                     )}
 
                     {/* Apply Filters Button */}
-                    <Button
-                        disabled={isSearching}
-                        aria-busy={isSearching}
-                        onClick={handleSearch}
-                        className="w-full bg-[#0000ff] hover:bg-[#0000dd] text-white font-semibold py-3 shadow-lg hover:shadow-xl transition-all hover:scale-105"
-                        size="lg"
-                    >
-                        Apply Filters ({totalCountLocal ? totalCountLocal : 0})
-                    </Button>
+                    <div className="sticky bottom-3 bg-white shadow-lg hover:shadow-xl border-t z-[9995]">
+                        <Button
+                            disabled={isSearching}
+                            aria-busy={isSearching}
+                            onClick={handleSearch}
+                            className="w-full bg-[#0000ff] hover:bg-[#0000dd] text-white font-semibold py-3 shadow-lg hover:shadow-xl transition-all hover:scale-105"
+                            size="lg"
+                        >
+                            Apply Filters ({totalCountLocal ? totalCountLocal : 0})
+                        </Button>
+                    </div>
+
                     {/* <ConvertVehicleProductsButton /> */}
                 </CardContent>
             </Card>
@@ -1560,7 +1561,7 @@ export default function CarFilterContent({ currency, recommendedUrl, saleUrl, to
                             <SelectTrigger className="py-[20px] w-full border-blue-200 focus:border-blue-500 focus:ring-blue-500 hover:border-blue-400 transition-colors">
                                 <SelectValue placeholder="All Types" />
                             </SelectTrigger>
-                            <SelectContent container={containerRef.current} className="z-[9004]">
+                            <SelectContent container={containerRef.current} className="z-[9004] ">
                                 <SelectItem value="all">All Types</SelectItem>
                                 {carBodytypes.map((type) => (
                                     <SelectItem key={type} value={type}>

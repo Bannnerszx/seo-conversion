@@ -98,7 +98,7 @@ export default function Footer() {
             <div>
               <p className="text-sm font-semibold text-gray-900">Body Types</p>
               <ul className="mt-4 space-y-2">
-                {["Coupe", "Convertible", "Sedan", "Wagon", "Hatchback", "Van/Minivan", "Truck", "SUV", "Mini Vehicle", "Pickup", "Bus", "Machinery"].map((type) => (
+                {["Coupe", "Convertible", "Sedan", "Wagon", "Hatchback", "Van/Minivan", "Truck", "SUV", "Mini Vehicle", "Pickup", "Bus"].map((type) => (
                   <li key={type}>
                     <Link href={`/stock/?bodytype=${decodeURIComponent(type)}`} className="text-sm text-gray-600 hover:text-primary">
                       {type}

@@ -219,6 +219,7 @@ export default async function StockPage({ params, searchParams }) {
     const recommendedUrl = filters.includes('recommended')
     const saleUrl = filters.includes('sale');
     const context = 'query';
+
     return (
         <SortProvider>
             <div className="z-10">

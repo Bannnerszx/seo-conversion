@@ -787,8 +787,8 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
                                     if (selected) setSelectedCurrency(selected)
                                 }}
                             >
-                                <SelectTrigger className="w-[150px] h-9 px-3 [&_svg]:text-[#0000ff] [&_svg]:stroke-[#0000ff] mx-3 -my-2">
-                                    <span className="text-sm font-small sm:inline">Currency:</span>
+                                <SelectTrigger className="w-[90px] h-9 px-3 [&_svg]:text-[#0000ff] [&_svg]:stroke-[#0000ff] mx-3 -my-2">
+                                 
                                     <SelectValue placeholder="Currency" />
                                 </SelectTrigger>
                                 <SelectContent>

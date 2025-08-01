@@ -17,6 +17,7 @@ import { BannerProvider } from "./components/BannerContext"
 import { IpInfoProvider } from "@/providers/IpInfoContext";
 import ZambiaChecker from "./components/ZambiaChecker"
 import SafeCssScanner from "./components/SafeCssScanner"
+import PayPalBanner from "./components/PaypalPopup"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -141,6 +142,7 @@ export default async function RootLayout({ children }) {
 
         <IpInfoProvider>
           <ZambiaChecker />
+          <PayPalBanner />
           {/* 
             Wrap everything in AuthProviderServer. 
             • If isValid===false (or there was that old session), we pass decodedToken={null}. 
