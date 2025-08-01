@@ -15,17 +15,11 @@ export async function generateMetadata({ params }) {
 
   // call the loader, it will never throw
   const product = await fetchCarDataAdmin(id)
-
-  // 1) if missing, either return fallback *or* 404
-  if (product === false) {
-    // → OPTION A: return safe fallback metadata
-    // return {
-    //     title: "Product Not Found | My Product Site",
-    //     description: "The product you are looking for does not exist.",
-    // }
-
-    // → OPTION B: turn into a hard 404 page
-    notFound()
+  if (!product) {
+    return {
+      title: "Product Not Found",
+      description: "The product you’re looking for doesn’t exist.",
+    };
   }
 
   // 2) otherwise, return the real metadata
