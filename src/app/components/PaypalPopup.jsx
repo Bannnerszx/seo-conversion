@@ -63,7 +63,7 @@ export default function PayPalBanner() {
                 <DialogContent className="w-[90vw] max-w-sm mx-auto text-white border-blue-400 rounded-xl">
                     <div
                         aria-hidden="true"
-                        className="absolute inset-0 bg-cover bg-center"
+                        className="absolute inset-0 bg-cover bg-center rounded-xl"
                         style={{
                             backgroundImage: "url('/banner-background.jpeg')",
                             backgroundRepeat: "no-repeat",
@@ -80,13 +80,14 @@ export default function PayPalBanner() {
                             <div className="w-26 h-10 bg-white rounded flex items-center justify-center p-1">
                                 <img src="/paypal-logo.png" alt="PayPal" className="w-full h-full object-contain" />
                             </div>
-                            <div className="text-right">
-                                <div className="text-2xl font-bold">0% Fees</div>
-                                <div className="text-xs text-blue-100">on unit payments</div>
 
-                            </div>
                         </div>
-                        <div className="flex items-center justify-start space-x-1">
+                        <div className="text-left px-2">
+                            <div className="text-2xl font-bold">0% Fees</div>
+                            <div className="text-md text-blue-100">on unit payments</div>
+
+                        </div>
+                        <div className="flex items-center justify-start space-x-1 px-2">
                             <Calendar className="h-4 w-4 text-blue-200 font-bold" />
                             <span className="text-sm text-blue-200">Campaign period: August to October</span>
                         </div>
