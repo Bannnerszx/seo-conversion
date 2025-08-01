@@ -1374,7 +1374,7 @@ export default function CarFilterContent({ currency, recommendedUrl, saleUrl, to
                     )}
 
                     {/* Apply Filters Button */}
-                    <div className="sticky bottom-3 bg-white shadow-lg hover:shadow-xl border-t z-[9995]">
+                    <div className="sticky bottom-14 bg-white shadow-lg hover:shadow-xl border-t z-[9995]">
                         <Button
                             disabled={isSearching}
                             aria-busy={isSearching}
