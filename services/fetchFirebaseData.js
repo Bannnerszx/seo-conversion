@@ -433,18 +433,18 @@ export async function fetchVehicleProductsByPage({
 
 export async function fetchCarDataAdmin(carId) {
   try {
-    // Get a reference to the document in the "VehicleProducts" collection by its ID
-    const carDocRef = db.collection("VehicleProducts").doc(carId);
-    const snapshot = await carDocRef.get();
+    const snapshot = await db.collection("VehicleProducts").doc(carId).get();
     if (!snapshot.exists) {
-      throw new Error("Car not found");
+      return null; // not found
     }
     return snapshot.data();
-  } catch (error) {
-    console.error("Error fetching vehicle data:", error);
-    throw error;
+  } catch (err) {
+    console.error("Error fetching vehicle data:", err);
+    // If you want network/SDK errors to surface as 500s, rethrow:
+    throw err;
+    // Otherwise, to collapse all errors into a 404, you could return null here instead.
   }
-};
+}
 
 export async function fetchCurrency() {
   try {

@@ -58,6 +58,13 @@ export async function generateMetadata({ params }) {
 export default async function ProductPage({ params, searchParams }) {
   const { id } = await params
   const sp = await searchParams || {}
+
+  // call the loader, it will never throw
+  const product = await fetchCarDataAdmin(id)
+  if (!product) {
+    notFound(); // renders the 404 page
+  }
+
   const country = sp.country || ""
   const port = sp.port || ""
   const countryArray = (await fetchCountries()) || []
