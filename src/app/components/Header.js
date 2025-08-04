@@ -589,8 +589,8 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
                                         height={39}
                                         quality={75}
                                         priority
-                                        sizes="53px"
-                                        className="h-full w-full object-cover object-center"
+                                        sizes="(max-width: 640px) 150px, 250px"
+                                        className="max-h-[35px] w-auto mx-auto"
 
                                     />
                                 </Link>
