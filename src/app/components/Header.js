@@ -565,13 +565,12 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
                                 <ImageHeader
                                     src="/rmj.webp"
                                     alt="REAL MOTOR JAPAN"
-                                    width={80}
+                                    width={250}
                                     height={65}
-
+                                    quality={75} // compress more aggressively
                                     priority // LCP priority
-                                    sizes="250px"
-                                    className="h-full w-full object-cover object-center"
-
+                                    sizes="(max-width: 640px) 150px, 250px"
+                                    style={{ width: "250px", height: "70px", objectFit: "cover" }}
                                 />
                             </Link>
                             <DesktopNavigation counts={counts} />
@@ -636,8 +635,8 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
                                 alt="REAL MOTOR JAPAN"
                                 width={250}
                                 height={65}
-                                quality={75}
-                                priority
+                                quality={75} // compress more aggressively
+                                priority // LCP priority
                                 sizes="(max-width: 640px) 150px, 250px"
                                 style={{ width: "250px", height: "70px", objectFit: "cover" }}
                             />
