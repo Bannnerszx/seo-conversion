@@ -1,0 +1,162 @@
+[debug] [2025-08-04T02:27:47.837Z] ----------------------------------------------------------------------
+[debug] [2025-08-04T02:27:47.839Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\marcv\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy
+[debug] [2025-08-04T02:27:47.840Z] CLI Version:   14.9.0
+[debug] [2025-08-04T02:27:47.840Z] Platform:      win32
+[debug] [2025-08-04T02:27:47.840Z] Node Version:  v20.18.2
+[debug] [2025-08-04T02:27:47.840Z] Time:          Mon Aug 04 2025 11:27:47 GMT+0900 (GMT+09:00)
+[debug] [2025-08-04T02:27:47.840Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-08-04T02:27:48.010Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-08-04T02:27:48.010Z] > authorizing via signed-in user (marc@realmotor.jp)
+[debug] [2025-08-04T02:27:48.011Z] [iam] checking project samplermj for permissions ["firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2025-08-04T02:27:48.012Z] Checked if tokens are valid: true, expires at: 1754277073479
+[debug] [2025-08-04T02:27:48.012Z] Checked if tokens are valid: true, expires at: 1754277073479
+[debug] [2025-08-04T02:27:48.013Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/samplermj:testIamPermissions [none]
+[debug] [2025-08-04T02:27:48.013Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/samplermj:testIamPermissions x-goog-quota-user=projects/samplermj
+[debug] [2025-08-04T02:27:48.013Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/samplermj:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2025-08-04T02:27:48.811Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/samplermj:testIamPermissions 200
+[debug] [2025-08-04T02:27:48.811Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/samplermj:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2025-08-04T02:27:48.812Z] Checked if tokens are valid: true, expires at: 1754277073479
+[debug] [2025-08-04T02:27:48.812Z] Checked if tokens are valid: true, expires at: 1754277073479
+[debug] [2025-08-04T02:27:48.812Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/samplermj [none]
+[debug] [2025-08-04T02:27:49.164Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/samplermj 200
+[debug] [2025-08-04T02:27:49.164Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/samplermj {"projectId":"samplermj","projectNumber":"879567069316","displayName":"realmotor-dev","name":"projects/samplermj","resources":{"hostingSite":"samplermj","realtimeDatabaseInstance":"samplermj-default-rtdb","locationId":"asia-northeast2"},"state":"ACTIVE","etag":"1_9d34b90a-9de3-4170-8bc3-2bb012493b5e"}
+[debug] [2025-08-04T02:27:51.465Z] defaultcredentials: writing to file C:\Users\marcv\AppData\Roaming\firebase\marc_realmotor_jp_application_default_credentials.json
+[debug] [2025-08-04T02:27:51.466Z] Checked if tokens are valid: true, expires at: 1754277073479
+[debug] [2025-08-04T02:27:51.466Z] Checked if tokens are valid: true, expires at: 1754277073479
+[debug] [2025-08-04T02:27:51.467Z] >>> [apiv2][query] GET https://firebasehosting.googleapis.com/v1beta1/projects/samplermj/sites pageToken=&pageSize=10
+[debug] [2025-08-04T02:27:52.207Z] <<< [apiv2][status] GET https://firebasehosting.googleapis.com/v1beta1/projects/samplermj/sites 200
+[debug] [2025-08-04T02:27:52.207Z] <<< [apiv2][body] GET https://firebasehosting.googleapis.com/v1beta1/projects/samplermj/sites {"sites":[{"name":"projects/samplermj/sites/dev-control-rmj","defaultUrl":"https://dev-control-rmj.web.app","appId":"1:879567069316:web:88fb7d09415f73c5aba2d1","type":"USER_SITE"},{"name":"projects/samplermj/sites/dev-realmotorjapan","defaultUrl":"https://dev-realmotorjapan.web.app","appId":"1:879567069316:web:1208cd45c8b20ca6aba2d1","type":"USER_SITE"},{"name":"projects/samplermj/sites/dev-ssr-realmotorjapan","defaultUrl":"https://dev-ssr-realmotorjapan.web.app","type":"USER_SITE"},{"name":"projects/samplermj/sites/samplermj","defaultUrl":"https://samplermj.web.app","type":"DEFAULT_SITE"},{"name":"projects/samplermj/sites/yanatora","defaultUrl":"https://yanatora.web.app","type":"USER_SITE"}]}
+[debug] [2025-08-04T02:27:52.208Z] Checked if tokens are valid: true, expires at: 1754277073479
+[debug] [2025-08-04T02:27:52.208Z] Checked if tokens are valid: true, expires at: 1754277073479
+[debug] [2025-08-04T02:27:52.208Z] >>> [apiv2][query] GET https://firebasehosting.googleapis.com/v1beta1/projects/samplermj/sites 
+[debug] [2025-08-04T02:27:52.661Z] <<< [apiv2][status] GET https://firebasehosting.googleapis.com/v1beta1/projects/samplermj/sites 200
+[debug] [2025-08-04T02:27:52.661Z] <<< [apiv2][body] GET https://firebasehosting.googleapis.com/v1beta1/projects/samplermj/sites {"sites":[{"name":"projects/samplermj/sites/dev-control-rmj","defaultUrl":"https://dev-control-rmj.web.app","appId":"1:879567069316:web:88fb7d09415f73c5aba2d1","type":"USER_SITE"},{"name":"projects/samplermj/sites/dev-realmotorjapan","defaultUrl":"https://dev-realmotorjapan.web.app","appId":"1:879567069316:web:1208cd45c8b20ca6aba2d1","type":"USER_SITE"},{"name":"projects/samplermj/sites/dev-ssr-realmotorjapan","defaultUrl":"https://dev-ssr-realmotorjapan.web.app","type":"USER_SITE"},{"name":"projects/samplermj/sites/samplermj","defaultUrl":"https://samplermj.web.app","type":"DEFAULT_SITE"},{"name":"projects/samplermj/sites/yanatora","defaultUrl":"https://yanatora.web.app","type":"USER_SITE"}]}
+[debug] [2025-08-04T02:27:52.661Z] Checked if tokens are valid: true, expires at: 1754277073479
+[debug] [2025-08-04T02:27:52.661Z] Checked if tokens are valid: true, expires at: 1754277073479
+[debug] [2025-08-04T02:27:52.662Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/samplermj/webApps/-/config [none]
+[debug] [2025-08-04T02:27:53.942Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/samplermj/webApps/-/config 200
+[debug] [2025-08-04T02:27:53.943Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/samplermj/webApps/-/config {"projectId":"samplermj","databaseURL":"https://samplermj-default-rtdb.asia-southeast1.firebasedatabase.app","storageBucket":"samplermj.appspot.com","locationId":"asia-northeast2","apiKey":"AIzaSyCZjXxL5ZHUpTNddi_L2qT7YBX-pIip19I","authDomain":"samplermj.firebaseapp.com","messagingSenderId":"879567069316"}
+[info] 
+   Thank you for trying our early preview of Next.js support on Firebase Hosting.
+   During the preview, support is best-effort and breaking changes can be expected. Proceed with caution.
+   The integration is known to work with Next.js version 12 - 15.0. You may encounter errors.
+
+   Documentation: https://firebase.google.com/docs/hosting/frameworks/nextjs
+   File a bug: https://github.com/firebase/firebase-tools/issues/new?template=bug_report.md
+   Submit a feature request: https://github.com/firebase/firebase-tools/issues/new?template=feature_request.md
+
+   We'd love to learn from you. Express your interest in helping us shape the future of Firebase Hosting: https://goo.gle/41enW5X
+
+[debug] [2025-08-04T02:27:58.702Z] Checked if tokens are valid: true, expires at: 1754277073479
+[debug] [2025-08-04T02:27:58.703Z] Checked if tokens are valid: true, expires at: 1754277073479
+[debug] [2025-08-04T02:27:58.703Z] >>> [apiv2][query] GET https://firebasehosting.googleapis.com/v1beta1/projects/samplermj/sites/samplermj [none]
+[debug] [2025-08-04T02:27:59.286Z] <<< [apiv2][status] GET https://firebasehosting.googleapis.com/v1beta1/projects/samplermj/sites/samplermj 200
+[debug] [2025-08-04T02:27:59.286Z] <<< [apiv2][body] GET https://firebasehosting.googleapis.com/v1beta1/projects/samplermj/sites/samplermj {"name":"projects/samplermj/sites/samplermj","defaultUrl":"https://samplermj.web.app","type":"DEFAULT_SITE"}
+[info]    ▲ Next.js 15.1.4
+
+[info]    - Environments: .env.local
+
+
+[info]    Creating an optimized production build ...
+
+[debug] [2025-08-04T02:28:41.182Z] ----------------------------------------------------------------------
+[debug] [2025-08-04T02:28:41.184Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\marcv\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy
+[debug] [2025-08-04T02:28:41.185Z] CLI Version:   14.9.0
+[debug] [2025-08-04T02:28:41.185Z] Platform:      win32
+[debug] [2025-08-04T02:28:41.185Z] Node Version:  v20.18.2
+[debug] [2025-08-04T02:28:41.185Z] Time:          Mon Aug 04 2025 11:28:41 GMT+0900 (GMT+09:00)
+[debug] [2025-08-04T02:28:41.185Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-08-04T02:28:41.351Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-08-04T02:28:41.352Z] > authorizing via signed-in user (marc@realmotor.jp)
+[debug] [2025-08-04T02:28:41.352Z] [iam] checking project real-motor-japan for permissions ["firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2025-08-04T02:28:41.353Z] Checked if tokens are valid: true, expires at: 1754277073479
+[debug] [2025-08-04T02:28:41.353Z] Checked if tokens are valid: true, expires at: 1754277073479
+[debug] [2025-08-04T02:28:41.354Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/real-motor-japan:testIamPermissions [none]
+[debug] [2025-08-04T02:28:41.354Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/real-motor-japan:testIamPermissions x-goog-quota-user=projects/real-motor-japan
+[debug] [2025-08-04T02:28:41.354Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/real-motor-japan:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2025-08-04T02:28:42.155Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/real-motor-japan:testIamPermissions 200
+[debug] [2025-08-04T02:28:42.155Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/real-motor-japan:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2025-08-04T02:28:42.156Z] Checked if tokens are valid: true, expires at: 1754277073479
+[debug] [2025-08-04T02:28:42.156Z] Checked if tokens are valid: true, expires at: 1754277073479
+[debug] [2025-08-04T02:28:42.156Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/real-motor-japan [none]
+[debug] [2025-08-04T02:28:42.481Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/real-motor-japan 200
+[debug] [2025-08-04T02:28:42.481Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/real-motor-japan {"projectId":"real-motor-japan","projectNumber":"854100669672","displayName":"realmotorjapan","name":"projects/real-motor-japan","resources":{"hostingSite":"real-motor-japan"},"state":"ACTIVE","etag":"1_668ccc45-8b11-4ab5-a8e5-1862cffb2947"}
+[debug] [2025-08-04T02:28:44.635Z] defaultcredentials: writing to file C:\Users\marcv\AppData\Roaming\firebase\marc_realmotor_jp_application_default_credentials.json
+[debug] [2025-08-04T02:28:44.636Z] Checked if tokens are valid: true, expires at: 1754277073479
+[debug] [2025-08-04T02:28:44.636Z] Checked if tokens are valid: true, expires at: 1754277073479
+[debug] [2025-08-04T02:28:44.636Z] >>> [apiv2][query] GET https://firebasehosting.googleapis.com/v1beta1/projects/real-motor-japan/sites pageToken=&pageSize=10
+[debug] [2025-08-04T02:28:45.353Z] <<< [apiv2][status] GET https://firebasehosting.googleapis.com/v1beta1/projects/real-motor-japan/sites 200
+[debug] [2025-08-04T02:28:45.353Z] <<< [apiv2][body] GET https://firebasehosting.googleapis.com/v1beta1/projects/real-motor-japan/sites {"sites":[{"name":"projects/real-motor-japan/sites/control-realmotorjapan","defaultUrl":"https://control-realmotorjapan.web.app","appId":"1:854100669672:web:784f205b71435f0daf855d","type":"USER_SITE"},{"name":"projects/real-motor-japan/sites/real-motor-japan","defaultUrl":"https://real-motor-japan.web.app","appId":"1:854100669672:web:c224be87d85439b5af855d","type":"DEFAULT_SITE"}]}
+[debug] [2025-08-04T02:28:45.353Z] Checked if tokens are valid: true, expires at: 1754277073479
+[debug] [2025-08-04T02:28:45.353Z] Checked if tokens are valid: true, expires at: 1754277073479
+[debug] [2025-08-04T02:28:45.353Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/-/webApps/1:854100669672:web:c224be87d85439b5af855d/config [none]
+[debug] [2025-08-04T02:28:46.485Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/-/webApps/1:854100669672:web:c224be87d85439b5af855d/config 200
+[debug] [2025-08-04T02:28:46.486Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/-/webApps/1:854100669672:web:c224be87d85439b5af855d/config {"projectId":"real-motor-japan","appId":"1:854100669672:web:c224be87d85439b5af855d","storageBucket":"real-motor-japan.firebasestorage.app","apiKey":"AIzaSyC1oPK69XInlpw-E9BowLGocFq2i8wRjZA","authDomain":"real-motor-japan.firebaseapp.com","messagingSenderId":"854100669672","measurementId":"G-SS7WCX5ZMV"}
+[info] 
+   Thank you for trying our early preview of Next.js support on Firebase Hosting.
+   During the preview, support is best-effort and breaking changes can be expected. Proceed with caution.
+   The integration is known to work with Next.js version 12 - 15.0. You may encounter errors.
+
+   Documentation: https://firebase.google.com/docs/hosting/frameworks/nextjs
+   File a bug: https://github.com/firebase/firebase-tools/issues/new?template=bug_report.md
+   Submit a feature request: https://github.com/firebase/firebase-tools/issues/new?template=feature_request.md
+
+   We'd love to learn from you. Express your interest in helping us shape the future of Firebase Hosting: https://goo.gle/41enW5X
+
+[debug] [2025-08-04T02:28:51.245Z] Checked if tokens are valid: true, expires at: 1754277073479
+[debug] [2025-08-04T02:28:51.245Z] Checked if tokens are valid: true, expires at: 1754277073479
+[debug] [2025-08-04T02:28:51.246Z] >>> [apiv2][query] GET https://firebasehosting.googleapis.com/v1beta1/projects/real-motor-japan/sites/real-motor-japan [none]
+[debug] [2025-08-04T02:28:51.841Z] <<< [apiv2][status] GET https://firebasehosting.googleapis.com/v1beta1/projects/real-motor-japan/sites/real-motor-japan 200
+[debug] [2025-08-04T02:28:51.841Z] <<< [apiv2][body] GET https://firebasehosting.googleapis.com/v1beta1/projects/real-motor-japan/sites/real-motor-japan {"name":"projects/real-motor-japan/sites/real-motor-japan","defaultUrl":"https://real-motor-japan.web.app","appId":"1:854100669672:web:c224be87d85439b5af855d","type":"DEFAULT_SITE"}
+[info]    ▲ Next.js 15.1.4
+
+[info]    - Environments: .env.local
+
+
+[info]    Creating an optimized production build ...
+
+[info] Browserslist: browsers data (caniuse-lite) is 8 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+
+[info]  ⚠ Compiled with warnings
+
+
+[info] ./node_modules/framer-motion/dist/cjs/index.js
+Module not found: Can't resolve '@emotion/is-prop-valid' in 'C:\Users\marcv\OneDrive\Desktop\UPLOAD TO GITHUB\Production V2\seo-conversion\node_modules\framer-motion\dist\cjs'
+
+Import trace for requested module:
+./node_modules/framer-motion/dist/cjs/index.js
+./src/app/homeComponents/MapSection.js
+
+./node_modules/react-native-web/dist/exports/render/index.js
+Attempted import error: 'hydrate' is not exported from 'react-dom' (imported as 'domLegacyHydrate').
+
+Import trace for requested module:
+./node_modules/react-native-web/dist/exports/render/index.js
+./node_modules/react-native-web/dist/index.js
+./src/app/chats/chatComponents/previewInvoice.js
+./src/app/chats/chatComponents/TransactionCSR.jsx
+./src/app/chats/chatComponents/pageCSR.jsx
+
+./node_modules/react-native-web/dist/exports/unmountComponentAtNode/index.js
+Attempted import error: 'unmountComponentAtNode' is not exported from 'react-dom' (imported as 'unmountComponentAtNode').
+
+Import trace for requested module:
+./node_modules/react-native-web/dist/exports/unmountComponentAtNode/index.js
+./node_modules/react-native-web/dist/index.js
+./src/app/chats/chatComponents/previewInvoice.js
+./src/app/chats/chatComponents/TransactionCSR.jsx
+./src/app/chats/chatComponents/pageCSR.jsx
+
+./src/pages/api/fetch-new-vehicle.js
+Attempted import error: 'fetchVehicleProducts' is not exported from '../../../services/fetchFirebaseData' (imported as 'fetchVehicleProducts').
+
+Import trace for requested module:
+./src/pages/api/fetch-new-vehicle.js
+
+
+[info]    Linting and checking validity of types ...
+
