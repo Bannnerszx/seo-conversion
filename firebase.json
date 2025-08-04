@@ -1,1 +1,18 @@
-{}
+{
+  "hosting": {
+    "source": ".", 
+    "rewrites": [
+      {
+        "source": "/sitemap.xml",
+        "destination": "https://storage.googleapis.com/real-motor-japan.firebasestorage.app/sitemap.xml"
+      }
+    ],
+    "redirects": [
+      {
+        "source": "/sitemaps/:path*",
+        "destination": "https://storage.googleapis.com/real-motor-japan.firebasestorage.app/sitemaps/:path*",
+        "type": 301
+      }
+    ]
+  }
+}

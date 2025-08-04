@@ -23,10 +23,9 @@ export default function HeroBanner({ unsoldVehicleCount }) {
         <Image
           src="/samplebanner3.webp"
           alt="Hero banner"
-          fill
-          sizes="(max-width: 720px) 720px, 100vw"
-          quality={75}
-          style={{ objectFit: 'cover' }}
+          width={1220}
+          height={720}
+          className="h-full w-full object-cover object-center"
           priority
         />
       </div>

@@ -565,12 +565,13 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
                                 <ImageHeader
                                     src="/rmj.webp"
                                     alt="REAL MOTOR JAPAN"
-                                    width={250}
+                                    width={80}
                                     height={65}
-                                    quality={75} // compress more aggressively
+
                                     priority // LCP priority
-                                    sizes="(max-width: 640px) 150px, 250px"
-                                    style={{ width: "250px", height: "70px", objectFit: "cover" }}
+                                    sizes="250px"
+                                    className="h-full w-full object-cover object-center"
+
                                 />
                             </Link>
                             <DesktopNavigation counts={counts} />
@@ -585,12 +586,13 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
                                     <ImageHeader
                                         src="/jumvea.webp"
                                         alt="REAL MOTOR JAPAN"
-                                        width={100}
+                                        width={80}
                                         height={39}
-                                        quality={80}
+                                        quality={75}
                                         priority
-                                        sizes="(max-width: 640px) 150px, 250px"
-                                        className="max-h-[35px] w-auto mx-auto"
+                                        sizes="53px"
+                                        className="h-full w-full object-cover object-center"
+
                                     />
                                 </Link>
                                 <p className="text-sm font-bold text-gray-700 text-center">
