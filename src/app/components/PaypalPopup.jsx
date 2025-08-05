@@ -55,7 +55,7 @@ const slides = [
 ]
 
 export default function PayPalBanner() {
-    const [isVisible, setIsVisible] = useState(true)
+    const [isVisible, setIsVisible] = useState(false)
     const [isMobileModalOpen, setIsMobileModalOpen] = useState(false)
     const [isMobile, setIsMobile] = useState(false)
     const [currentSlide, setCurrentSlide] = useState(0)
