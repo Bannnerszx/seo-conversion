@@ -62,17 +62,17 @@ const Dropdown = ({ placeholder, options, value, onChange, className = '' }) => 
                 <SelectTrigger className={`bg-white ${className}`}>
                     <SelectValue placeholder={placeholder} />
                 </SelectTrigger>
-         <SelectContent
-  side="bottom"
-  align="start"
-  sideOffset={4}
-  collisionPadding={{ top: 8, bottom: 8, left: 8, right: 8 }}
-  className="
+                <SelectContent
+                    side="bottom"
+                    align="start"
+                    sideOffset={4}
+                    collisionPadding={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    className="
     w-[var(--radix-select-trigger-width)]
     overflow-y-auto
     max-h-[20vh]
   "
->
+                >
                     {options.map((option, idx) => (
                         <SelectItem key={idx} value={option.value}>
                             {option.label}
@@ -114,7 +114,7 @@ async function handleCreateConversation(
     }
     const { exists, missingFields } = await checkUserExist(user)
     if (!exists || (missingFields && missingFields.length > 0)) {
-       return router.push("/accountCreation")
+        return router.push("/accountCreation")
     }
 
 
@@ -541,7 +541,7 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
             )
         ) ||
         carData?.stockStatus?.startsWith("Sold") ||
-        carData?.stockStatus === "Reserved";
+       carData?.stockStatus?.startsWith("Reserved") || carData?.stockStatus === "Hidden";
     const src =
         Array.isArray(images) && images?.length > 0 && images[currentImageIndex]
             ? images[currentImageIndex]
@@ -571,6 +571,43 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
             });
         return () => { mounted = false; };
     }, []);
+    function formatStockStatus(rawStatus) {
+
+        if (!rawStatus) return "UNAVAILABLE";
+
+        if (rawStatus === "Sold") {
+            return "SOLD";
+        }
+        if (rawStatus.startsWith("Reserved")) {
+            return "RESERVED";
+        }
+        if (rawStatus === "hidden") {
+            return "UNAVAILABLE";
+        }
+        // anything else falls back to unavailable
+        return "UNAVAILABLE";
+    }
+    const status = formatStockStatus(carData?.stockStatus);
+
+    // 2) Decide when to show the watermark
+    const showWatermark = ["SOLD", "RESERVED", "UNAVAILABLE"].includes(status);
+
+    // 3) Pick a color class for each status
+    let watermarkColorClass;
+    switch (status) {
+        case "SOLD":
+            watermarkColorClass = "text-red-500/50";
+            break;
+        case "RESERVED":
+            watermarkColorClass = "text-[#ffd700]/50";
+            break;
+        case "UNAVAILABLE":
+            // without text-sm, it'll stay text-[120px]/max-[426px]:text-[25px]
+            watermarkColorClass = "text-gray-500/30";
+            break;
+        default:
+            watermarkColorClass = "";
+    }
     return (
         <div className=" mx-auto px-4 py-8 z-[9999]">
             <FloatingAlertPortal
@@ -788,7 +825,7 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
                                 }}
                             >
                                 <SelectTrigger className="w-[90px] h-9 px-3 [&_svg]:text-[#0000ff] [&_svg]:stroke-[#0000ff] mx-3 -my-2">
-                                 
+
                                     <SelectValue placeholder="Currency" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -811,24 +848,19 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
 
                         <Card className="my-6 relative overflow-visible">
                             {/* Watermark overlay */}
-                            {(carData.stockStatus.startsWith("Sold") || carData.stockStatus === "Reserved") && (
+                            {showWatermark && (
                                 <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none">
                                     <span
                                         className={`
-        text-[120px]
+        text-[85px]
         max-[426px]:text-[25px]
         font-bold
         transform -rotate-45
         select-none
-        ${carData.stockStatus.startsWith("Sold")
-                                                ? "text-red-500/50"
-                                                : "text-[#ffd700]/50"
-                                            }
+        ${watermarkColorClass}
       `}
                                     >
-                                        {carData.stockStatus.startsWith("Sold")
-                                            ? "SOLD"
-                                            : carData.stockStatus.toUpperCase()}
+                                        {status}
                                     </span>
                                 </div>
                             )}

@@ -15,6 +15,7 @@ import DeliveryAddress from "./deliveryAddress"
 import ChatMessage from "./messageLinks"
 import moment from "moment"
 import WarningDialog from "./warningDialog"
+import ProductReview from "./ProductReview"
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
 
 export default function TransactionCSR({ vehicleStatus, accountData, isMobileView, isDetailView, handleBackToList, bookingData, countryList, currency, dueDate, handleLoadMore, invoiceData, userEmail, contact, messages, onSendMessage, isLoading, chatId, chatMessages }) {
@@ -335,16 +336,19 @@ export default function TransactionCSR({ vehicleStatus, accountData, isMobileVie
 
                 ref={scrollAreaRef} className="h-full p-4 custom-scroll bg-[#E5EBFE]"
             >
+
                 <div className="space-y-4 mt-8">
                     {chatMessages.slice().reverse().map((message, index) => (
                         <div key={index} className="w-full">
                             <div className={`flex w-full ${message.sender === userEmail ? "justify-end" : "justify-start"}`}>
+
                                 <div
                                     className={`max-w-[75%] p-3 rounded-lg ${message.sender === userEmail
                                         ? "bg-blue-500 text-white rounded-br-none"
                                         : "bg-white text-gray-800 rounded-bl-none"
                                         }`}
                                 >
+
                                     {!message.messageType && (
                                         <p
                                             style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
@@ -370,6 +374,7 @@ export default function TransactionCSR({ vehicleStatus, accountData, isMobileVie
                                             {renderTextWithLinks(message.text)}
                                         </p>
                                     )}
+
                                     {message.messageType === 'InputPayment' && (
                                         <p
                                             style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
@@ -451,6 +456,7 @@ export default function TransactionCSR({ vehicleStatus, accountData, isMobileVie
                                     <ChatMessage accountData={accountData} message={message} userEmail={userEmail} />
 
                                 </div>
+
                             </div>
 
 
@@ -459,9 +465,14 @@ export default function TransactionCSR({ vehicleStatus, accountData, isMobileVie
                                     {message.timestamp}
                                 </span>
                             </div>
+
                         </div>
                     ))}
+                    {contact?.stepIndicator?.value >= 6 && (
 
+                        <ProductReview />
+
+                    )}
                     {isLoading && (
                         <div className="flex justify-start">
                             <div className="max-w-[70%] p-3 rounded-lg bg-gray-200 text-gray-800 rounded-bl-none">

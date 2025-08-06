@@ -1,5 +1,6 @@
 
 'use server'
+import { db } from "@/lib/firebaseAdmin";
 import MainOrderPage from "./orderComponents/orderMain";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -7,19 +8,74 @@ import { fetchNotificationCounts, getAccountData, checkUserExist } from "../acti
 import { fetchCurrency, } from "../../../services/fetchFirebaseData";
 import ClientAppCheck from "../../../firebase/ClientAppCheck";
 
+async function fetchPrefetchedData(userEmail) {
+  try {
+    // 1) fetch 12 most recent chats
+    const chatsSnapshot = await db
+      .collection("chats")
+      .where("participants.customer", "==", userEmail)
+      .orderBy("lastMessageDate", "desc")
+      .limit(20)
+      .get();
+
+    const data = await Promise.all(
+      chatsSnapshot.docs.map(async (chatDoc) => {
+        const chat = { id: chatDoc.id, ...chatDoc.data() };
+
+
+        // 3) one-off fetch of the invoice doc
+        let invoiceData = null;
+        let formattedDate = "No due date available";
+
+        const invoiceNumber = chat.invoiceNumber;
+        if (invoiceNumber) {
+          const invoiceSnap = await db
+            .collection("IssuedInvoice")
+            .doc(invoiceNumber)
+            .get();
+
+          if (invoiceSnap.exists) {
+            invoiceData = invoiceSnap.data();
+
+            const due = invoiceData.bankInformations?.dueDate;
+            if (due) {
+              formattedDate = new Intl.DateTimeFormat("en-US", {
+                month: "long",
+                day: "2-digit",
+                year: "numeric",
+              }).format(new Date(due));
+            }
+          }
+        }
+
+        return {
+          ...chat,
+
+          invoice: { invoiceData, formattedDate },
+        };
+      })
+    );
+
+    return data;
+  } catch (error) {
+    console.error("Error prefetching data with Admin SDK:", error);
+    return [];
+  }
+}
+
 
 export async function generateMetadata({ params }) {
-    return {
-        title: 'Orders | REAL MOTOR JAPAN',
-        description: 'Orders',
-    }
+  return {
+    title: 'Orders | REAL MOTOR JAPAN',
+    description: 'Orders',
+  }
 };
 
 
 export default async function OrderPage() {
   // 1️⃣ Read comma-separated list of all legacy cookie names and the current cookie name
   const OLD_NAMES_ENV = process.env.OLD_SESSION_COOKIE_NAMES
-  const COOKIE_NAME   = process.env.SESSION_COOKIE_NAME   
+  const COOKIE_NAME = process.env.SESSION_COOKIE_NAME
 
   // 2️⃣ Convert the legacy names string into an array
   const oldNames = OLD_NAMES_ENV
@@ -73,17 +129,19 @@ export default async function OrderPage() {
   if (!exists || (missingFields && missingFields.length > 0)) {
     redirect("/accountCreation")
   }
-  
+
   // 9️⃣ Fetch any needed data
-  const currency    = await fetchCurrency()
+  const currency = await fetchCurrency()
   const accountData = await getAccountData(userEmail)
-  const count       = await fetchNotificationCounts({ userEmail })
+  const count = await fetchNotificationCounts({ userEmail })
+  const prefetchedData = await fetchPrefetchedData(userEmail);
 
   // 🔟 Render the protected order page
   return (
     <>
       <ClientAppCheck />
       <MainOrderPage
+        prefetchedData={prefetchedData}
         count={count}
         currency={currency}
         userEmail={userEmail}

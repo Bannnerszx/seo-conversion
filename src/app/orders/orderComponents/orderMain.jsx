@@ -8,6 +8,7 @@ import Sidebar from "./sidebar"
 import { SideMenu } from "./sideMenu";
 import Link from "next/link"
 import { ShoppingBag } from "lucide-react"
+import Component from "./OrderList"
 let lastVisible = null;
 export function subscribeToChatList(userEmail, callback) {
   if (!userEmail) {
@@ -104,7 +105,7 @@ const generateStatuses = (item) => [
   }
 ];
 
-export default function MainOrderPage({ count, userEmail, currency, accountData }) {
+export default function MainOrderPage({ count, userEmail, currency, accountData, prefetchedData }) {
   const [chatList, setChatList] = useState([]);
   const [isRightMenuOpen, setIsRightMenuOpen] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -120,7 +121,7 @@ export default function MainOrderPage({ count, userEmail, currency, accountData 
     return () => unsubscribe()
   }, [userEmail]);
 
-  
+
   // Sample data based on your transaction list
 
 
@@ -161,11 +162,7 @@ export default function MainOrderPage({ count, userEmail, currency, accountData 
         {/* Order list */}
         <div className="flex-1 p-4 space-y-4 bg-gray-50 overflow-y-auto">
           {chatList.length > 0 ? (
-
-            chatList.map((order) => (
-              <OrderCard userEmail={userEmail} key={order.id} order={order} currency={currency} />
-            ))
-
+            <Component prefetchedData={prefetchedData} currency={currency} userEmail={userEmail} />
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-center p-8">
               <div className="text-gray-400 mb-4">

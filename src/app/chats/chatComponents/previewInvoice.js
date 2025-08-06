@@ -21,10 +21,32 @@ const PreviewInvoice = ({ messageText, activeChatId, selectedChatData, invoiceDa
     const [imageLoaded, setImageLoaded] = useState(false)
 
     const [previewInvoiceVisible, setPreviewInvoiceVisible] = useState(false);
+    const [screenWidth, setScreenWidth] = useState(0);
 
+    // 2. Use useEffect to access `window` safely.
+    useEffect(() => {
+        // This code only runs on the client, after the component has mounted.
+
+        // Function to update the state with the current window width
+        const handleResize = () => {
+            setScreenWidth(window.innerWidth);
+        };
+
+        // Set the initial width
+        handleResize();
+
+        // Add event listener to update the width when the user resizes the window
+        window.addEventListener('resize', handleResize);
+
+        // 3. Cleanup function: Remove the event listener when the component unmounts.
+        // This is crucial to prevent memory leaks.
+        return () => {
+            window.removeEventListener('resize', handleResize);
+        };
+    }, []);
 
     const [isPreviewHovered, setIsPreviewHovered] = useState(false);
-    const screenWidth = window.innerWidth
+
     const invoiceRef = useRef(null);
     const qrCodeRef = useRef(null);
     const [invoiceImageUri, setInvoiceImageUri] = useState('');
