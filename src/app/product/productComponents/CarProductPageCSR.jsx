@@ -573,19 +573,19 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
     }, []);
     function formatStockStatus(rawStatus) {
 
-        if (!rawStatus) return "UNAVAILABLE";
+        if (!rawStatus) return "";
 
-        if (rawStatus === "Sold") {
+        if (rawStatus.startsWith("Sold")) {
             return "SOLD";
         }
         if (rawStatus.startsWith("Reserved")) {
             return "RESERVED";
         }
-        if (rawStatus === "hidden") {
+        if (rawStatus === "Hidden") {
             return "UNAVAILABLE";
         }
         // anything else falls back to unavailable
-        return "UNAVAILABLE";
+        return "";
     }
     const status = formatStockStatus(carData?.stockStatus);
 
