@@ -32,15 +32,15 @@ export default function SignUpForm() {
         })
     }
 
-    useEffect(() => {
-        if (showSuccessScreen) {
-            setTimeout(() => setScale(1), 100)
-            const redirectTimer = setTimeout(() => {
-                router.push("/login")
-            }, 3000)
-            return () => clearTimeout(redirectTimer)
-        }
-    }, [showSuccessScreen, router])
+    // useEffect(() => {
+    //     if (showSuccessScreen) {
+    //         setTimeout(() => setScale(1), 100)
+    //         const redirectTimer = setTimeout(() => {
+    //             router.push("/login")
+    //         }, 3000)
+    //         return () => clearTimeout(redirectTimer)
+    //     }
+    // }, [showSuccessScreen, router])
 
     const handleSubmit = async (e) => {
         e.preventDefault()
@@ -76,7 +76,8 @@ export default function SignUpForm() {
                 setError(`Error [${result.code}]: ${result.message}`)
                 return
             }
-            setShowSuccessScreen(true)
+            // setShowSuccessScreen(true)
+            router.replace('/signup/success')
         } catch (unexpected) {
             console.error(unexpected)
             setError(unexpected.message || "An unexpected error occurred.")
@@ -86,16 +87,33 @@ export default function SignUpForm() {
     }
 
     const handleGoogleSignUp = async () => {
-        const auth = getAuth()
         setLoading(true)
         try {
+            const auth = getAuth()
             const provider = new GoogleAuthProvider()
-            await signInWithPopup(auth, provider)
-            const token = await auth.currentUser.getIdToken()
+            const result = await signInWithPopup(auth, provider)
+
+            // Determine if this is the user's first-ever sign-in (i.e., a signup)
+            const u = result.user
+            const isNew =
+                u?.metadata?.creationTime && u?.metadata?.lastSignInTime &&
+                u.metadata.creationTime === u.metadata.lastSignInTime
+
+            const token = await u.getIdToken()
             await sendTokenToServer(token)
-            window.location.href = "/"
+
+            if (isNew) {
+                // App Router:
+                // router.replace('/signup/success')
+                // If you don't have router here, fallback:
+                window.location.replace('/signup/success')
+            } else {
+                // Existing account → normal login destination
+                window.location.replace('/') // or wherever you want to land them
+            }
         } catch (err) {
             console.error(err)
+            setError(err.message || 'Google sign-in failed.')
         } finally {
             setLoading(false)
         }

@@ -4,7 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { useState, useEffect, useRef } from "react"
-
+import { useSearchParams } from 'next/navigation';
 import { Select, SelectTrigger, SelectItem, SelectValue, SelectContent } from "@/components/ui/select"
 import { Icon, Calculator } from 'lucide-react';
 import { usePathname } from "next/navigation"
@@ -47,6 +47,12 @@ const Dropdown = ({ placeholder, options, value, onChange, containerRef }) => {
     )
 }
 export default function PriceCalculatorCard({ countryArray, context, onClose }) {
+    const searchParams = useSearchParams();
+    const [pendingUrlPort, setPendingUrlPort] = useState(null);
+    const [pendingUrlInspection, setPendingUrlInspection] = useState(null);
+    const [didHydrateInspectionFromUrl, setDidHydrateInspectionFromUrl] = useState(false);
+
+    const preferUrlInspectionRef = useRef(false);
     const containerRef = useRef(null)
     const router = useRouter()
     const pathname = usePathname();
@@ -57,6 +63,7 @@ export default function PriceCalculatorCard({ countryArray, context, onClose }) 
         'Select Country': 'none',
         'Select Port': 'none',
     })
+
     useEffect(() => {
         if (!selectedCountry) {
             setPorts([])
@@ -110,12 +117,28 @@ export default function PriceCalculatorCard({ countryArray, context, onClose }) 
     const { inspectionData } = useInspectionToggle(dropdownValuesLocations);
     const isRequired = inspectionData?.inspectionIsRequired === "Required";
     useEffect(() => {
-        setInspectionToggle(inspectionData?.toggle);
-        if (!isRequired) {
-            setInspectionToggle(false)
+        // 1) Force on if required by port
+        if (isRequired) {
+            setInspectionToggle(true);
+            return;
         }
-    }, [selectedCountry, isRequired]);
 
+        // 2) If URL contains an inspection value, honor it (don’t overwrite)
+        if (preferUrlInspectionRef.current && pendingUrlInspection !== null) {
+            setInspectionToggle(!!pendingUrlInspection);
+            return;
+        }
+
+        // 3) If the user manually toggled, don’t auto-override anymore
+        if (userSetInspectionRef.current) return;
+
+        // 4) Otherwise fall back to inspectionData or false
+        if (typeof inspectionData?.toggle === 'boolean') {
+            setInspectionToggle(inspectionData.toggle);
+        } else {
+            setInspectionToggle(false);
+        }
+    }, [isRequired, pendingUrlInspection, inspectionData?.toggle, setInspectionToggle]);
     useEffect(() => {
         const getPortInspection = async () => {
             // More comprehensive check for invalid values
@@ -161,10 +184,12 @@ export default function PriceCalculatorCard({ countryArray, context, onClose }) 
         }
     };
     const [insurance, setInsurance] = useState(false)
-    const [inspection, setInspection] = useState(false)
 
+    const userSetInspectionRef = useRef(false);
     const handleSubmit = async (e) => {
-        onClose()
+        e?.preventDefault?.();
+        onClose();
+
         const response = await fetch('/api/country-port-selection', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -173,26 +198,98 @@ export default function PriceCalculatorCard({ countryArray, context, onClose }) 
 
         const result = await response.json();
 
-        const currentQuery = window.location.search;
-        const params = new URLSearchParams(currentQuery);
+        const params = new URLSearchParams(window.location.search);
+
+        const setPersist = (k, v) => {
+            document.cookie = `${k}=${encodeURIComponent(v)}; path=/; max-age=31536000`;
+            localStorage.setItem(k, v);
+        };
+        const clearPersist = (k) => {
+            document.cookie = `${k}=; path=/; max-age=0`;
+            localStorage.removeItem(k);
+        };
 
         if (result.country && result.country.toLowerCase() !== 'none') {
             params.set('country', result.country);
+            setPersist('stock_country', result.country);
         } else {
-            params.delete('country')
+            params.delete('country');
+            clearPersist('stock_country');
         }
 
         if (result.port && result.port.toLowerCase() !== 'none') {
-            params.set('port', result.port)
+            params.set('port', result.port);
+            setPersist('stock_port', result.port);
         } else {
-            params.delete('port')
+            params.delete('port');
+            clearPersist('stock_port');
+        }
+        if (isRequired || inspectionToggle) {
+            params.set('inspection', '1');
+            setPersist('stock_inspection', '1');
+        } else {
+            params.delete('inspection');
+            clearPersist('stock_inspection');
         }
         const finalQuery = params.toString();
         const finalUrl = finalQuery ? `${pathname}?${finalQuery}` : pathname;
+        router.replace(finalUrl, { scroll: false });
+    };
+    useEffect(() => {
+        // already reading country/port...
+        const urlCountry = searchParams?.get('country');
+        const urlPortRaw = searchParams?.get('port');
+        const urlInspectionRaw = searchParams?.get('inspection'); // <-- NEW
 
-        router.push(finalUrl);
+        // country (existing)
+        if (urlCountry && urlCountry.toLowerCase() !== 'none') {
+            setSelectedCountry(urlCountry);
+            setDropdownValuesLocations((prev) => ({ ...prev, 'Select Country': urlCountry }));
+        } else if (urlCountry === 'none' || urlCountry === '' || urlCountry === null) {
+            setSelectedCountry('');
+            setDropdownValuesLocations((prev) => ({ ...prev, 'Select Country': 'none' }));
+        }
 
-    }
+        // port (existing)
+        if (urlPortRaw && urlPortRaw.toLowerCase() !== 'none') {
+            setPendingUrlPort(urlPortRaw);
+        } else if (urlPortRaw === 'none' || urlPortRaw === '' || urlPortRaw === null) {
+            setDropdownValuesLocations((prev) => ({ ...prev, 'Select Port': 'none' }));
+        }
+        if (urlInspectionRaw !== null) {
+            const val = /^(1|true|on|yes)$/i.test(urlInspectionRaw);
+            setPendingUrlInspection(val);
+            preferUrlInspectionRef.current = true;     // <-- add this
+        } else {
+            // param removed → stop preferring URL unless user toggled later
+            preferUrlInspectionRef.current = false;    // <-- add this
+        }
+        // inspection (NEW) — store temporarily until we know if the port requires inspection
+        if (urlInspectionRaw !== null) {
+            const val = /^(1|true|on|yes)$/i.test(urlInspectionRaw);
+            setPendingUrlInspection(val);
+            setDidHydrateInspectionFromUrl(false); // allow a one-time hydrate below
+        }
+    }, [searchParams]);
+
+
+    useEffect(() => {
+        if (!pendingUrlPort) return;
+        if (!Array.isArray(ports) || ports.length === 0) return;
+
+        const normalize = (p) => p.replace(/\./g, '_');
+        const wanted = normalize(pendingUrlPort);
+
+        const exists = ports.some((p) => normalize(p).toLowerCase() === wanted.toLowerCase());
+
+        setDropdownValuesLocations((prev) => ({
+            ...prev,
+            'Select Port': exists ? wanted : 'Others', // fallback if not found
+        }));
+
+        setPendingUrlPort(null);
+    }, [ports, pendingUrlPort]);
+
     const calcContent = (
         <>
             <Card className="p-6 shadow-lg ">
@@ -234,11 +331,35 @@ export default function PriceCalculatorCard({ countryArray, context, onClose }) 
                                 disabled={inspectionData?.isToggleDisabled || isRequired}
                                 onCheckedChange={(checked) => {
                                     if (!isRequired) {
+                                        userSetInspectionRef.current = true;
                                         setInspectionToggle(checked);
+
+                                        // keep URL + cookies/localStorage in sync
+                                        const params = new URLSearchParams(window.location.search);
+                                        const setPersist = (k, v) => {
+                                            document.cookie = `${k}=${encodeURIComponent(v)}; path=/; max-age=31536000`;
+                                            localStorage.setItem(k, v);
+                                        };
+                                        const clearPersist = (k) => {
+                                            document.cookie = `${k}=; path=/; max-age=0`;
+                                            localStorage.removeItem(k);
+                                        };
+
+                                        if (checked) {
+                                            params.set('inspection', '1');
+                                            setPersist('stock_inspection', '1');
+                                        } else {
+                                            params.delete('inspection');
+                                            clearPersist('stock_inspection');
+                                        }
+
+                                        const q = params.toString();
+                                        router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
                                     }
                                 }}
                                 className="data-[state=checked]:bg-blue-600"
                             />
+
                         </div>
                         <div className="flex items-center justify-between">
                             <Label htmlFor="insurance" className="text-sm font-medium text-blue-800">
@@ -265,7 +386,7 @@ export default function PriceCalculatorCard({ countryArray, context, onClose }) 
     const sidebarCalc = (
         <>
             <div className="pb-4">
-              
+
 
                 <div className="space-y-4">
                     <div>
@@ -301,10 +422,33 @@ export default function PriceCalculatorCard({ countryArray, context, onClose }) 
                                 onCheckedChange={(checked) => {
                                     if (!isRequired) {
                                         setInspectionToggle(checked);
+
+                                        // keep URL + cookies/localStorage in sync
+                                        const params = new URLSearchParams(window.location.search);
+                                        const setPersist = (k, v) => {
+                                            document.cookie = `${k}=${encodeURIComponent(v)}; path=/; max-age=31536000`;
+                                            localStorage.setItem(k, v);
+                                        };
+                                        const clearPersist = (k) => {
+                                            document.cookie = `${k}=; path=/; max-age=0`;
+                                            localStorage.removeItem(k);
+                                        };
+
+                                        if (checked) {
+                                            params.set('inspection', '1');
+                                            setPersist('stock_inspection', '1');
+                                        } else {
+                                            params.delete('inspection');
+                                            clearPersist('stock_inspection');
+                                        }
+
+                                        const q = params.toString();
+                                        router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
                                     }
                                 }}
                                 className="data-[state=checked]:bg-blue-600"
                             />
+
                         </div>
                         <div className="flex items-center justify-between">
                             <Label htmlFor="insurance" className="text-sm font-medium text-blue-800">

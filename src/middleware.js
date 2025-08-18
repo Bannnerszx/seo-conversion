@@ -16,6 +16,8 @@ export const config = {
     '/SearchCarDesign',
     '/chats/:path*',
     '/stock_detail',
+    // ✅ ensure middleware runs on /stock and all subroutes
+    '/stock/:path*',
     // …add any other protected top‐level folders here…
   ],
 }
@@ -119,7 +121,40 @@ export async function middleware(request) {
   }
 
   // ───────────────────────────────────────────────────────
-  // 4️⃣  Tracker‐based chat redirects (unchanged)
+  // 4️⃣  SSR-safe stock filters persistence for /stock/**
+  //     If country/port are missing in the URL, inject from cookies and redirect once.
+  // ───────────────────────────────────────────────────────
+  if (pathname.startsWith('/stock')) {
+    const hasCountry = url.searchParams.has('country')
+    const hasPort = url.searchParams.has('port')
+    const hasInspection = url.searchParams.has('inspection')
+
+    const cookieCountry = cookies.get('stock_country')?.value
+    const cookiePort = cookies.get('stock_port')?.value
+    const cookieInspection = cookies.get('stock_inspection')?.value // "1" or "0"
+
+    let mutated = false
+    if (!hasCountry && cookieCountry) {
+      url.searchParams.set('country', cookieCountry)
+      mutated = true
+    }
+    if (!hasPort && cookiePort) {
+      url.searchParams.set('port', cookiePort)
+      mutated = true
+    }
+    if (!hasInspection && cookieInspection === '1') {
+      url.searchParams.set('inspection', '1')
+      mutated = true
+    }
+
+    if (mutated) {
+      // Redirect to the same /stock/** path with injected filters
+      return NextResponse.redirect(url)
+    }
+  }
+
+  // ───────────────────────────────────────────────────────
+  // 5️⃣  Tracker‐based chat redirects (unchanged)
   // ───────────────────────────────────────────────────────
   if (
     pathname.startsWith('/chats/payment/') ||
@@ -132,35 +167,34 @@ export async function middleware(request) {
   //     segments = ["chats", "<chatId>"]
   const segments = pathname.split('/').filter(Boolean)
   if (!(segments[0] === 'chats' && segments.length === 2)) {
-    return NextResponse.next()
-  }
-  const chatId = segments[1]
-
-  // ── 3) fetch tracker and redirect if needed
-  try {
-    const trackerRes = await fetch(
-      `${origin}/api/getChatTracker?chatId=${encodeURIComponent(chatId)}`,
-      { next: { revalidate: 5 } }
-    )
-    if (trackerRes.ok) {
-      const { tracker } = await trackerRes.json()
-      if (tracker === 3) {
-        return NextResponse.redirect(
-          new URL(`/chats/ordered/${chatId}`, origin)
-        )
+    // continue below
+  } else {
+    const chatId = segments[1]
+    try {
+      const trackerRes = await fetch(
+        `${origin}/api/getChatTracker?chatId=${encodeURIComponent(chatId)}`,
+        { next: { revalidate: 5 } }
+      )
+      if (trackerRes.ok) {
+        const { tracker } = await trackerRes.json()
+        if (tracker === 3) {
+          return NextResponse.redirect(
+            new URL(`/chats/ordered/${chatId}`, origin)
+          )
+        }
+        if (tracker >= 4) {
+          return NextResponse.redirect(
+            new URL(`/chats/payment/${chatId}`, origin)
+          )
+        }
       }
-      if (tracker >= 4) {
-        return NextResponse.redirect(
-          new URL(`/chats/payment/${chatId}`, origin)
-        )
-      }
+    } catch (e) {
+      console.error('Failed to fetch chat tracker:', e)
     }
-  } catch (e) {
-    console.error('Failed to fetch chat tracker:', e)
   }
 
   // ───────────────────────────────────────────────────────
-  // 5️⃣  Other non-chat redirects (unchanged)
+  // 6️⃣  Other non-chat redirects (unchanged)
   // ───────────────────────────────────────────────────────
   let response
   if (pathname.startsWith('/ProductScreen/')) {
@@ -217,7 +251,7 @@ export async function middleware(request) {
   }
 
   // ───────────────────────────────────────────────────────
-  // 6️⃣  Rewrite “deep” chats → /chats (but skip ordered/payment)
+  // 7️⃣  Rewrite “deep” chats → /chats (but skip ordered/payment)
   // ───────────────────────────────────────────────────────
   const parts = pathname.split('/')
   const isDeepChat = parts[1] === 'chats' && parts.length > 2

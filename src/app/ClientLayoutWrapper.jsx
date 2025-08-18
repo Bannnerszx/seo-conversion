@@ -14,6 +14,7 @@ export default function ClientLayoutWrapper({ children, currency, userEmail }) {
     "/orders",
     "/favorites",
     "/profile",
+    "/error"
   ];
 
   // Paths where we never show the footer
@@ -21,11 +22,12 @@ export default function ClientLayoutWrapper({ children, currency, userEmail }) {
     "/login", "/login/","/favorites","/orders","/profile",
     "/accountCreation", "/accountCreation/",
     "/forgotpassword", "/forgotpassword/",
-    "/signup", "/signup/", "/chats", "/chats/"
+    "/signup", "/signup/", "/chats", "/chats/","/error"
   ];
 
   // Breadcrumbs logic stays the same
   const breadcrumbHideList = [
+    "/error",
     "/chats",
     "/orders",
     "/favorites",
