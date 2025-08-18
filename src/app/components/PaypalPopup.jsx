@@ -22,21 +22,6 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 
 const slides = [
     {
-        id: "obon",
-        type: "holiday",
-        content: {
-            icon: <CalendarDays className="h-8 w-8" />,
-            title: "🏮 Obon Holiday Notice",
-            subtitle: "❌Office Closed❌",
-            description:
-                "Please be advised that our office will be closed for the Obon holiday from August 9th to August 17th. We will resume normal operations on August 18th.",
-            period: "August 9th - August 17th",
-            features: ["Office Closed", "WhatsApp Available", "Resume Aug 18th"],
-            logo: "/obon.webp",
-            background: "/obon-logo.webp",
-        },
-    },
-    {
         id: "paypal",
         type: "paypal",
         content: {
