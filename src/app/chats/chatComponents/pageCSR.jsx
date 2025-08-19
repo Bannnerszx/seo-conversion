@@ -317,7 +317,7 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
 
 
     useEffect(() => {
-        console.log("[chat-guard] pathname:", pathname, "segments:", pathname.split("/").filter(Boolean));
+
         const segments = pathname.split("/").filter(Boolean)
         // ── if we're exactly on "/chats", do nothing (that's your main page)
         if (segments.length === 1 && segments[0] === "chats") {
@@ -511,7 +511,7 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
         // cleanup on unmount or deps change
         return () => unsubscribe()
     }, [selectedContact?.invoiceNumber, userEmail]);
-    console.log('server', prefetchedData)
+    
     return (
         <SortProvider>
             <div className="flex h-screen bg-gray-50">

@@ -3,18 +3,15 @@ import { functions } from "../../../../firebase/clientApp"
 import { httpsCallable } from "firebase/functions"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { CheckCircle, AlertTriangle, X, Bell, Copy } from "lucide-react"
-
+import { Card, CardContent } from "@/components/ui/card"
+import { CheckCircle, AlertTriangle, X, Copy } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { cn } from "@/lib/utils"
 import Modal from "@/app/components/Modal"
-import InvoiceAmendmentForm from "./amendInvoice"
 import Loader from "@/app/components/Loader"
 import moment from "moment"
 import { firestore } from "../../../../firebase/clientApp";
 import { runTransaction, doc, increment } from "firebase/firestore"
-
+import { submitJackallClient, submitUserData } from "@/app/actions/actions";
 
 export default function OrderButton({ ipInfo, tokyoTime, accountData, isOrderMounted, setIsOrderMounted, userEmail, chatId, selectedChatData, countryList, invoiceData }) {
     const [ordered, setOrdered] = useState(false)
@@ -205,6 +202,18 @@ export default function OrderButton({ ipInfo, tokyoTime, accountData, isOrderMou
 
             // 3) allocate/retrieve salesInfoId
             const { resultingId, wasNew } = await processJackallSalesInfo(chatId);
+            await submitJackallClient({
+                userEmail,
+                newClientId: accountData?.client_id,
+                firstName: accountData?.textFirst,
+                lastName: accountData?.textLast,
+                zip: accountData?.textZip,
+                street: accountData?.textStreet,
+                city: accountData?.city,
+                phoneNumber: accountData?.textPhoneNumber,
+                countryName: accountData?.country,
+                note: "",
+            })
 
             // 4) only prepare & upload if it’s newly allocated
             const salesData = prepareSalesData(
@@ -230,7 +239,6 @@ export default function OrderButton({ ipInfo, tokyoTime, accountData, isOrderMou
                 throw new Error("Function returned no success flag");
             }
 
-            console.log("Order result:", data.success);
 
             // 3) Then clean up
             await deleteFromTcvBoth();

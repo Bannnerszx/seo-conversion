@@ -12,7 +12,7 @@ async function fetchPrefetchedData(userEmail) {
         const chatsQuery = db.collection('chats')
             .where('participants.customer', '==', userEmail)
             .orderBy('lastMessageDate', 'desc')
-            .limit(12);
+            .limit(50);
 
         const chatsSnapshot = await chatsQuery.get();
      

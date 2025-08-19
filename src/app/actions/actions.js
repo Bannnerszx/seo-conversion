@@ -155,8 +155,7 @@ export async function addChatData({
             freightOrigPrice,
         };
 
-        console.log("Chat data to be added:", chatData);
-
+    
         // Write chat data in the 'chats' collection
         const chatDocRef = db.collection('chats').doc(chatId);
         await chatDocRef.set(chatData, { merge: true });
@@ -528,7 +527,7 @@ export async function docDelivery(form1Data, chatId, userEmail) {
             }
         }
     });
-    console.log("Document id", chatId);
+
     const messageData = {
         sender: userEmail,
         text: messageText,
@@ -834,7 +833,7 @@ export async function updateInvoice(form1Data, form2Data, chatId, userEmail, isC
             }
         }
     });
-    console.log("Document id", chatId);
+  
     const messageData = {
         sender: userEmail,
         text: 'Request for Invoice Amendment',
