@@ -298,7 +298,7 @@ export default async function Home() {
       </div>
 
       <div className="relative z-[8000]">
-        <SearchQuery carMakes={carMakes} carBodytypes={carBodytypes} />
+        <SearchQuery carMakes={carMake} carBodytypes={carBodytypes} />
       </div>
       <div className="relative w-full">
         <div className="flex justify-evenly items-center overflow-x-auto whitespace-nowrap px-4 py-4 w-full">
