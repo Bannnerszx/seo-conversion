@@ -17,9 +17,9 @@ import { getFunctions } from "firebase/functions";
 //FOR PROD
 // const firebaseConfig = {
 //     apiKey: "AIzaSyC1oPK69XInlpw-E9BowLGocFq2i8wRjZA",
-//     authDomain: "real-motor-japan.firebaseapp.com",
-//     projectId: "real-motor-japan",
-//     storageBucket: "real-motor-japan.firebasestorage.app",
+//     authDomain: "samplermj.firebaseapp.com",
+//     projectId: "samplermj",
+//     storageBucket: "samplermj.firebasestorage.app",
 //     messagingSenderId: "854100669672",
 //     appId: "1:854100669672:web:c224be87d85439b5af855d",
 //     measurementId: "G-SS7WCX5ZMV"
