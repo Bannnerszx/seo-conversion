@@ -284,7 +284,7 @@ export default function OrderCard({ order, currency, userEmail }) {
         <div className="flex flex-col md:flex-row gap-6">
           {/* Left side – Vehicle image */}
           <div className="md:w-2/5 lg:w-1/3">
-            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-md">
+            <div className="aspect-[4/3] overflow-hidden rounded-md">
               <Image
                 src={src}
                 alt={`${order.carData.regYear} ${order.carData.make} ${order.carData.model}` || "Product Image"}
