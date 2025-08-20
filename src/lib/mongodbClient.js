@@ -27,19 +27,20 @@
 //     return db;
 // }
 
+//
 
 // lib/mongo.js
 import { MongoClient } from "mongodb";
 
 // ⚠️ For security, put this in an environment variable instead of hardcoding.
 const URI =
-  "mongodb://realmototorjapan-read:c8dvZIF2H8fvzVSSCkrNeSH692cFymAHgYFAKvGGv8fJOZXI@758f241f-9cca-4dbd-a976-e89a49a78ce3.asia-northeast2.firestore.goog:443/mongodb-prod?loadBalanced=true&tls=true&authMechanism=SCRAM-SHA-256&retryWrites=false";
+  "mongodb://arcvan12:uEPndYYIpXDKLjbQYQhWq5KFYmOzArIrppILkF-hinB60xvF@1cb538ec-3061-46d9-b9da-8e12231c58c0.asia-northeast2.firestore.goog:443/mongodb?authSource=admin&loadBalanced=true&tls=true&authMechanism=SCRAM-SHA-256&retryWrites=false";
 
 if (!URI) {
   throw new Error("Missing MongoDB connection string.");
 }
 
-const DB_NAME = "mongodb-prod";
+const DB_NAME = "mongodb";
 
 // Use a cached connection in dev to prevent multiple connections during hot reloads
 let cached = global._mongoClientPromise;
