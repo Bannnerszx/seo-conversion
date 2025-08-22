@@ -408,7 +408,6 @@ function OrderCard({ order, userEmail }) {
                         </div>
                     </div>
 
-
                 </div>
 
                 {/* Progress Section */}
