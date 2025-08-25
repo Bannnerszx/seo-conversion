@@ -1,10 +1,11 @@
 "use client"
+
 import moment from "moment"
 import { functions } from "../../../../firebase/clientApp"
 import { httpsCallable } from 'firebase/functions'
 import { useState, useEffect, useCallback, useRef } from "react"
 import Image from "next/image"
-import { Download, Heart, ChevronLeft, ChevronRight, Loader2 } from "lucide-react"
+import { Download, Heart, ChevronLeft, ChevronRight, Loader2, UserPlus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
@@ -25,6 +26,7 @@ import JSZip from "jszip"
 import AnimatedHeartButton from "@/app/stock/stockComponents/animatedHeart";
 import ImageViewer from "@/app/chats/chatComponents/imageViewer"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { SignUpButton } from "@/app/components/SignUpButton"
 const Dropdown = ({ placeholder, options, value, onChange, className = '' }) => {
     const [isHydrated, setIsHydrated] = useState(false);
 
@@ -541,7 +543,7 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
             )
         ) ||
         carData?.stockStatus?.startsWith("Sold") ||
-       carData?.stockStatus?.startsWith("Reserved") || carData?.stockStatus === "Hidden";
+        carData?.stockStatus?.startsWith("Reserved") || carData?.stockStatus === "Hidden";
     const src =
         Array.isArray(images) && images?.length > 0 && images[currentImageIndex]
             ? images[currentImageIndex]
@@ -807,7 +809,19 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
 
                     {/* Right side - buttons */}
                     <div className="w-full">
-                        <div className="flex justify-end mt-6">
+                        <div className="flex justify-end items-center gap-3 mt-6">
+                            {!user && (
+                                <SignUpButton
+                                    href="/signup"
+                                    variant="contrast"
+                                    size="sm"
+                                    orientation="horizontal"
+                                    widthClass="w-40"
+                                >
+                                    <UserPlus className="mr-2 h-6 w-6" />
+                                    Sign Up Free
+                                </SignUpButton>
+                            )}
                             <Select
                                 defaultValue={selectedCurrency.code}
                                 onValueChange={(value) => {
@@ -844,6 +858,7 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
                                     ))}
                                 </SelectContent>
                             </Select>
+
                         </div>
 
                         <Card className="my-6 relative overflow-visible">

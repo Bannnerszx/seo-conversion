@@ -866,7 +866,9 @@ export default function CarFilterContent({ currency, recommendedUrl, saleUrl, to
                                 <SelectTrigger className="py-[20px] w-full border-blue-200 focus:border-blue-500 focus:ring-blue-500 hover:border-blue-400 transition-colors">
                                     <SelectValue placeholder="All Makes" />
                                 </SelectTrigger>
-                                <SelectContent container={containerRef.current} className="z-[9004]">
+                                <SelectContent container={containerRef.current} className="z-[9004]  w-[var(--radix-select-trigger-width)]
+    overflow-y-auto
+    max-h-[40vh]">
                                     <SelectItem value="all">All Makes</SelectItem>
                                     {carMakes.map((make) => (
                                         <SelectItem key={make} value={make}>
@@ -899,7 +901,9 @@ export default function CarFilterContent({ currency, recommendedUrl, saleUrl, to
                                         }
                                     />
                                 </SelectTrigger>
-                                <SelectContent container={containerRef.current} className="z-[9004]">
+                                <SelectContent container={containerRef.current} className="z-[9004] w-[var(--radix-select-trigger-width)]
+    overflow-y-auto
+    max-h-[40vh]">
                                     <SelectItem value="all">All Models</SelectItem>
                                     {getAvailableModels().map((modelName) => (
                                         <SelectItem key={modelName} value={modelName}>
