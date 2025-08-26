@@ -937,7 +937,7 @@ export default function CarFilterContent({ currency, recommendedUrl, saleUrl, to
                             )}
                         </Button>
                     </div>
-                    {/* Additional Filters (hidden by default) */}
+                 
                     {showMoreFilters && (
                         <div className="space-y-4 pt-2 border-t">
                             {/* Model */}
