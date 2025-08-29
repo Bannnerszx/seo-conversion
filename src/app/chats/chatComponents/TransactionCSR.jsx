@@ -465,14 +465,34 @@ export default function TransactionCSR({ vehicleStatus, accountData, isMobileVie
                                     {message.timestamp}
                                 </span>
                             </div>
+                            {index === chatMessages.length - 1 && contact?.stepIndicator?.value >= 6 && (
+                                <div className="w-full">
+                                    {/* The bubble itself */}
+                                    <div className="flex w-full justify-start">
+                                        <div className="max-w-[75%] p-3 rounded-lg bg-white text-gray-800 rounded-bl-none">
+                                            <p
+                                                style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+                                                className="text-gray-800"
+                                            >
+                                                We’d love your feedback! Please leave a review of your experience.
+                                            </p>
+
+                                            <ProductReview step={contact?.stepIndicator?.value} chatId={chatId} invoiceData={invoiceData?.consignee} carData={contact?.carData} accountName={`${accountData?.textFirst} ${accountData?.textLast}`} />
+                                        </div>
+                                    </div>
+
+                                    {/* ✅ Timestamp just like other messages */}
+                                    <div className="w-full flex justify-start">
+                                        <span className="text-xs text-gray-500">
+                                            {message.timestamp}
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
 
                         </div>
                     ))}
-                    {contact?.stepIndicator?.value >= 6 && (
 
-                        <ProductReview />
-
-                    )}
                     {isLoading && (
                         <div className="flex justify-start">
                             <div className="max-w-[70%] p-3 rounded-lg bg-gray-200 text-gray-800 rounded-bl-none">

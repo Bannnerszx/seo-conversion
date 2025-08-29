@@ -1,9 +1,9 @@
 "use client"
-
+import moment from "moment"
 import { useState } from "react"
 import Image from "next/image"
 import { motion } from "framer-motion"
-import { Edit3, Star, Upload, X } from "lucide-react"
+import { Check, Edit3, Star, Upload, X, Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -15,50 +15,100 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog"
+import { functions } from "../../../../firebase/clientApp"
+import { httpsCallable } from "firebase/functions"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+const ALLOWED_TYPES = new Set(["image/jpeg", "image/png"]);
+const ALLOWED_EXT = /\.(jpe?g|png)$/i;
 
-export default function ProductReview() {
+export default function ProductReview({ chatId, accountName, invoiceData, carData, step }) {
+    const submitTestimony = httpsCallable(functions, 'submitTestimony')
+
     // --- STATE MANAGEMENT ---
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [isDragging, setIsDragging] = useState(false)
     const [isOpen, setIsOpen] = useState(false)
-    const [rating, setRating] = useState(0)
-    const [hoverRating, setHoverRating] = useState(0)
+    const [productRating, setProductRating] = useState(0)
+    const [experienceRating, setExperienceRating] = useState(0)
+    const [hoverProductRating, setHoverProductRating] = useState(0)
+    const [hoverExperienceRating, setHoverExperienceRating] = useState(0)
     const [comment, setComment] = useState("")
     const [uploadedImages, setUploadedImages] = useState([])
     const [imagePreviews, setImagePreviews] = useState([])
+    const [uploadErrors, setUploadErrors] = useState([]);  // [{ file: { name, type, data } }, ...]
+    const isAllowedType = (file) =>
+        (file.type && ALLOWED_TYPES.has(file.type)) || ALLOWED_EXT.test(file.name);
 
+    const fileToPayload = (file) =>
+        new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const base64 = String(reader.result).split(",")[1] || "";
+                resolve({ file: { name: file.name, type: file.type || "application/octet-stream", data: base64 } });
+            };
+            reader.onerror = () => reject(reader.error || new Error("File read failed"));
+            reader.readAsDataURL(file);
+        });
     // --- RATING LOGIC ---
-    const handleStarClick = (starIndex) => {
-        setRating(starIndex)
-    }
+    const handleStarClick = (starIndex, type) => {
+        if (type === "product") {
+            setProductRating(starIndex);
+        } else {
+            setExperienceRating(starIndex);
+        }
+    };
 
-    const handleStarHover = (starIndex) => {
-        setHoverRating(starIndex)
-    }
+    const handleStarHover = (starIndex, type) => {
+        if (type === "product") {
+            setHoverProductRating(starIndex);
+        } else {
+            setHoverExperienceRating(starIndex);
+        }
+    };
+
 
     // --- REFACTORED FILE HANDLING LOGIC ---
 
-    /**
-     * Central function to process a list of files (from either drag-and-drop or file input).
-     * @param {FileList} fileList - The list of files to process.
-     */
-    const handleFiles = (fileList) => {
-        const files = Array.from(fileList)
-        const remainingSlots = 5 - uploadedImages.length
+    const handleFiles = async (fileList) => {
+        const files = Array.from(fileList);
+        const remainingSlots = Math.max(0, 5 - uploadedImages.length);
+        if (!remainingSlots) return;
 
-        // Filter for valid image types and only take as many as there are open slots.
-        const newImageFiles = files
-            .filter((file) => file.type.startsWith("image/"))
-            .slice(0, remainingSlots)
+        const accepted = [];
+        const errors = [];
 
-        if (newImageFiles.length > 0) {
-            setUploadedImages((prev) => [...prev, ...newImageFiles])
+        for (const f of files) {
+            if (accepted.length >= remainingSlots) break;
 
-            const newPreviews = newImageFiles.map((file) => URL.createObjectURL(file))
-            setImagePreviews((prev) => [...prev, ...newPreviews])
+            if (!isAllowedType(f)) {
+                errors.push(`${f.name}: only JPEG/PNG images are allowed.`);
+                continue;
+            }
+            if (f.size > MAX_SIZE) {
+                const mb = (f.size / (1024 * 1024)).toFixed(2);
+                errors.push(`${f.name}: ${mb} MB exceeds 5 MB limit.`);
+                continue;
+            }
+            accepted.push(f);
         }
-    }
+
+        if (accepted.length === 0) {
+            if (errors.length) setUploadErrors(errors);
+            return;
+        }
+
+        // Previews
+        const newPreviews = accepted.map((f) => URL.createObjectURL(f));
+        setImagePreviews((prev) => [...prev, ...newPreviews]);
+
+        // Payloads (base64)
+        const newPayloads = await Promise.all(accepted.map(fileToPayload));
+        setUploadedImages((prev) => [...prev, ...newPayloads]);
+
+        if (errors.length) setUploadErrors(errors);
+    };
 
     /**
      * Handles file selection from the hidden file input (the "click" part).
@@ -112,19 +162,82 @@ export default function ProductReview() {
     }
 
     // --- FORM SUBMISSION AND RESET LOGIC ---
-    const handleSubmit = () => {
-        console.log({
-            rating,
-            comment,
-            images: uploadedImages,
-        })
+
+    const handleSubmit = async () => {
+        if (isSubmitting) return;
+        if (!chatId) {
+            console.error("Error: chatId is missing. Cannot save testimony.");
+            return;
+        }
+        setIsSubmitting(true);
+        let currentIpInfo;
+        let currentTokyoTime;
+        // Try to fetch fresh data with a timeout, but don't block if it fails
+        try {
+            const fetchPromise = Promise.all([
+                fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo").then(r => r.json()),
+                fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time").then(r => r.json()),
+            ]);
+
+            // Add a timeout to prevent hanging
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Timeout')), 5000)
+            );
+
+            const [freshIp, freshTime] = await Promise.race([fetchPromise, timeoutPromise]);
+            currentIpInfo = freshIp;
+            currentTokyoTime = freshTime;
+
+
+        } catch (fetchError) {
+            console.warn("Failed to fetch fresh data, using cached values:", fetchError);
+            // Continue with cached values
+        }
+
+        // If we still don't have any data (even cached), we need to handle this
+        if (!currentIpInfo || !currentTokyoTime) {
+            throw new Error("No IP info or time data available");
+        }
+
+        // Format the time
+        const momentDate = moment(currentTokyoTime?.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');
+        const formattedTime = momentDate.format('YYYY/MM/DD [at] HH:mm:ss');
+
+
+        const testimonyData = {
+            chatId: chatId,
+            accountName: accountName,
+            carData: carData,
+            consignee: invoiceData,
+            lastMessageDate: formattedTime,
+            images: uploadedImages.map(({ file }) => file),
+            productRating: productRating,
+            experienceRating: experienceRating
+        };
+
+        try {
+            console.log("Sending data to Cloud Function...", testimonyData);
+
+            // Use 'await' to call the function and wait for the response 🚀
+            const result = await submitTestimony(testimonyData);
+
+            // The actual data returned from your function is in result.data
+            console.log("Function returned successfully:", result.data);
+
+        } catch (error) {
+            // This will catch network errors or errors thrown from the function
+            console.error("Error calling the submitTestimony function:", error);
+            // Optionally, show an error message to the user here
+        }
+
         resetForm()
-        setIsOpen(false)
+        setIsOpen(false);
+        setIsSubmitting(false);
     }
 
     const resetForm = () => {
-        setRating(0)
-        setHoverRating(0)
+        setProductRating(0)
+        setExperienceRating(0)
         setComment("")
         setUploadedImages([])
         // Clean up all created object URLs
@@ -134,37 +247,48 @@ export default function ProductReview() {
 
     return (
         <div className="flex items-center justify-center p-4">
-            <Dialog
-                open={isOpen}
-                onOpenChange={(open) => {
-                    setIsOpen(open)
-                    if (!open) resetForm()
-                }}
-            >
+            <Dialog open={isOpen} onOpenChange={(open) => {
+                if (step === 7) return // prevent opening
+                setIsOpen(open)
+                if (!open) resetForm()
+            }}>
                 <DialogTrigger asChild>
-                    <motion.div
-                        initial={{ y: 50, opacity: 0 }}
-                        animate={{ y: 0, opacity: 1 }}
-                        transition={{
-                            type: "spring",
-                            stiffness: 300,
-                            damping: 20,
-                            delay: 0.2,
-                        }}
-                        whileHover={{
-                            scale: 1.05,
-                            boxShadow: "0 10px 25px rgba(59, 130, 246, 0.3)",
-                        }}
-                        whileTap={{ scale: 0.95 }}
-                    >
+                    {step === 7 ? (
                         <Button
-                            size="lg" // Adjusted for better visuals
+                            disabled={step === 7}
+                            size="2xl" // Adjusted for better visuals
                             className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 border-0 text-base"
                         >
-                            <Edit3 className="w-5 h-5 mr-2" />
-                            Write a Review
+                            <Check className="w-5 h-5 mr-2" strokeWidth={5} />
+                            Feedback Done!
                         </Button>
-                    </motion.div>
+                    ) : (
+                        <motion.div
+                            initial={{ y: 50, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            transition={{
+                                type: "spring",
+                                stiffness: 300,
+                                damping: 20,
+                                delay: 0.2,
+                            }}
+                            whileHover={{
+                                scale: 1.05,
+                                boxShadow: "0 10px 25px rgba(59, 130, 246, 0.3)",
+                            }}
+                            whileTap={{ scale: 0.95 }}
+                        >
+                            <Button
+                                disabled={step === 7}
+                                size="2xl" // Adjusted for better visuals
+                                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 border-0 text-base"
+                            >
+                                <Edit3 className="w-5 h-5 mr-2" />
+                                Write a Feedback
+                            </Button>
+                        </motion.div>
+                    )}
+
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
@@ -174,21 +298,22 @@ export default function ProductReview() {
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-6 py-4">
-                        {/* Star Rating */}
+                        {/* Product Rating */}
                         <div className="grid gap-2">
-                            <Label htmlFor="rating">Rating</Label>
+                            <Label htmlFor="product-rating">Product Rating</Label>
+                            <p className="text-sm text-gray-600">Rate the product quality, features, and value</p>
                             <div className="flex items-center gap-1">
                                 {[1, 2, 3, 4, 5].map((star) => (
                                     <button
                                         key={star}
                                         type="button"
                                         className="p-1 hover:scale-110 transition-transform"
-                                        onClick={() => handleStarClick(star)}
-                                        onMouseEnter={() => handleStarHover(star)}
-                                        onMouseLeave={() => setHoverRating(0)}
+                                        onClick={() => handleStarClick(star, "product")}
+                                        onMouseEnter={() => handleStarHover(star, "product")}
+                                        onMouseLeave={() => setHoverProductRating(0)}
                                     >
                                         <Star
-                                            className={`w-6 h-6 transition-colors ${star <= (hoverRating || rating)
+                                            className={`w-6 h-6 ${star <= (hoverProductRating || productRating)
                                                 ? "fill-yellow-400 text-yellow-400"
                                                 : "text-gray-300"
                                                 }`}
@@ -196,7 +321,35 @@ export default function ProductReview() {
                                     </button>
                                 ))}
                                 <span className="ml-2 text-sm text-muted-foreground">
-                                    {rating > 0 && `${rating} out of 5 stars`}
+                                    {productRating > 0 && `${productRating} out of 5 stars`}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Experience Rating */}
+                        <div className="grid gap-2">
+                            <Label htmlFor="experience-rating">Experience Rating</Label>
+                            <p className="text-sm text-gray-600">Rate your overall experience (shipping, packaging, service)</p>
+                            <div className="flex items-center gap-1">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                    <button
+                                        key={star}
+                                        type="button"
+                                        className="p-1 hover:scale-110 transition-transform"
+                                        onClick={() => handleStarClick(star, "experience")}
+                                        onMouseEnter={() => handleStarHover(star, "experience")}
+                                        onMouseLeave={() => setHoverExperienceRating(0)}
+                                    >
+                                        <Star
+                                            className={`w-6 h-6 ${star <= (hoverExperienceRating || experienceRating)
+                                                ? "fill-blue-400 text-blue-400"
+                                                : "text-gray-300"
+                                                }`}
+                                        />
+                                    </button>
+                                ))}
+                                <span className="ml-2 text-sm text-muted-foreground">
+                                    {experienceRating > 0 && `${experienceRating} out of 5 stars`}
                                 </span>
                             </div>
                         </div>
@@ -280,11 +433,25 @@ export default function ProductReview() {
                         <Button
                             type="button"
                             onClick={handleSubmit}
-                            disabled={rating === 0 || comment.trim().length === 0}
+                            disabled={
+                                isSubmitting ||
+                                productRating === 0 ||
+                                experienceRating === 0 ||
+                                comment.trim().length === 0
+                            }
                             className="bg-blue-600 hover:bg-blue-700"
+                            aria-busy={isSubmitting}
                         >
-                            Submit Review
+                            {isSubmitting ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Submitting...
+                                </>
+                            ) : (
+                                "Submit Review"
+                            )}
                         </Button>
+
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
