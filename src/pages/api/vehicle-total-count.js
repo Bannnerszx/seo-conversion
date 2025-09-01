@@ -1,4 +1,4 @@
-import { ObjectId } from "mongodb";
+
 import { getDb } from "@/lib/mongodbClient";
 
 const db = await getDb();
@@ -53,13 +53,13 @@ const codeToId = FEATURES.reduce((map, f) => {
   return map;
 }, {});
 
+
 export default async function handler(req, res) {
   if (req.method !== "GET") {
     res.setHeader("Allow", ["GET"]);
     return res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 
-  // 1) pull strings from query, including new params for sorting & pagination
   const {
     searchKeywords = "",
     carMakes = "",
@@ -79,32 +79,37 @@ export default async function handler(req, res) {
     maxEngineDisplacement = "0",
     driveType = "",
     steering = "",
-    features = "[]", // might be JSON, CSV, or repeated
+    features = "[]",
     isRecommended = "false",
     isSale = "false",
-    currency,
-    // New parameters for sorting and pagination
+    currency = "1",             // <-- default 1 if absent
     page = "1",
     limit = "20",
     sortField = "dateAdded",
     sortDirection = "asc",
   } = req.query;
 
-  // 2) coerce booleans & numbers
-  const recommendedFlag = isRecommended === "true";
-  const saleFlag = isSale === "true";
   const num = (x) => {
     const n = Number(x);
-    return isNaN(n) ? 0 : n;
+    return Number.isFinite(n) ? n : 0;
   };
-  const curr = num(currency);
-  console.log(currency, 'inside')
-  // 3) build base filter
+
+  const pageNum = Math.max(1, num(page));
+  const limitNum = Math.max(1, Math.min(50, num(limit))); // hard cap
+  const documentsToSkip = (pageNum - 1) * limitNum;
+
+  const recommendedFlag = isRecommended === "true";
+  const saleFlag = isSale === "true";
+  const curr = num(currency) || 1;                         // <-- use this for price math
+
+  // Build filter
   const filter = { stockStatus: "On-Sale" };
   if (recommendedFlag) filter.isRecommended = true;
   if (saleFlag) filter.isSale = true;
 
-  const lookup = decodeURIComponent(searchKeywords.replace(/\+/g, " ")).trim().toLowerCase();
+  const lookup = decodeURIComponent(searchKeywords.replace(/\+/g, " "))
+    .trim()
+    .toLowerCase();
   if (lookup) filter.keywords = lookup;
   if (carMakes) filter.make = carMakes;
   if (carModels) filter.model = carModels;
@@ -116,9 +121,9 @@ export default async function handler(req, res) {
   if (driveType) filter.driveType = decodeURIComponent(driveType.replace(/\+/g, " "));
   if (steering) filter.steering = steering;
 
-  // numeric ranges
-  if (Number(minPrice) > 0) filter.fobPriceNumber = { ...(filter.fobPriceNumber || {}), $gte: Number(minPrice) / currency };
-  if (Number(maxPrice) > 0) filter.fobPriceNumber = { ...(filter.fobPriceNumber || {}), $lte: Number(maxPrice) / currency };
+  // Numeric ranges (use curr!)
+  if (num(minPrice) > 0) filter.fobPriceNumber = { ...(filter.fobPriceNumber || {}), $gte: num(minPrice) / curr };
+  if (num(maxPrice) > 0) filter.fobPriceNumber = { ...(filter.fobPriceNumber || {}), $lte: num(maxPrice) / curr };
   if (num(minYear) > 0) filter.regYearNumber = { ...(filter.regYearNumber || {}), $gte: num(minYear) };
   if (num(maxYear) > 0) filter.regYearNumber = { ...(filter.regYearNumber || {}), $lte: num(maxYear) };
   if (num(minMileage) > 0) filter.mileageNumber = { ...(filter.mileageNumber || {}), $gte: num(minMileage) };
@@ -128,53 +133,73 @@ export default async function handler(req, res) {
   if (num(maxEngineDisplacement) > 0)
     filter.engineDisplacementNumber = { ...(filter.engineDisplacementNumber || {}), $lte: num(maxEngineDisplacement) };
 
-  // 4) feature flags (JSON, CSV, or repeated params)
-  let rawFeat = req.query.features;
-  let codesArr = [];
+  // Feature flags
+  const FEATURES = [
+    { id: "SafetySystemAnBrSy", code: 1 }, { id: "SafetySystemDrAi", code: 2 }, { id: "SafetySystemPaAi", code: 3 },
+    { id: "SafetySystemSiAi", code: 4 }, { id: "InteriorPoWi", code: 5 }, { id: "InteriorReWiDe", code: 6 },
+    { id: "InteriorReWiWi", code: 7 }, { id: "InteriorTiGl", code: 8 }, { id: "ComfortAiCoFr", code: 9 },
+    { id: "ComfortAiCoRe", code: 10 }, { id: "ComfortCrSpCo", code: 11 }, { id: "ComfortNaSyGPS", code: 12 },
+    { id: "ComfortPoSt", code: 13 }, { id: "ComfortReKeSy", code: 14 }, { id: "ComfortTiStWh", code: 15 },
+    { id: "ComfortDiSp", code: 16 }, { id: "ComfortAMFMRa", code: 17 }, { id: "ComfortAMFMSt", code: 18 },
+    { id: "ComfortCDCh", code: 19 }, { id: "ComfortCDPl", code: 20 }, { id: "ComfortPrAuSy", code: 21 },
+    { id: "ComfortDVDPl", code: 22 }, { id: "ComfortHDD", code: 23 }, { id: "InteriorLeSe", code: 24 },
+    { id: "InteriorPoSe", code: 25 }, { id: "ExteriorAlWh", code: 26 }, { id: "InteriorPoDoLo", code: 27 },
+    { id: "InteriorPoMi", code: 28 }, { id: "ExteriorSuRo", code: 29 }, { id: "InteriorThRoSe", code: 30 },
+    { id: "ExteriorPoSlDo", code: 31 }, { id: "SellingPointsCuWh", code: 32 }, { id: "SellingPointsFuLo", code: 33 },
+    { id: "SellingPointsMaHiAv", code: 34 }, { id: "SellingPointsReBo", code: 35 }, { id: "SellingPointsBrNeTi", code: 36 },
+    { id: "SellingPointsNoAcHi", code: 37 }, { id: "SellingPointsOnOwHi", code: 38 }, { id: "SellingPointsPeRaTi", code: 39 },
+    { id: "SellingPointsUpAuSy", code: 40 }, { id: "SellingPointsNoSmPrOw", code: 41 }, { id: "SellingPointsTuEn", code: 42 },
+  ];
+  const codeToId = FEATURES.reduce((m, f) => ((m[f.code] = f.id), m), {});
 
-  if (Array.isArray(rawFeat)) {
-    // ?features=1&features=2&...
-    codesArr = rawFeat.map((x) => Number(x)).filter((x) => !isNaN(x));
-  } else if (typeof rawFeat === "string") {
-    // try JSON first
+  let codesArr = [];
+  if (Array.isArray(features)) {
+    codesArr = features.map((x) => Number(x)).filter((x) => !isNaN(x));
+  } else if (typeof features === "string") {
     try {
-      const parsed = JSON.parse(rawFeat);
-      if (Array.isArray(parsed)) {
-        codesArr = parsed.map((x) => Number(x)).filter((x) => !isNaN(x));
-      }
+      const parsed = JSON.parse(features);
+      if (Array.isArray(parsed)) codesArr = parsed.map((x) => Number(x)).filter((x) => !isNaN(x));
+      else throw new Error("not array");
     } catch {
-      // fallback to CSV
-      codesArr = rawFeat
-        .split(",")
-        .map((x) => Number(x.trim()))
-        .filter((x) => !isNaN(x));
+      codesArr = features.split(",").map((x) => Number(x.trim())).filter((x) => !isNaN(x));
     }
   }
-
   for (const code of codesArr) {
     const fid = codeToId[code];
     if (fid) filter[fid] = true;
   }
 
-  // 5) Get total count for pagination
-  const totalCount = await vehicleColl.countDocuments(filter).catch(() => 0);
-
-  // 6) Build sort object
+  // Sort (stable + index-friendly)
+  const allowedSortFields = new Set(["dateAdded", "fobPriceNumber", "regYearNumber", "mileageNumber"]);
+  const effectiveSortField = allowedSortFields.has(sortField) ? sortField : "dateAdded";
   const sortOrder = sortDirection === "asc" ? 1 : -1;
+  const sort = { [effectiveSortField]: sortOrder, _id: sortOrder };
 
-  // 7) Fetch paginated & sorted documents
-  const pageNum = num(page);
-  const limitNum = num(limit);
-  const documentsToSkip = (pageNum - 1) * limitNum;
+  // --- Performance knobs ---
+  const COUNT_TIMEOUT_MS = 900;
+  const FIND_TIMEOUT_MS = 1800;
 
-  const vehicles = await vehicleColl
-    .find(filter)
-    .sort({ [sortField]: sortOrder })
+  // Count only on first page; otherwise set to -1 (or do a background job if you like)
+  const countPromise = pageNum === 1
+    ? vehicleColl.countDocuments(filter, { maxTimeMS: COUNT_TIMEOUT_MS }).catch(() => -1)
+    : Promise.resolve(-1);
+
+  // Optional: projection to reduce payload (uncomment & adjust if safe for your UI)
+  // const projection = { _id: 1, carName: 1, images: 1, fobPriceNumber: 1, regYearNumber: 1, mileageNumber: 1, dateAdded: 1, bodyType: 1, make: 1, model: 1 };
+
+  // Fetch page (+1 to compute hasMore without relying on count)
+  const docs = await vehicleColl
+    .find(filter, { /* projection, */ maxTimeMS: FIND_TIMEOUT_MS })
+    .sort(sort)
     .skip(documentsToSkip)
-    .limit(limitNum)
+    .limit(limitNum + 1)
     .toArray();
 
-  // 8) Respond with both count and data
-  return res.status(200).json({ totalCount, vehicles });
+  const hasMore = docs.length > limitNum;
+  if (hasMore) docs.pop();
+
+  const totalCount = await countPromise;
+
+  return res.status(200).json({ totalCount, hasMore, vehicles: docs });
 }
 
