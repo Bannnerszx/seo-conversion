@@ -366,7 +366,8 @@ export async function fetchVehicleProductsByPage({
     }
   }
   // 3) Get total count
-  const totalCount = await vehicleColl.countDocuments(filter);
+  const countPromise = vehicleColl.countDocuments(filter, { maxTimeMS: 1200 })
+    .catch(() => null);
   // const totalCount = 50
   // 4) Fetch paged results
   const sortOrder = sortDirection === "asc" ? 1 : -1;
@@ -404,28 +405,19 @@ export async function fetchVehicleProductsByPage({
 
 
   const docs = await vehicleColl
-    .find(filter)
-    .sort({ [sortField]: sortOrder })
+    .find(filter, { projection, maxTimeMS: 1800 }) // <- remove allowDiskUse; keep maxTimeMS
+    .sort({ [sortField]: sortOrder, _id: sortOrder })
     .skip((page - 1) * itemsPerPage)
-    .limit(itemsPerPage)
-    .project(projection)
+    .limit(itemsPerPage + 1) // +1 to compute hasMore without depending on count
     .toArray();
-
   // 5) Map to Firestore shape: { id, ...data }
-  const products = docs.map(doc => {
-    const { _id, ...data } = doc;
-    return {
-      id: _id,
-      ...data
-    };
-  });
+  const hasMore = docs.length > itemsPerPage;
+  if (hasMore) docs.pop();
 
+  const totalCount = await countPromise; // may be null if timed out
 
-  return {
-    products,
-    totalCount,
-    currentPage: page,
-  };
+  const products = docs.map(({ _id, ...data }) => ({ id: _id, ...data }));
+  return { products, totalCount: totalCount ?? -1, hasMore, currentPage: page };
 }
 
 // const color = 'Pearl'
