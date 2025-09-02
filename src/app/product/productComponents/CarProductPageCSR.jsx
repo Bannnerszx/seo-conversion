@@ -887,7 +887,7 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
                                     <div className="absolute -inset-6 bg-[#E5EBFD] rounded-t-md" />
                                     <div className="relative grid grid-cols-2 gap-4 p-4">
                                         <div>
-                                            <p className="text-sm text-muted-foreground">Current FOB Price</p>
+                                            <p className="text-sm text-muted-foreground">FOB Price</p>
                                             <AnimatedCurrencyPrice
                                                 basePrice={basePrice}
                                                 selectedCurrency={{ symbol: selectedCurrency.symbol, value: selectedCurrency.value }}
@@ -896,7 +896,7 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
                                             />
                                         </div>
                                         <div>
-                                            <p className="text-sm text-muted-foreground">Total Estimated Price</p>
+                                            <p className="text-sm text-muted-foreground">Final Price</p>
                                             <AnimatedCurrencyPrice
                                                 basePrice={profitMap && selectedPort && selectedCountry ? finalPrice : 0}
                                                 selectedCurrency={{ symbol: selectedCurrency.symbol, value: selectedCurrency.value }}

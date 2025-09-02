@@ -59,7 +59,7 @@ export default async function handler(req, res) {
     res.setHeader("Allow", ["GET"]);
     return res.status(405).end(`Method ${req.method} Not Allowed`);
   }
-
+  
   const {
     searchKeywords = "",
     carMakes = "",
