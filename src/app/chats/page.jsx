@@ -1,6 +1,6 @@
 'use server'
 import ChatPageCSR from "./chatComponents/pageCSR";
-import {  db } from "@/lib/firebaseAdmin";
+import { db } from "@/lib/firebaseAdmin";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { fetchCurrency } from "../../../services/fetchFirebaseData";
@@ -8,40 +8,40 @@ import { getCountries, checkUserExist, getAccountData } from "../actions/actions
 import { Toaster } from "sonner";
 
 async function fetchPrefetchedData(userEmail) {
-    try {
-        const chatsQuery = db.collection('chats')
-            .where('participants.customer', '==', userEmail)
-            .orderBy('lastMessageDate', 'desc')
-            .limit(50);
+  try {
+    const chatsQuery = db.collection('chats')
+      .where('participants.customer', '==', userEmail)
+      .orderBy('lastMessageDate', 'desc')
+      .limit(50);
 
-        const chatsSnapshot = await chatsQuery.get();
-     
-        const data = await Promise.all(
-            chatsSnapshot.docs.map(async (chatDoc) => {
-                const chatData = { id: chatDoc.id, ...chatDoc.data() };
-         
-                const messagesQuery = db.collection('chats').doc(chatDoc.id).collection('messages')
-                    .orderBy('timestamp', 'desc')
-                    .limit(15);
+    const chatsSnapshot = await chatsQuery.get();
 
-                const messagesSnapshot = await messagesQuery.get();
-             
-                const messages = messagesSnapshot.docs.map(messageDoc => ({
-                    id: messageDoc.id,
-                    ...messageDoc.data(),
-                    timestamp: messageDoc.data().timestamp ? messageDoc.data().timestamp.toString() : null,
-                }));
+    const data = await Promise.all(
+      chatsSnapshot.docs.map(async (chatDoc) => {
+        const chatData = { id: chatDoc.id, ...chatDoc.data() };
 
-                return { ...chatData, messages };
-            })
-        );
+        const messagesQuery = db.collection('chats').doc(chatDoc.id).collection('messages')
+          .orderBy('timestamp', 'desc')
+          .limit(15);
 
-  
-        return data;
-    } catch (error) {
-        console.error("Error prefetching data with Admin SDK:", error);
-        return [];
-    }
+        const messagesSnapshot = await messagesQuery.get();
+
+        const messages = messagesSnapshot.docs.map(messageDoc => ({
+          id: messageDoc.id,
+          ...messageDoc.data(),
+          timestamp: messageDoc.data().timestamp ? messageDoc.data().timestamp.toString() : null,
+        }));
+
+        return { ...chatData, messages };
+      })
+    );
+
+
+    return data;
+  } catch (error) {
+    console.error("Error prefetching data with Admin SDK:", error);
+    return [];
+  }
 }
 
 export async function generateMetadata() {
@@ -54,7 +54,7 @@ export async function generateMetadata() {
 export default async function ChatPage() {
   // 1️⃣ Read comma-separated list of all legacy cookie names and the current cookie name
   const OLD_NAMES_ENV = process.env.OLD_SESSION_COOKIE_NAMES
-  const COOKIE_NAME   = process.env.SESSION_COOKIE_NAME   
+  const COOKIE_NAME = process.env.SESSION_COOKIE_NAME
 
   // 2️⃣ Convert the legacy names string into an array
   const oldNames = OLD_NAMES_ENV
@@ -90,7 +90,9 @@ export default async function ChatPage() {
         // Forward only COOKIE_NAME
         cookie: `${COOKIE_NAME}=${sessionCookie}`,
       },
-      cache: "no-store",
+      next: {
+        revalidate: 60
+      }
     })
     const apiJson = await verifyRes.json()
 
@@ -107,7 +109,7 @@ export default async function ChatPage() {
   }
 
   // 8️⃣ Fetch shared data
-  const currency    = (await fetchCurrency()) || []
+  const currency = (await fetchCurrency()) || []
   const countryList = await getCountries()
 
   // 9️⃣ Check if the user exists and has no missing fields

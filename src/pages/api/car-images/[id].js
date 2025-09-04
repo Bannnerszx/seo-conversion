@@ -1,4 +1,5 @@
 import { db } from "@/lib/firebaseAdmin";
+
 export default async function handler(req, res) {
     const { id } = req.query;
     if (!id) {
@@ -6,11 +7,11 @@ export default async function handler(req, res) {
     }
 
     try {
-        // only fetch the `images` field
+        ///Only fetch the 'iamges' field
         const snap = await db
             .collection('VehicleProducts')
             .doc(id)
-            .get({ fieldMask: ['images'] });
+            .get({ fieldMas: ['images'] });
 
         if (!snap.exists) {
             return res.status(404).json({ error: 'Car not found' });
@@ -18,9 +19,15 @@ export default async function handler(req, res) {
 
         const data = snap.data();
         const images = Array.isArray(data.images) ? data.images : [];
+
+        //Add this header to enable browser and CDN caching for 1 day
+        res.setHeader(
+            'Cache-Control',
+            'public, max-age=86400, stale-while-revalidate=604800'
+        );
         return res.status(200).json({ images });
-    } catch (err) {
-        console.error('Error fetching car images:', err);
-        return res.status(500).json({ error: 'Internal server error' });
+    } catch (error) {
+        console.error('Error fetching car images:', error);
+        return res.status(500).json({ error: "Internal server error" })
     }
 }

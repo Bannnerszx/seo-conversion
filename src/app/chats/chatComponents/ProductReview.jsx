@@ -205,6 +205,7 @@ export default function ProductReview({ chatId, accountName, invoiceData, carDat
 
 
         const testimonyData = {
+            comment: comment,
             chatId: chatId,
             accountName: accountName,
             carData: carData,

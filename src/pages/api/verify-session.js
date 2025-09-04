@@ -1,14 +1,14 @@
 // pages/api/verify-session.js
 import { admin } from "@/lib/firebaseAdmin"
 import { deleteCookie } from "cookies-next/server"
-
+import { LRUCache } from "@/lib/lruCache"
 // In-memory cache for session verification
-const sessionCache = new Map()
+const sessionCache = new LRUCache(1000)
 
 export default async function handler(req, res) {
   // 1️⃣ Read comma-separated list of all legacy cookie names and the current cookie name
-  const OLD_NAMES_ENV = process.env.OLD_SESSION_COOKIE_NAMES 
-  const COOKIE_NAME   = process.env.SESSION_COOKIE_NAME 
+  const OLD_NAMES_ENV = process.env.OLD_SESSION_COOKIE_NAMES
+  const COOKIE_NAME = process.env.SESSION_COOKIE_NAME
 
   // 2️⃣ Convert the legacy names into an array
   const oldNames = OLD_NAMES_ENV
@@ -31,8 +31,9 @@ export default async function handler(req, res) {
   }
 
   // Check cache for session verification
-  if (sessionCache.has(sessionCookie)) {
-    return res.status(200).json(sessionCache.get(sessionCookie))
+  const cachedValue = sessionCache.get(sessionCookie);
+  if (cachedValue) {
+    return res.status(200).json(cachedValue)
   }
 
   // 5️⃣ Attempt to verify the current session cookie with Firebase Admin

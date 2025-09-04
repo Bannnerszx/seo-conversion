@@ -74,8 +74,9 @@ export async function middleware(request) {
         headers: {
           // Forward the raw session_v2 cookie so the API can read req.cookies.session_v2
           cookie: `${COOKIE_NAME}=${sessionCookie}`,
-        },
-        cache: 'no-store',
+        }, next: {
+          revalidate: 60
+        }
       })
       apiJson = await verifyRes.json()
     } catch {
@@ -104,7 +105,9 @@ export async function middleware(request) {
         headers: {
           cookie: `${COOKIE_NAME}=${sessionCookie}`,
         },
-        cache: 'no-store',
+        next: {
+          revalidate: 60
+        }
       })
       const apiJson = await verifyRes.json()
       if (apiJson.valid) {

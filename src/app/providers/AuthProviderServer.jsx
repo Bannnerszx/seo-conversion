@@ -7,7 +7,7 @@ import AuthProvider from './AuthProvider'
 export default async function AuthProviderServer({ children }) {
   // 1️⃣ Read comma-separated list of all legacy cookie names and the current cookie name
   const OLD_NAMES_ENV = process.env.OLD_SESSION_COOKIE_NAMES || ''
-  const COOKIE_NAME   = process.env.SESSION_COOKIE_NAME
+  const COOKIE_NAME = process.env.SESSION_COOKIE_NAME
 
   // 2️⃣ Turn the legacy names into an array
   const oldNames = OLD_NAMES_ENV
@@ -43,7 +43,9 @@ export default async function AuthProviderServer({ children }) {
         // Forward only the current cookie name so the API can read it
         cookie: `${COOKIE_NAME}=${sessionCookie}`,
       },
-      cache: 'no-store',
+      next: {
+        revalidate: 60
+      }
     })
     apiJson = await verifyRes.json()
   } catch (err) {

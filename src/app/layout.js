@@ -71,15 +71,17 @@ export default async function RootLayout({ children }) {
   // 6️⃣  If session_v2 exists, verify it via /api/verify-session
   if (sessionCookie) {
     try {
-      const origin = process.env.NEXT_PUBLIC_APP_URL || 'https://dev.realmotor.jp'
+      const origin = process.env.NEXT_PUBLIC_APP_URL || 'https://www.realmotor.jp'
       const verifyRes = await fetch(`${origin}/api/verify-session`, {
         method: 'GET',
         headers: {
-          // Forward only session_v2
           cookie: `session_v2=${sessionCookie}`,
         },
-        cache: 'no-store',
-      })
+
+        next: {
+          revalidate: 60 // Re-verify the session at most once per minute
+        }
+      });
 
       const apiJson = await verifyRes.json()
       if (apiJson.valid) {
