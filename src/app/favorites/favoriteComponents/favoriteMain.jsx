@@ -5,7 +5,10 @@ import { removeFavorite } from "@/app/actions/actions"
 import FavoriteCard from "./favoriteCard"
 import Sidebar from "@/app/orders/orderComponents/sidebar"
 import { SideMenu } from "@/app/orders/orderComponents/sideMenu"
-export default function FavoritesPageCSR({ count, dataVehicles, currency, accountData, userEmail }) {
+import { useUnreadCount } from "@/hooks/useUnreadCount"
+export default function FavoritesPageCSR({ dataVehicles, currency, accountData, userEmail }) {
+
+    const count = useUnreadCount(userEmail)
     const [favoriteList, setFavoriteList] = useState(dataVehicles)
     const [isRightMenuOpen, setIsRightMenuOpen] = useState(false)
 
@@ -20,7 +23,7 @@ export default function FavoritesPageCSR({ count, dataVehicles, currency, accoun
 
         try {
             // 3) Tell your backend
-            await removeFavorite({stockId: stockID, userEmail});
+            await removeFavorite({ stockId: stockID, userEmail });
         } catch (err) {
             // 4) Rollback if the network call fails
             console.error("Unfavorite failed:", err);

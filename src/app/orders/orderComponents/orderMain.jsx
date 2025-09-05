@@ -9,6 +9,7 @@ import { SideMenu } from "./sideMenu";
 import Link from "next/link"
 import { ShoppingBag } from "lucide-react"
 import Component from "./OrderList"
+import { useUnreadCount } from "@/hooks/useUnreadCount"
 let lastVisible = null;
 export function subscribeToChatList(userEmail, callback) {
   if (!userEmail) {
@@ -105,7 +106,8 @@ const generateStatuses = (item) => [
   }
 ];
 
-export default function MainOrderPage({ count, userEmail, currency, accountData, prefetchedData }) {
+export default function MainOrderPage({ userEmail, currency, accountData, prefetchedData }) {
+  const count = useUnreadCount(userEmail)
   const [chatList, setChatList] = useState([]);
   const [isRightMenuOpen, setIsRightMenuOpen] = useState(false);
   const [hasMore, setHasMore] = useState(true);

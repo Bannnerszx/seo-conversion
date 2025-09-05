@@ -1,5 +1,8 @@
 import AboutContent from "./aboutusComponent/AboutContent";
 
+// Explicitly set the page to be statically rendered
+export const dynamic = 'force-static';
+
 export async function generateMetadata({ params }) {
   return {
       title: 'About Us | REAL MOTOR JAPAN',

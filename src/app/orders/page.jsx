@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { fetchNotificationCounts, getAccountData, checkUserExist } from "../actions/actions";
 import { fetchCurrency, } from "../../../services/fetchFirebaseData";
 import ClientAppCheck from "../../../firebase/ClientAppCheck";
+import { useUnreadCount } from "@/hooks/useUnreadCount";
 
 async function fetchPrefetchedData(userEmail) {
   try {
@@ -133,7 +134,8 @@ export default async function OrderPage() {
   // 9️⃣ Fetch any needed data
   const currency = await fetchCurrency()
   const accountData = await getAccountData(userEmail)
-  const count = await fetchNotificationCounts({ userEmail })
+
+
   const prefetchedData = await fetchPrefetchedData(userEmail);
 
   // 🔟 Render the protected order page
@@ -142,7 +144,6 @@ export default async function OrderPage() {
       <ClientAppCheck />
       <MainOrderPage
         prefetchedData={prefetchedData}
-        count={count}
         currency={currency}
         userEmail={userEmail}
         accountData={accountData}
