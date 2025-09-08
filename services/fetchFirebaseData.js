@@ -553,7 +553,7 @@ export const fetchCarDataAdmin = cache(
     }
   },
   {
-    revalidate: 3600,
+    revalidate: 300,
     tags: ['products']
   }
 )

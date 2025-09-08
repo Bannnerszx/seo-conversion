@@ -10,6 +10,7 @@ import { firestore } from "../../../../firebase/clientApp"
 import { loadMoreMessages } from "@/app/actions/actions"
 import { SortProvider } from "@/app/stock/stockComponents/sortContext"
 import TransactionCSRLoader from "./TransactionCSRLoader"
+import { SurveyModal } from "@/app/components/SurveyModal"
 
 let lastVisible = null;
 export function subscribeToChatList(
@@ -228,7 +229,8 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
     const [lastTimestamp, setLastTimestamp] = useState("")
     const [isMobileView, setIsMobileView] = useState(false)
     const [isLoadingTransaction, setIsLoadingTransaction] = useState(false);
-
+    const [isSurveyOpen, setIsSurveyOpen] = useState(true)
+    const [isModalOpen] = useState(false)
     useEffect(() => {
         // split & drop any empty strings
         const segments = pathname.split('/').filter(Boolean)
@@ -511,7 +513,7 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
         // cleanup on unmount or deps change
         return () => unsubscribe()
     }, [selectedContact?.invoiceNumber, userEmail]);
-    
+
     return (
         <SortProvider>
             <div className="flex h-screen bg-gray-50">
@@ -614,6 +616,7 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
                         )}
                     </main>
                 )}
+                {/* <SurveyModal isOpen={isSurveyOpen} onClose={() => setIsSurveyOpen(false)} /> */}
 
             </div>
         </SortProvider>
