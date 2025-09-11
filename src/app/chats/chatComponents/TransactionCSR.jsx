@@ -3,9 +3,12 @@ import Link from "next/link"
 import { functions } from "../../../../firebase/clientApp"
 import { httpsCallable } from "firebase/functions"
 import { useState, useRef, useEffect, useCallback } from "react"
+import { firestore } from "../../../../firebase/clientApp"
+import { doc, updateDoc } from "firebase/firestore"
+import { subscribeToChatDoc } from "./chatSubscriptions"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Paperclip, Send, X, Download } from "lucide-react"
+import { Paperclip, Send, X, Download, CheckCircle } from "lucide-react"
 import { Textarea } from "@/components/ui/textarea"
 import CarDetails from "./carDetails"
 import ActionButtonsChat from "./actionButtonsChat"
@@ -16,9 +19,11 @@ import ChatMessage from "./messageLinks"
 import moment from "moment"
 import WarningDialog from "./warningDialog"
 import ProductReview from "./ProductReview"
+import TransactionCSRLoader from "./TransactionCSRLoader"
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
 
-export default function TransactionCSR({ vehicleStatus, accountData, isMobileView, isDetailView, handleBackToList, bookingData, countryList, currency, dueDate, handleLoadMore, invoiceData, userEmail, contact, messages, onSendMessage, isLoading, chatId, chatMessages }) {
+export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, accountData, isMobileView, isDetailView, handleBackToList, bookingData, countryList, currency, dueDate, handleLoadMore, invoiceData, userEmail, contact, messages, onSendMessage, isLoading, chatId, chatMessages }) {
+
     const [newMessage, setNewMessage] = useState("");
     const sendMessage = httpsCallable(functions, 'sendMessage');
     const updateCustomerFiles = httpsCallable(functions, 'updateCustomerFiles');
@@ -72,6 +77,7 @@ export default function TransactionCSR({ vehicleStatus, accountData, isMobileVie
     }, [])
     const [ipInfo, setIpInfo] = useState(null);
     const [tokyoTime, setTokyoTime] = useState(null);
+    const [showPaymentModal, setShowPaymentModal] = useState(false)
 
     // Initial load on mount
     useEffect(() => {
@@ -91,6 +97,34 @@ export default function TransactionCSR({ vehicleStatus, accountData, isMobileVie
             });
         return () => { mounted = false; };
     }, []);
+
+    // Subscribe to chat doc for payment events and show modal when appropriate (detail view only)
+    // Persist confirmation to Firestore (confirmedPayment) so it survives cookie/LS clears.
+    useEffect(() => {
+        if (!chatId || !isDetailView) return
+
+        const unsubscribe = subscribeToChatDoc(chatId, (chatData) => {
+            if (!chatData) return
+            const rawStep = chatData?.stepIndicator?.value ?? chatData?.tracker ?? null
+            const tracker = rawStep == null ? null : Number(rawStep)
+            // Only show modal when tracker reaches payment stage AND the chat hasn't been confirmed yet
+            if (tracker !== null && !Number.isNaN(tracker) && tracker >= 4) {
+                try {
+                    const alreadyConfirmed = chatData?.confirmedPayment === true
+                    if (!alreadyConfirmed) {
+                        setShowPaymentModal(true)
+                    } else {
+                        // ensure modal is hidden if already confirmed elsewhere
+                        setShowPaymentModal(false)
+                    }
+                } catch (err) {
+                    console.error('Failed to handle payment event:', err)
+                }
+            }
+        })
+
+        return () => unsubscribe()
+    }, [chatId, isDetailView])
 
     const handleSendMessage = async (e) => {
         if (loadingSent || isLoading || (!newMessage.trim() && !attachedFile)) {
@@ -259,266 +293,362 @@ export default function TransactionCSR({ vehicleStatus, accountData, isMobileVie
     const { stockStatus, reservedTo } = vehicleStatus[contact?.carData?.stockID] || {};
     const isReservedOrSold = (stockStatus === "Reserved" || stockStatus === "Sold") && reservedTo !== userEmail
 
+
+    const selectedCurrencyCode = contact?.selectedCurrencyExchange;
+    const currencies = [
+        { code: "USD", symbol: "USD$", value: 1 },
+        { code: "EUR", symbol: "€", value: contact?.currency.usdToEur },
+        { code: "JPY", symbol: "¥", value: contact?.currency.usdToJpy },
+        { code: "CAD", symbol: "CAD$", value: contact?.currency.usdToCad },
+        { code: "AUD", symbol: "AUD$", value: contact?.currency.usdToAud },
+        { code: "GBP", symbol: "GBP£", value: contact?.currency.usdToGbp },
+        { code: "ZAR", symbol: "R", value: contact?.currency.usdToZar },
+    ];
+    // 3) find the matching currency (fallback to USD if nothing matches)
+    const currencyInside =
+        currencies.find((c) => c.code === selectedCurrencyCode)
+        || currencies[0];
+
+    // 4) do your price math with currency.value
+    const basePrice =
+        parseFloat(contact?.carData?.fobPrice)
+        * parseFloat(contact?.currency.jpyToUsd);
+
+    const baseFinalPrice = invoiceData?.paymentDetails.totalAmount ? parseFloat(invoiceData?.paymentDetails.totalAmount) - (contact?.inspection ? 300 : 0) :
+        basePrice
+        + parseFloat(contact?.carData?.dimensionCubicMeters)
+        * parseFloat(contact?.freightPrice);
+
+    const inspectionSurcharge = contact?.inspection ? 300 * currencyInside.value : 0;
+    const insuranceSurcharge = contact?.insurance ? 50 * currencyInside.value : 0
+    const finalPrice = (baseFinalPrice * currencyInside.value + inspectionSurcharge + insuranceSurcharge);
+    console.log(finalPrice)
+
     return (
-        <div className="flex flex-col h-full">
+        isLoadingTransaction ? <TransactionCSRLoader /> : (
+            <div className="flex flex-col h-full">
+                {showPaymentModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                        <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 overflow-hidden animate-in fade-in-0 zoom-in-95 duration-200">
+                            {/* Header */}
+                            <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-white/20 rounded-full p-2">
+                                        <CheckCircle className="h-6 w-6 text-white" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xl font-semibold text-white">Payment Confirmed</h3>
+                                        <p className="text-blue-100 text-sm">Transaction completed successfully</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Content */}
+                            <div className="px-6 py-6">
+                                <p className="text-gray-600 mb-6 leading-relaxed">
+                                    Your payment has been approved and processed. Please confirm to proceed.
+                                </p>
+
+                                {/* Payment details */}
+                                <div className="bg-blue-50 rounded-lg p-4 mb-6 border border-blue-100">
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-gray-600">Amount:</span>
+                                        <span className="font-semibold text-gray-900">{currencyInside.symbol} {Math.ceil(finalPrice).toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-sm mt-2">
+                                        <span className="text-gray-600">Status:</span>
+                                        <span className="text-green-600 font-medium">Approved</span>
+                                    </div>
+                                </div>
+
+                                {/* Action buttons */}
+                                <div className="flex justify-end">
+                                    <button
+                                        id="rmj_payment_confirm"
+                                        className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium shadow-sm"
+                                        onClick={async () => {
+                                            try {
+                                                // Persist confirmation to Firestore so it's durable and cross-device
+                                                await updateDoc(doc(firestore, 'chats', chatId), { confirmedPayment: true })
+                                                try { window.dataLayer = window.dataLayer || [] } catch (e) { }
+                                                if (typeof window !== 'undefined' && window.dataLayer) {
+                                                    window.dataLayer.push({ event: 'rmj_payment_confirmed', chatId })
+                                                }
+                                            } catch (err) {
+                                                console.error('Failed to persist confirmedPayment:', err)
+                                            } finally {
+                                                setShowPaymentModal(false)
+                                            }
+                                        }}
+                                    >
+                                        Confirm Payment
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
 
-            <WarningDialog
-                open={warningOpen}
-                onOpenChange={handleDialogOpenChange}
-                title="File Size Warning"
-                description={warningMessage}
-                confirmText="OK"
-            />
+                <WarningDialog
+                    open={warningOpen}
+                    onOpenChange={handleDialogOpenChange}
+                    title="File Size Warning"
+                    description={warningMessage}
+                    confirmText="OK"
+                />
 
-            <div className="relative w-full">
-
-
+                <div className="relative w-full">
 
 
-                <div className="relative z-[5]">
-                    {/* this is your dynamic‐height content */}
-                    <CarDetails
-                        chatId={chatId}
-                        accountData={accountData}
-                        isDetailView={isDetailView}
-                        isMobileView={isMobileView}
-                        handleBackToList={handleBackToList}
-                        bookingData={bookingData}
-                        countryList={countryList}
-                        currency={currency}
-                        dueDate={dueDate}
-                        contact={contact}
-                        invoiceData={invoiceData}
-                    />
 
-                    {/* your existing action buttons (still in flow) */}
-                    {contact?.stepIndicator?.value >= 2 && (
-                        <ActionButtonsChat
-                            accountData={accountData}
-                            bookingData={bookingData}
+
+                    <div className="relative z-[5]">
+                        {/* this is your dynamic‐height content */}
+                        <CarDetails
                             chatId={chatId}
+                            accountData={accountData}
+                            isDetailView={isDetailView}
+                            isMobileView={isMobileView}
+                            handleBackToList={handleBackToList}
+                            bookingData={bookingData}
                             countryList={countryList}
-                            selectedChatData={contact}
+                            currency={currency}
+                            dueDate={dueDate}
+                            contact={contact}
                             invoiceData={invoiceData}
-                            userEmail={userEmail}
-                            vehicleStatus={vehicleStatus}
                         />
-                    )}
 
-                    {/* announcement bar pulled out of flow but placed at parent’s bottom */}
-                    {(contact?.stepIndicator?.value === 2 || contact?.stepIndicator?.value === 3 || isReservedOrSold) && (
-                        <div className="absolute top-full left-0 w-full z-[1] px-1 mt-1">
-                            <AnnouncementBar
-                                invoiceData={invoiceData}
+                        {/* your existing action buttons (still in flow) */}
+                        {contact?.stepIndicator?.value >= 2 && (
+                            <ActionButtonsChat
                                 accountData={accountData}
+                                bookingData={bookingData}
                                 chatId={chatId}
-                                selectedChatData={contact}
                                 countryList={countryList}
+                                selectedChatData={contact}
+                                invoiceData={invoiceData}
                                 userEmail={userEmail}
                                 vehicleStatus={vehicleStatus}
                             />
-                        </div>
-                    )}
+                        )}
+
+                        {/* announcement bar pulled out of flow but placed at parent’s bottom */}
+                        {(contact?.stepIndicator?.value === 2 || contact?.stepIndicator?.value === 3 || isReservedOrSold) && (
+                            <div className="absolute top-full left-0 w-full z-[1] px-1 mt-1">
+                                <AnnouncementBar
+                                    invoiceData={invoiceData}
+                                    accountData={accountData}
+                                    chatId={chatId}
+                                    selectedChatData={contact}
+                                    countryList={countryList}
+                                    userEmail={userEmail}
+                                    vehicleStatus={vehicleStatus}
+                                />
+                            </div>
+                        )}
+                    </div>
+
+
+
                 </div>
 
+                <ScrollArea
 
+                    onScrollCapture={(event) => {
+                        if (event.target.scrollTop === 0) {
+                            handleLoadMore();
+                        }
+                    }}
 
-            </div>
+                    ref={scrollAreaRef} className="h-full p-4 custom-scroll bg-[#E5EBFE]"
+                >
 
-            <ScrollArea
+                    <div className="space-y-4 mt-8">
+                        {chatMessages.slice().reverse().map((message, index) => (
+                            <div key={index} className="w-full">
+                                <div className={`flex w-full ${message.sender === userEmail ? "justify-end" : "justify-start"}`}>
 
-                onScrollCapture={(event) => {
-                    if (event.target.scrollTop === 0) {
-                        handleLoadMore();
-                    }
-                }}
+                                    <div
+                                        className={`max-w-[75%] p-3 rounded-lg ${message.sender === userEmail
+                                            ? "bg-blue-500 text-white rounded-br-none"
+                                            : "bg-white text-gray-800 rounded-bl-none"
+                                            }`}
+                                    >
 
-                ref={scrollAreaRef} className="h-full p-4 custom-scroll bg-[#E5EBFE]"
-            >
-
-                <div className="space-y-4 mt-8">
-                    {chatMessages.slice().reverse().map((message, index) => (
-                        <div key={index} className="w-full">
-                            <div className={`flex w-full ${message.sender === userEmail ? "justify-end" : "justify-start"}`}>
-
-                                <div
-                                    className={`max-w-[75%] p-3 rounded-lg ${message.sender === userEmail
-                                        ? "bg-blue-500 text-white rounded-br-none"
-                                        : "bg-white text-gray-800 rounded-bl-none"
-                                        }`}
-                                >
-
-                                    {!message.messageType && (
-                                        <p
-                                            style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
-                                            className={message.sender === userEmail ? "text-white" : "text-gray-800"}
-                                        >
-                                            {renderTextWithLinks(message.text)}
-                                        </p>
-                                    )}
-
-                                    {message.messageType === 'InvoiceAmendment' && (
-                                        <p
-                                            style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", }}
-                                            className={message.sender === userEmail ? "text-white" : "text-gray-800"}
-                                        >
-                                            {renderTextWithLinks(message.text)}
-                                        </p>
-                                    )}
-                                    {message.messageType === 'FullPayment' && (
-                                        <p
-                                            style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
-                                            className={message.sender === userEmail ? "text-white" : "text-gray-800"}
-                                        >
-                                            {renderTextWithLinks(message.text)}
-                                        </p>
-                                    )}
-
-                                    {message.messageType === 'InputPayment' && (
-                                        <p
-                                            style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
-                                            className={message.sender === userEmail ? "text-white" : "text-gray-800"}
-                                        >
-                                            {renderTextWithLinks(message.text)}
-                                        </p>
-                                    )}
-                                    {message.messageType === 'IssuedInvoice' && (
-                                        <>
+                                        {!message.messageType && (
                                             <p
                                                 style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
                                                 className={message.sender === userEmail ? "text-white" : "text-gray-800"}
                                             >
                                                 {renderTextWithLinks(message.text)}
                                             </p>
-                                            <div className={`mt-2 flex justify-${message.sender === userEmail ? "end" : "start"}`}>
+                                        )}
 
-                                                <PreviewInvoice accountData={accountData} selectedChatData={contact} invoiceData={invoiceData} />
-                                            </div>
-                                        </>
-
-                                    )}
-                                    {message.messageType === 'InputDocDelAdd' && (
-                                        <>
+                                        {message.messageType === 'InvoiceAmendment' && (
+                                            <p
+                                                style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", }}
+                                                className={message.sender === userEmail ? "text-white" : "text-gray-800"}
+                                            >
+                                                {renderTextWithLinks(message.text)}
+                                            </p>
+                                        )}
+                                        {message.messageType === 'FullPayment' && (
                                             <p
                                                 style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
                                                 className={message.sender === userEmail ? "text-white" : "text-gray-800"}
                                             >
                                                 {renderTextWithLinks(message.text)}
                                             </p>
-                                            <div className={`mt-2 flex justify-${message.sender === userEmail ? "end" : "start"}`}>
-                                                <DeliveryAddress accountData={accountData} countryList={countryList} chatId={chatId} userEmail={userEmail} />
-                                            </div>
-                                        </>
+                                        )}
 
-                                    )}
+                                        {message.messageType === 'InputPayment' && (
+                                            <p
+                                                style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+                                                className={message.sender === userEmail ? "text-white" : "text-gray-800"}
+                                            >
+                                                {renderTextWithLinks(message.text)}
+                                            </p>
+                                        )}
+                                        {message.messageType === 'IssuedInvoice' && (
+                                            <>
+                                                <p
+                                                    style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+                                                    className={message.sender === userEmail ? "text-white" : "text-gray-800"}
+                                                >
+                                                    {renderTextWithLinks(message.text)}
+                                                </p>
+                                                <div className={`mt-2 flex justify-${message.sender === userEmail ? "end" : "start"}`}>
 
-                                    {message.messageType === 'important' && (
-                                        <div
-                                            className={`flex flex-col ${message.sender === userEmail ? 'items-end' : 'items-start'
-                                                } space-y-4`}
-                                        >
+                                                    <PreviewInvoice accountData={accountData} selectedChatData={contact} invoiceData={invoiceData} />
+                                                </div>
+                                            </>
 
+                                        )}
+                                        {message.messageType === 'InputDocDelAdd' && (
+                                            <>
+                                                <p
+                                                    style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+                                                    className={message.sender === userEmail ? "text-white" : "text-gray-800"}
+                                                >
+                                                    {renderTextWithLinks(message.text)}
+                                                </p>
+                                                <div className={`mt-2 flex justify-${message.sender === userEmail ? "end" : "start"}`}>
+                                                    <DeliveryAddress accountData={accountData} countryList={countryList} chatId={chatId} userEmail={userEmail} />
+                                                </div>
+                                            </>
+
+                                        )}
+
+                                        {message.messageType === 'important' && (
                                             <div
-                                                style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
-                                                className="text-base"
+                                                className={`flex flex-col ${message.sender === userEmail ? 'items-end' : 'items-start'
+                                                    } space-y-4`}
                                             >
-                                                {message.text}
+
+                                                <div
+                                                    style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+                                                    className="text-base"
+                                                >
+                                                    {message.text}
+                                                </div>
+
+                                                {message.text.includes('Vessel Name') && bookingData?.sI?.url && (
+                                                    <Button
+                                                        variant="default"
+                                                        className="gap-2 bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-100"
+                                                        onClick={() => window.open(bookingData.sI.url, '_blank')}
+                                                    >
+                                                        <Download className="h-4 w-4" />
+                                                        <span>Download SI</span>
+                                                    </Button>
+                                                )}
+
+
+                                                {message.text.includes('B/L') && bookingData?.bL?.url && (
+                                                    <Button
+                                                        variant="default"
+                                                        className="gap-2 bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-100"
+                                                        onClick={() => window.open(bookingData.bL.url, '_blank')}
+                                                    >
+                                                        <Download className="h-4 w-4" />
+                                                        <span>Download BL</span>
+                                                    </Button>
+                                                )}
                                             </div>
-
-                                            {message.text.includes('Vessel Name') && bookingData?.sI?.url && (
-                                                <Button
-                                                    variant="default"
-                                                    className="gap-2 bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-100"
-                                                    onClick={() => window.open(bookingData.sI.url, '_blank')}
-                                                >
-                                                    <Download className="h-4 w-4" />
-                                                    <span>Download SI</span>
-                                                </Button>
-                                            )}
-
-
-                                            {message.text.includes('B/L') && bookingData?.bL?.url && (
-                                                <Button
-                                                    variant="default"
-                                                    className="gap-2 bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-100"
-                                                    onClick={() => window.open(bookingData.bL.url, '_blank')}
-                                                >
-                                                    <Download className="h-4 w-4" />
-                                                    <span>Download BL</span>
-                                                </Button>
-                                            )}
-                                        </div>
-                                    )}
+                                        )}
 
 
 
-                                    <ChatMessage accountData={accountData} message={message} userEmail={userEmail} />
+                                        <ChatMessage accountData={accountData} message={message} userEmail={userEmail} />
 
-                                </div>
-
-                            </div>
-
-
-                            <div className={`w-full flex ${message.sender === userEmail ? "justify-end" : "justify-start"}`}>
-                                <span className="text-xs text-gray-500">
-                                    {message.timestamp}
-                                </span>
-                            </div>
-                            {index === chatMessages.length - 1 && contact?.stepIndicator?.value >= 6 && (
-                                <div className="w-full">
-                                    {/* The bubble itself */}
-                                    <div className="flex w-full justify-start">
-                                        <div className="max-w-[75%] p-3 rounded-lg bg-white text-gray-800 rounded-bl-none">
-                                            <p
-                                                style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
-                                                className="text-gray-800"
-                                            >
-                                                We’d love your feedback! Please leave a review of your experience.
-                                            </p>
-
-                                            <ProductReview step={contact?.stepIndicator?.value} chatId={chatId} invoiceData={invoiceData?.consignee} carData={contact?.carData} accountName={`${accountData?.textFirst} ${accountData?.textLast}`} />
-                                        </div>
                                     </div>
 
-                                    {/* ✅ Timestamp just like other messages */}
-                                    <div className="w-full flex justify-start">
-                                        <span className="text-xs text-gray-500">
-                                            {message.timestamp}
-                                        </span>
+                                </div>
+
+
+                                <div className={`w-full flex ${message.sender === userEmail ? "justify-end" : "justify-start"}`}>
+                                    <span className="text-xs text-gray-500">
+                                        {message.timestamp}
+                                    </span>
+                                </div>
+                                {index === chatMessages.length - 1 && contact?.stepIndicator?.value >= 6 && (
+                                    <div className="w-full">
+                                        {/* The bubble itself */}
+                                        <div className="flex w-full justify-start">
+                                            <div className="max-w-[75%] p-3 rounded-lg bg-white text-gray-800 rounded-bl-none">
+                                                <p
+                                                    style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+                                                    className="text-gray-800"
+                                                >
+                                                    We’d love your feedback! Please leave a review of your experience.
+                                                </p>
+
+                                                <ProductReview step={contact?.stepIndicator?.value} chatId={chatId} invoiceData={invoiceData?.consignee} carData={contact?.carData} accountName={`${accountData?.textFirst} ${accountData?.textLast}`} />
+                                            </div>
+                                        </div>
+
+                                        {/* ✅ Timestamp just like other messages */}
+                                        <div className="w-full flex justify-start">
+                                            <span className="text-xs text-gray-500">
+                                                {message.timestamp}
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+
+                            </div>
+                        ))}
+
+                        {isLoading && (
+                            <div className="flex justify-start">
+                                <div className="max-w-[70%] p-3 rounded-lg bg-gray-200 text-gray-800 rounded-bl-none">
+                                    <div className="flex space-x-1">
+                                        <div
+                                            className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                                            style={{ animationDelay: "0ms" }}
+                                        ></div>
+                                        <div
+                                            className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                                            style={{ animationDelay: "150ms" }}
+                                        ></div>
+                                        <div
+                                            className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                                            style={{ animationDelay: "300ms" }}
+                                        ></div>
                                     </div>
                                 </div>
-                            )}
-
-                        </div>
-                    ))}
-
-                    {isLoading && (
-                        <div className="flex justify-start">
-                            <div className="max-w-[70%] p-3 rounded-lg bg-gray-200 text-gray-800 rounded-bl-none">
-                                <div className="flex space-x-1">
-                                    <div
-                                        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                                        style={{ animationDelay: "0ms" }}
-                                    ></div>
-                                    <div
-                                        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                                        style={{ animationDelay: "150ms" }}
-                                    ></div>
-                                    <div
-                                        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                                        style={{ animationDelay: "300ms" }}
-                                    ></div>
-                                </div>
                             </div>
-                        </div>
-                    )}
-                    <div ref={endOfMessagesRef} />
-                </div>
-            </ScrollArea>
+                        )}
+                        <div ref={endOfMessagesRef} />
+                    </div>
+                </ScrollArea>
 
-            <ChatInput accountData={accountData} loadingSent={loadingSent} setAttachedFile={setAttachedFile} fileInputRef={fileInputRef} attachedFile={attachedFile} handleFileUpload={handleFileUpload} userEmail={userEmail} chatId={chatId} newMessage={newMessage} setNewMessage={setNewMessage} handleSendMessage={handleSendMessage} isLoading={isLoading} />
-        </div>
+                <ChatInput accountData={accountData} loadingSent={loadingSent} setAttachedFile={setAttachedFile} fileInputRef={fileInputRef} attachedFile={attachedFile} handleFileUpload={handleFileUpload} userEmail={userEmail} chatId={chatId} newMessage={newMessage} setNewMessage={setNewMessage} handleSendMessage={handleSendMessage} isLoading={isLoading} />
+            </div>
+        )
+
+
     )
 }
 

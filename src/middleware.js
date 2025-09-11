@@ -18,7 +18,6 @@ export const config = {
     '/stock_detail',
     // ✅ ensure middleware runs on /stock and all subroutes
     '/stock/:path*',
-    // …add any other protected top‐level folders here…
   ],
 }
 
@@ -32,7 +31,7 @@ export async function middleware(request) {
   const COOKIE_NAME = process.env.SESSION_COOKIE_NAME
 
   // ──────────────
-  // 0️⃣  Drop any old "session" cookie immediately
+  // 0️⃣  Drop any old "session" cookie immediately (legacy clean-up)
   // ──────────────
   const oldValue = cookies.get(OLD_NAMES)?.value
   if (oldValue) {
@@ -49,14 +48,13 @@ export async function middleware(request) {
     '/favorites',
     '/profile',
     '/chats',
-    // …any other top‐level routes you consider protected…
   ]
   const isProtected = protectedPrefixes.some(prefix =>
     pathname.startsWith(prefix)
   )
 
   // ───────────────────────────────────────────────────────
-  // 2️⃣  If protected, verify the new "session_v2" cookie
+  // 2️⃣  If protected, verify the "session_v2" cookie
   // ───────────────────────────────────────────────────────
   if (isProtected) {
     const sessionCookie = cookies.get(COOKIE_NAME)?.value ?? null
@@ -74,9 +72,8 @@ export async function middleware(request) {
         headers: {
           // Forward the raw session_v2 cookie so the API can read req.cookies.session_v2
           cookie: `${COOKIE_NAME}=${sessionCookie}`,
-        }, next: {
-          revalidate: 60
-        }
+        },
+        cache: 'no-store',
       })
       apiJson = await verifyRes.json()
     } catch {
@@ -88,8 +85,6 @@ export async function middleware(request) {
     if (!apiJson.valid) {
       return NextResponse.redirect(new URL('/login', ORINAL_URL))
     }
-
-    // 2d) Otherwise (valid === true), let the protected page render
   }
 
   // ───────────────────────────────────────────────────────
@@ -105,9 +100,7 @@ export async function middleware(request) {
         headers: {
           cookie: `${COOKIE_NAME}=${sessionCookie}`,
         },
-        next: {
-          revalidate: 60
-        }
+        cache: 'no-store',
       })
       const apiJson = await verifyRes.json()
       if (apiJson.valid) {
@@ -116,7 +109,6 @@ export async function middleware(request) {
     } catch {
       isVerified = false
     }
-    // If invalid, /api/verify-session already deleted session_v2 for us.
   }
 
   if (isVerified && (pathname === '/login' || pathname === '/signup')) {
@@ -157,43 +149,19 @@ export async function middleware(request) {
   }
 
   // ───────────────────────────────────────────────────────
-  // 5️⃣  Tracker‐based chat redirects (unchanged)
+  // 5️⃣  NEW: Conversion URL rewrites (no OLD_GUARD redirects)
+  //     Keep the visible URL (/chats/ordered|payment/:chatId) so GTM can fire,
+  //     but render /chats/:chatId under the hood.
   // ───────────────────────────────────────────────────────
-  if (
-    pathname.startsWith('/chats/payment/') ||
-    pathname.startsWith('/chats/ordered/')
-  ) {
-    return NextResponse.next()
-  }
-
-  // ── 2) only handle the “bare” chat URL: /chats/<chatId>
-  //     segments = ["chats", "<chatId>"]
-  const segments = pathname.split('/').filter(Boolean)
-  if (!(segments[0] === 'chats' && segments.length === 2)) {
-    // continue below
-  } else {
-    const chatId = segments[1]
-    try {
-      const trackerRes = await fetch(
-        `${origin}/api/getChatTracker?chatId=${encodeURIComponent(chatId)}`,
-        { next: { revalidate: 5 } }
-      )
-      if (trackerRes.ok) {
-        const { tracker } = await trackerRes.json()
-        if (tracker === 3) {
-          return NextResponse.redirect(
-            new URL(`/chats/ordered/${chatId}`, origin)
-          )
-        }
-        if (tracker >= 4) {
-          return NextResponse.redirect(
-            new URL(`/chats/payment/${chatId}`, origin)
-          )
-        }
-      }
-    } catch (e) {
-      console.error('Failed to fetch chat tracker:', e)
+  {
+    const mOrdered = pathname.match(/^\/chats\/ordered\/([^\/?#]+)/)
+    if (mOrdered) {
+      const chatId = mOrdered[1]
+      const cloned = url.clone()
+      cloned.pathname = `/chats/${chatId}`
+      return NextResponse.rewrite(cloned)
     }
+  // NOTE: payment URL rewrite removed — no server-side rewrite for /chats/payment
   }
 
   // ───────────────────────────────────────────────────────
@@ -254,15 +222,10 @@ export async function middleware(request) {
   }
 
   // ───────────────────────────────────────────────────────
-  // 7️⃣  Rewrite “deep” chats → /chats (but skip ordered/payment)
+  // 7️⃣  (REMOVED) OLD_GUARD:
+  //     - Tracker-based redirects from /chats/:chatId → /chats/ordered|payment/...
+  //     - Rewrite “deep” chats → /chats
   // ───────────────────────────────────────────────────────
-  const parts = pathname.split('/')
-  const isDeepChat = parts[1] === 'chats' && parts.length > 2
-  const isSpecial = parts[2] === 'ordered' || parts[2] === 'payment'
-
-  if (isDeepChat && !isSpecial) {
-    return NextResponse.rewrite(new URL('/chats', origin))
-  }
 
   return response
 }

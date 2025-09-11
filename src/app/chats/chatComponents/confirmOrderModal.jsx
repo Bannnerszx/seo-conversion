@@ -5,7 +5,6 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { CheckCircle, AlertTriangle, X, Copy } from "lucide-react"
-import { useRouter } from "next/navigation"
 import Modal from "@/app/components/Modal"
 import Loader from "@/app/components/Loader"
 import moment from "moment"
@@ -18,7 +17,7 @@ export default function OrderButton({ ipInfo, tokyoTime, accountData, isOrderMou
     const [ordered, setOrdered] = useState(false)
     const [showAlert, setShowAlert] = useState(false);
     const [isLoading, setIsLoading] = useState(false)
-    const router = useRouter()
+    // navigation to /chats/ordered removed — UI will stay on the current chat detail
     // useEffect(() => {
     //     onMount?.()
     //     return () => onUnmount?.()
@@ -308,7 +307,8 @@ export default function OrderButton({ ipInfo, tokyoTime, accountData, isOrderMou
             console.log("Full order process complete!");
             setOrdered(true);
             setIsOrderMounted(true);
-            router.push(`/chats/ordered/${chatId}`);
+            // Navigation removed: stay on the current chat detail. If you need a visible
+            // URL change for tracking, rely on server/middleware or GTM click triggers.
 
         } catch (error) {
             console.log("Order process failed:", error.message);
@@ -364,7 +364,7 @@ export default function OrderButton({ ipInfo, tokyoTime, accountData, isOrderMou
     return (
         <>
 
-            <Button size="sm" onClick={handleOrder} className="ml-2 font-medium bg-red-500 hover:bg-red-600 text-white">
+            <Button id="rmj_order_confirm" size="sm" onClick={handleOrder} className="ml-2 font-medium bg-red-500 hover:bg-red-600 text-white">
                 Order Now
             </Button>
             <FloatingAlertPortal

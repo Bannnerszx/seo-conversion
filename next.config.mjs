@@ -14,7 +14,7 @@ const nextConfig = {
     }
   },
   experimental: {
-    webpackMemoryOptimizations: true,
+  
     serverActions: {
       bodySizeLimit: '5mb',
     },
@@ -40,14 +40,10 @@ const nextConfig = {
     return [
 
       {
-        source: '/chats/ordered/:chatId',
+        source: '/chats/:chatId',
         destination: '/chats',
       },
-      {
-        source: '/chats/payment/:chatId',
-        destination: '/chats',
-      },
-
+   
     ]
   }
 }

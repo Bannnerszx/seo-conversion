@@ -10,7 +10,8 @@ import { firestore } from "../../../../firebase/clientApp"
 import { loadMoreMessages } from "@/app/actions/actions"
 import { SortProvider } from "@/app/stock/stockComponents/sortContext"
 import TransactionCSRLoader from "./TransactionCSRLoader"
-import { SurveyModal } from "@/app/components/SurveyModal"
+import { TransactionSkeleton } from "./TransactionListCSRLoader"
+// import { SurveyModal } from "@/app/components/SurveyModal"
 
 let lastVisible = null;
 export function subscribeToChatList(
@@ -146,6 +147,7 @@ export async function loadMoreChatList(userEmail, callback) {
             where("participants.customer", "==", userEmail),
             orderBy("lastMessageDate", "desc"),
             startAfter(lastVisible),
+
             limit(10)
         );
 
@@ -169,6 +171,8 @@ export async function loadMoreChatList(userEmail, callback) {
         callback([], true);
     }
 }
+// Subscribe to the chat document itself so we can observe tracker changes
+// subscribeToChatDoc is now provided by ./chatSubscriptions
 export async function makeTrueRead(chatId) {
     try {
         const chatRef = doc(firestore, "chats", chatId);
@@ -212,6 +216,7 @@ const fetchVehicleStatuses = (stockIDs, updateStatuses) => {
 export default function ChatPageCSR({ accountData, userEmail, currency, fetchInvoiceData, countryList, prefetchedData }) {
     const [chatList, setChatList] = useState(prefetchedData?.map(chat => ({ id: chat.id, ...chat })) || []);
     const [selectedContact, setSelectedContact] = useState(prefetchedData?.[0] || null);
+
     const [searchQuery, setSearchQuery] = useState("")
     const [hasMore, setHasMore] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
@@ -228,42 +233,13 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
     const [invoiceData, setInvoiceData] = useState({})
     const [lastTimestamp, setLastTimestamp] = useState("")
     const [isMobileView, setIsMobileView] = useState(false)
-    const [isLoadingTransaction, setIsLoadingTransaction] = useState(false);
+    const [isLoadingTransaction, setIsLoadingTransaction] = useState(true);
     const [isSurveyOpen, setIsSurveyOpen] = useState(true)
     const [isModalOpen] = useState(false)
-    useEffect(() => {
-        // split & drop any empty strings
-        const segments = pathname.split('/').filter(Boolean)
-        // segments = ["chats", "<chatId>"] for a bare chat page
-        if (segments[0] !== 'chats' || segments.length !== 2) {
-            // not /chats/<chatId> exactly, so do nothing
-            return
-        }
-
-        const chatId = segments[1]
-
-        async function redirectIfNeeded() {
-            try {
-                const res = await fetch(
-                    `/api/getChatTracker?chatId=${encodeURIComponent(chatId)}`,
-                    { cache: 'no-store' }
-                )
-                if (!res.ok) return
-
-                const { tracker } = await res.json()
-                if (tracker === 3) {
-                    router.replace(`/chats/ordered/${chatId}`)
-                } else if (tracker >= 4) {
-                    router.replace(`/chats/payment/${chatId}`)
-                }
-                // else: still in-progress, stay put
-            } catch (err) {
-                console.error('Tracker check failed:', err)
-            }
-        }
-
-        redirectIfNeeded()
-    }, [pathname, router])
+    // NOTE: Redirect based on the chat tracker was intentionally removed.
+    // Previous behavior fetched /api/getChatTracker and redirected to
+    // `/chats/ordered/:id` or `/chats/payment/:id`. That logic has been
+    // removed to avoid automatic client-side navigation.
     // Check if we're on mobile view
     useEffect(() => {
         const checkMobileView = () => {
@@ -279,7 +255,6 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
     }, [])
 
     // Check if we're on a specific chat route
-    const isDetailView = segments[0] === 'chats' && segments.length > 1
 
     useEffect(() => {
         if (!chatId) {
@@ -287,25 +262,51 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
             return;
         }
 
-        // Subscribe to real-time updates
+        // 1) Instant prefill from prefetchedData that matches chatId
+        if (Array.isArray(prefetchedData) && prefetchedData.length) {
+            const match =
+                prefetchedData.find(c => c.id === chatId || c.chatId === chatId) || null;
+
+            if (match) {
+                const pre = Array.isArray(match.messages) ? match.messages : [];
+                if (pre.length) {
+                    setChatMessages(pre);
+                    setLastTimestamp(pre[pre.length - 1]?.timestamp ?? null); // keep your "oldest" logic
+                }
+            }
+        }
+
+        // 2) Live subscription (authoritative)
         const unsubscribe = subscribeToMessages(chatId, (msgs) => {
-            if (!msgs || msgs.length === 0) {
+            if (!Array.isArray(msgs) || msgs.length === 0) {
                 console.warn("No messages fetched for chatId:", chatId);
             } else {
                 console.log("Fetched messages:", msgs);
             }
 
-            setChatMessages(msgs);
+            // Merge with any prefilled messages and dedupe
+            setChatMessages(prev => {
+                const keyOf = (m) =>
+                    m.id ?? m.messageId ?? `${m.timestamp}-${m.senderId ?? ""}-${m.text ?? ""}`;
 
-            // Set the last timestamp (cursor) based on the oldest message in the array
-            if (msgs && msgs.length > 0) {
-                setLastTimestamp(msgs[msgs.length - 1].timestamp);
+                const map = new Map();
+                [...prev, ...(Array.isArray(msgs) ? msgs : [])].forEach(m => map.set(keyOf(m), m));
+
+                // Sort ascending by timestamp (adjust if your UI expects desc)
+                return Array.from(map.values()).sort((a, b) => {
+                    const toMs = (t) => (t?.toMillis ? t.toMillis() : new Date(t).getTime());
+                    return toMs(a.timestamp) - toMs(b.timestamp);
+                });
+            });
+
+            if (Array.isArray(msgs) && msgs.length > 0) {
+                setLastTimestamp(msgs[msgs.length - 1]?.timestamp ?? null);
             }
         });
 
         // Clean up the listener on unmount or when chatId changes
         return () => unsubscribe();
-    }, [chatId])
+    }, [chatId, prefetchedData]);
 
     useEffect(() => {
         // Subscribe to real-time updates
@@ -364,6 +365,7 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
     }, [pathname, userEmail, router])
 
     const handleSelectContact = async (contact) => {
+        router.push(`/chats/${contact.id}`);
         console.log("handleSelectContact called with contact:", contact);
         // Prevent reloading if the selected contact is the current chat
         if (contact.id === chatId) {
@@ -378,7 +380,7 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
         setSelectedContact(null);
         setChatMessages([]);
         setLastTimestamp(null);
-        setInvoiceData({});
+        // setInvoiceData({}); index[0] list is clearing when selecting
         setBookingData({});
 
         // Find prefetched contact and route
@@ -388,7 +390,7 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
         }
 
         console.log("Navigating to chat route for contact:", contact.id);
-        router.push(`/chats/${contact.id}`);
+
     }
 
     // Monitor pathname changes to update loading state
@@ -520,7 +522,7 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
                 {/* LIST PANE */}
                 <aside
                     className={`
-                        ${!isDetail && !isLoadingTransaction ? 'block' : 'hidden'}
+                        ${!isDetail  ? 'block' : 'hidden'}
                         md:block
                         w-full md:w-[350px]
                         border-r border-gray-200
@@ -559,6 +561,7 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
                     flex-1
                     h-full
                     overflow-y-auto">
+                    
                             <TransactionCSRLoader />
                         </div>
                     )
@@ -584,7 +587,7 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
                                 currency={currency}
                                 dueDate={invoiceData?.formattedDate}
                                 handleLoadMore={handleLoadMore}
-                                invoiceData={invoiceData.invoiceData}
+                                invoiceData={invoiceData?.invoiceData}
                                 chatId={chatId}
                                 userEmail={userEmail}
                                 chatMessages={chatMessages}
@@ -617,6 +620,7 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
                     </main>
                 )}
                 {/* <SurveyModal isOpen={isSurveyOpen} onClose={() => setIsSurveyOpen(false)} /> */}
+
 
             </div>
         </SortProvider>
