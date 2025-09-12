@@ -78,6 +78,7 @@ export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, ac
     const [ipInfo, setIpInfo] = useState(null);
     const [tokyoTime, setTokyoTime] = useState(null);
     const [showPaymentModal, setShowPaymentModal] = useState(false)
+    const navigatedToPaymentRef = useRef(false)
 
     // Initial load on mount
     useEffect(() => {
@@ -373,6 +374,21 @@ export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, ac
                                                 try { window.dataLayer = window.dataLayer || [] } catch (e) { }
                                                 if (typeof window !== 'undefined' && window.dataLayer) {
                                                     window.dataLayer.push({ event: 'rmj_payment_confirmed', chatId })
+                                                }
+                                                // One-time navigate to /chats/payment/:chatId for SEO/analytics if not yet navigated
+                                                try {
+                                                    if (typeof window !== 'undefined' && !navigatedToPaymentRef.current) {
+                                                        const targetPath = `/chats/payment/${chatId}`
+                                                        const currentPath = window.location.pathname || ''
+                                                        if (!currentPath.startsWith(targetPath)) {
+                                                            navigatedToPaymentRef.current = true
+                                                            window.location.assign(targetPath)
+                                                        } else {
+                                                            navigatedToPaymentRef.current = true
+                                                        }
+                                                    }
+                                                } catch (navErr) {
+                                                    console.error('Navigation to payment failed:', navErr)
                                                 }
                                             } catch (err) {
                                                 console.error('Failed to persist confirmedPayment:', err)

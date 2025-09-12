@@ -154,14 +154,21 @@ export async function middleware(request) {
   //     but render /chats/:chatId under the hood.
   // ───────────────────────────────────────────────────────
   {
-    const mOrdered = pathname.match(/^\/chats\/ordered\/([^\/?#]+)/)
+    const mOrdered = pathname.match(/^\/chats\/ordered\/([^\/\?#]+)/)
     if (mOrdered) {
       const chatId = mOrdered[1]
       const cloned = url.clone()
       cloned.pathname = `/chats/${chatId}`
       return NextResponse.rewrite(cloned)
     }
-  // NOTE: payment URL rewrite removed — no server-side rewrite for /chats/payment
+
+    const mPayment = pathname.match(/^\/chats\/payment\/([^\/\?#]+)/)
+    if (mPayment) {
+      const chatId = mPayment[1]
+      const cloned = url.clone()
+      cloned.pathname = `/chats/${chatId}`
+      return NextResponse.rewrite(cloned)
+    }
   }
 
   // ───────────────────────────────────────────────────────

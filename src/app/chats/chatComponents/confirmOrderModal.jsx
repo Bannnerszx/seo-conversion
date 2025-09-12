@@ -1,7 +1,7 @@
 "use client"
 import { functions } from "../../../../firebase/clientApp"
 import { httpsCallable } from "firebase/functions"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { CheckCircle, AlertTriangle, X, Copy } from "lucide-react"
@@ -254,6 +254,8 @@ export default function OrderButton({ ipInfo, tokyoTime, accountData, isOrderMou
     // Define animation classes
 
     // const result = await setOrderItem(chatId, selectedChatData, userEmail)
+    const navigatedToOrderedRef = useRef(false)
+
     const handleOrder = async () => {
         setIsLoading(true);
         setOrdered(true);
@@ -307,8 +309,22 @@ export default function OrderButton({ ipInfo, tokyoTime, accountData, isOrderMou
             console.log("Full order process complete!");
             setOrdered(true);
             setIsOrderMounted(true);
-            // Navigation removed: stay on the current chat detail. If you need a visible
-            // URL change for tracking, rely on server/middleware or GTM click triggers.
+            // Perform a one-time navigation to /chats/ordered/:chatId to show ordered page
+            try {
+                if (typeof window !== 'undefined' && !navigatedToOrderedRef.current) {
+                    const targetPath = `/chats/ordered/${chatId}`
+                    const currentPath = window.location.pathname || ''
+                    if (!currentPath.startsWith(targetPath)) {
+                        navigatedToOrderedRef.current = true
+                        // use location.assign to force a full navigation and let middleware show ordered URL
+                        window.location.assign(targetPath)
+                    } else {
+                        navigatedToOrderedRef.current = true
+                    }
+                }
+            } catch (navErr) {
+                console.error('Navigation to ordered failed:', navErr)
+            }
 
         } catch (error) {
             console.log("Order process failed:", error.message);
