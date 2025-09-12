@@ -1,4 +1,5 @@
 'use server'
+import { unstable_cache as cache } from "next/cache";
 import moment from "moment";
 import { db, admin, storage, auth } from "@/lib/firebaseAdmin";
 import { FieldValue, FieldPath } from "firebase-admin/firestore";
@@ -155,7 +156,7 @@ export async function addChatData({
             freightOrigPrice,
         };
 
-    
+
         // Write chat data in the 'chats' collection
         const chatDocRef = db.collection('chats').doc(chatId);
         await chatDocRef.set(chatData, { merge: true });
@@ -399,29 +400,64 @@ export async function loadMoreMessages(chatId, lastTimestamp) {
     return messages;
 };
 
-export async function getCountries() {
-    // Get the document reference from the 'CustomerCountryPort' collection.
-    const docRef = db.collection('CustomerCountryPort').doc('CountryData');
+// export async function getCountries() {
+//     // Get the document reference from the 'CustomerCountryPort' collection.
+//     const docRef = db.collection('CustomerCountryPort').doc('CountryData');
 
-    // Await the document snapshot
-    const docSnapshot = await docRef.get();
+//     // Await the document snapshot
+//     const docSnapshot = await docRef.get();
 
-    // Check if the document exists
-    if (!docSnapshot.exists) {
-        throw new Error('Country data not found!');
+//     // Check if the document exists
+//     if (!docSnapshot.exists) {
+//         throw new Error('Country data not found!');
+//     }
+
+//     // Extract the data from the document
+//     const countryData = docSnapshot.data();
+
+//     // Ensure the countries field exists in the document data
+//     if (!countryData.countries) {
+//         throw new Error('Countries field not found in the document!');
+//     }
+
+//     // Return the array of countries.
+//     return countryData.countries;
+// };
+
+export const getCountries = cache(
+    async () => {
+        console.log('Cache MISS: Fetching country list from Firestore.');
+
+        //Get the document reference from the 'CustomerCountryPort' collection.
+        const docRef = db.collection('CustomerCountryPort')
+            .doc('CountryData');
+
+        //Await the document snapshot
+        const docSnapshot = await docRef.get();
+
+        //Check if the document exists
+        if (!docSnapshot.exists) {
+            console.error('Country data document not found!');
+            return [];
+        }
+
+        //Extract the data from the document
+        const countryData = docSnapshot.data();
+
+        //Ensure the countries field exists in the document data
+        if (!countryData || !countryData.countries) {
+            console.error('Countries field not found in the document!');
+            return [];
+        }
+        //Return the array of countries.
+        return countryData.countries
+    },
+    {
+        revalidate: 604800,
+        tags: ['static-data', 'countries'],
     }
+)
 
-    // Extract the data from the document
-    const countryData = docSnapshot.data();
-
-    // Ensure the countries field exists in the document data
-    if (!countryData.countries) {
-        throw new Error('Countries field not found in the document!');
-    }
-
-    // Return the array of countries.
-    return countryData.countries;
-};
 
 export async function getCities(countryCode) {
     if (!countryCode) {
@@ -833,7 +869,7 @@ export async function updateInvoice(form1Data, form2Data, chatId, userEmail, isC
             }
         }
     });
-  
+
     const messageData = {
         sender: userEmail,
         text: 'Request for Invoice Amendment',

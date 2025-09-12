@@ -142,7 +142,7 @@ export default async function ProductPage({ params, searchParams }) {
       headers: {
         cookie: `${COOKIE_NAME}=${sessionCookie}`,
       },
-      cache: "no-store",
+      next: { revalidate: 60 }
     })
     const apiJson = await verifyRes.json()
 

@@ -394,7 +394,7 @@ function OrderCard({ order, userEmail }) {
                             <img
                                 src={src}
                                 alt={order.carData?.model}
-                                className="w-full h-full object-cover"
+                                className="h-full object-cover"
                             />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -407,7 +407,6 @@ function OrderCard({ order, userEmail }) {
                             </Badge>
                         </div>
                     </div>
-
 
                 </div>
 

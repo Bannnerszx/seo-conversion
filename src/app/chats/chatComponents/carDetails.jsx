@@ -7,12 +7,7 @@ import Link from "next/link";
 export default function CarDetails({ chatId, handleBackToList, isMobileView, isDetailView, countryDetails, contact, invoiceData, dueDate }) {
     const router = useRouter()
     const selectedCurrencyCode = contact?.selectedCurrencyExchange; // e.g. "JPY"
-    // const step = Number(contact?.stepIndicator?.value ?? 0)
-    // useEffect(() => {
-    //     if (step > 3) {
-    //         router.push(`/chats/payment/${chatId}`)
-    //     }
-    // }, [step])
+    // Payment auto-navigation removed — SEO/admin will control visible URL for /chats/payment
     // 2) build your lookup table
     const currencies = [
         { code: "USD", symbol: "USD$", value: 1 },
@@ -47,39 +42,64 @@ export default function CarDetails({ chatId, handleBackToList, isMobileView, isD
     const [images, setImages] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    console.log(images, 'log')
+
     const carId = contact?.carData?.stockID
-    useEffect(() => {
-        let cancelled = false;
+useEffect(() => {
+  let cancelled = false;
 
-        async function loadImages() {
-            setLoading(true);
-            try {
-                const res = await fetch(`/api/car-images/${carId}`);
-                if (!res.ok) throw new Error(`Error ${res.status}`);
-                const json = await res.json();
-                if (!cancelled) {
-                    setImages(Array.isArray(json.images) ? json.images : []);
-                }
-            } catch (err) {
-                if (!cancelled) setError(err);
-            } finally {
-                if (!cancelled) setLoading(false);
-            }
-        }
+  const normalizeToArray = (payload) => {
+    if (!payload) return [];
+    if (Array.isArray(payload)) return payload;
+    if (typeof payload === "string") return payload ? [payload] : [];
+    if (typeof payload === "object") {
+      if (Array.isArray(payload.images)) return payload.images;
+      if (typeof payload.images === "string") return [payload.images];
+      if (typeof payload.image === "string") return [payload.image];
+      if (typeof payload.url === "string") return [payload.url];
+      if (typeof payload.href === "string") return [payload.href];
+    }
+    return [];
+  };
 
-        if (carId) {
-            loadImages();
-        } else {
-            setLoading(false);
-        }
+  async function loadImages() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/car-images/${carId}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-        return () => {
-            cancelled = true;
-        };
-    }, [carId]);
+      const ct = res.headers.get("content-type") || "";
+      const data = ct.includes("application/json") ? await res.json() : await res.text();
+
+      const imagesArr = normalizeToArray(data);
+
+      if (!cancelled) {
+        setImages(imagesArr);
+      }
+    } catch (err) {
+      if (!cancelled) {
+        setImages([]); // keep state consistent
+        setError(err);
+      }
+    } finally {
+      if (!cancelled) setLoading(false);
+    }
+  }
+
+  if (carId) {
+    loadImages();
+  } else {
+    setImages([]);
+    setLoading(false);
+  }
+
+  return () => {
+    cancelled = true;
+  };
+}, [carId]);
+
     const src = images[0] ? images[0] : '/placeholder.jpg';
-
+    
 
     return (
 
@@ -157,10 +177,21 @@ export default function CarDetails({ chatId, handleBackToList, isMobileView, isD
                     <div className="font-bold">
                         Total Price:{' '}
                         <span className="text-green-600">
-                            {contact?.freightPrice === 0 && !invoiceData?.paymentDetails.totalAmount
-                                ? 'ASK'
-                                : `${currency.symbol} ${Math.ceil(finalPrice).toLocaleString()}`
+                            {
+                                (() => {
+                                    const invoiceTotal = Number(invoiceData?.paymentDetails?.totalAmount);
+                                    const fallback = Number(finalPrice);
+
+                                    const amount =
+                                        invoiceTotal > 0 ? invoiceTotal :
+                                            fallback > 0 ? fallback :
+                                                null;
+                                    return amount != null
+                                        ? `${currency.symbol} ${Math.ceil(amount).toLocaleString()}`
+                                        : 'ASK';
+                                })()
                             }
+
                         </span>
                     </div>
 

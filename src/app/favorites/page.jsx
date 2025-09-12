@@ -90,7 +90,6 @@ export default async function FavoritePage() {
   // 1️⃣1️⃣ Fetch additional data
   const currency    = await fetchCurrency()
   const accountData = await getAccountData(userEmail)
-  const count       = await fetchNotificationCounts({ userEmail })
 
   // 1️⃣2️⃣ Render the authenticated Favorites page
   return (
@@ -98,7 +97,7 @@ export default async function FavoritePage() {
       <ClientAppCheck />
       <FavoritesPageCSR
         userEmail={userEmail}
-        count={count}
+
         dataVehicles={dataVehicles}
         currency={currency}
         accountData={accountData}

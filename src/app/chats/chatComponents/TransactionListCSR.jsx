@@ -1,6 +1,7 @@
 "use client"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
+
 import { Button } from "@/components/ui/button"
 import { useEffect, useState, useRef, useCallback } from "react"
 import { Input } from "@/components/ui/input"
@@ -116,13 +117,22 @@ export default function TransactionList({
         chatList.map(async (chat) => {
           const id = chat?.carData?.stockID;
           if (!id) return;
+
+          // Prefer images already embedded on the chat object (if any)
+          const embedded = chat?.carData?.images;
+          if (Array.isArray(embedded) && embedded.length > 0) {
+            map[id] = embedded;
+            return;
+          }
+
+          // Otherwise fall back to the API that reads VehicleProducts
           try {
             const res = await fetch(`/api/car-images/${id}`);
             if (!res.ok) throw new Error(res.statusText);
             const { images } = await res.json();
             map[id] = Array.isArray(images) ? images : [];
           } catch (e) {
-            map[id] = [];               // on error, just set empty
+            map[id] = []; // on error, just set empty
           }
         })
       );
@@ -328,7 +338,8 @@ export default function TransactionList({
                           ${isReservedOrSold && "opacity-50"}
                       `}
                           onClick={() => {
-                            setChatId(contact.id); // Update chatId immediately
+                    
+                            setChatId(contact.id);
                             onSelectContact(contact);
                             markRead(contact.id);
                           }}

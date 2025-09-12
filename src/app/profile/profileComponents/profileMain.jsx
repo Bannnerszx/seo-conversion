@@ -21,6 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { SideMenu } from "@/app/orders/orderComponents/sideMenu";
 import Sidebar from "@/app/orders/orderComponents/sidebar";
+import { useUnreadCount } from "@/hooks/useUnreadCount";
 const formSchema = z.object({
     firstName: z.string().min(2, { message: "First name must be at least 2 characters." }),
     lastName: z.string().min(2, { message: "Last name must be at least 2 characters." }),
@@ -32,7 +33,8 @@ const formSchema = z.object({
     postalCode: z.string().optional(),
 });
 
-export default function ProfilePage({ count, userEmail, accountData, countryList }) {
+export default function ProfilePage({ userEmail, accountData, countryList }) {
+    const count = useUnreadCount(userEmail)
     const countryObj = countryList.find(c => c.name === accountData.country);
     const [selectedCountry, setSelectedCountry] = useState(countryObj || {});
     const defaultValues = {

@@ -33,7 +33,7 @@ export default function DeliveryAddress({ accountData, countryList, setOrderModa
 
     // Countries state (for dropdown options)
     const [countries] = useState(countryList)
-
+    
     // City list for customer form
     const [cityList, setCityList] = useState([])
 

@@ -77,15 +77,13 @@ export default async function OrderPage() {
   // 9️⃣ Fetch additional data
   const accountData = await getAccountData(userEmail)
   const countryList = await getCountries()
-  const count = await fetchNotificationCounts({ userEmail })
-
+ 
   // 🔟 Render the protected profile page
   return (
     <>
       <ClientAppCheck />
       <Toaster />
-      <ProfilePage
-        count={count}
+      <ProfilePage 
         userEmail={userEmail}
         accountData={accountData}
         countryList={countryList}

@@ -5,18 +5,19 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { CheckCircle, AlertTriangle, X, Copy } from "lucide-react"
-import { useRouter } from "next/navigation"
 import Modal from "@/app/components/Modal"
 import Loader from "@/app/components/Loader"
 import moment from "moment"
 import { firestore } from "../../../../firebase/clientApp";
 import { runTransaction, doc, increment } from "firebase/firestore"
 import { submitJackallClient, submitUserData } from "@/app/actions/actions";
+import { FloatingAlertPortal } from "./floatingAlert"
 
 export default function OrderButton({ ipInfo, tokyoTime, accountData, isOrderMounted, setIsOrderMounted, userEmail, chatId, selectedChatData, countryList, invoiceData }) {
     const [ordered, setOrdered] = useState(false)
+    const [showAlert, setShowAlert] = useState(false);
     const [isLoading, setIsLoading] = useState(false)
-    const router = useRouter()
+    // navigation to /chats/ordered removed — UI will stay on the current chat detail
     // useEffect(() => {
     //     onMount?.()
     //     return () => onUnmount?.()
@@ -185,22 +186,99 @@ export default function OrderButton({ ipInfo, tokyoTime, accountData, isOrderMou
     const setOrderItemFunction = httpsCallable(functions, 'setOrderItem')
 
 
+    // const handleOrder = async () => {
+    //     setIsLoading(true);
+    //     setOrdered(true);
+    //     setIsOrderMounted(true);
+    //     router.push(`/chats/ordered/${chatId}`)
+    //     try {
+
+
+    //         // 2) format date
+    //         const momentDate = moment(
+    //             tokyoTime?.datetime,
+    //             "YYYY/MM/DD HH:mm:ss.SSS"
+    //         );
+    //         const formattedSalesDate = momentDate.format("YYYY/MM/DD");
+
+    //         // 3) allocate/retrieve salesInfoId
+    //         const { resultingId, wasNew } = await processJackallSalesInfo(chatId);
+    //         await submitJackallClient({
+    //             userEmail,
+    //             newClientId: accountData?.client_id,
+    //             firstName: accountData?.textFirst,
+    //             lastName: accountData?.textLast,
+    //             zip: accountData?.textZip,
+    //             street: accountData?.textStreet,
+    //             city: accountData?.city,
+    //             phoneNumber: accountData?.textPhoneNumber,
+    //             countryName: accountData?.country,
+    //             note: "",
+    //         })
+
+    //         // 4) only prepare & upload if it’s newly allocated
+    //         const salesData = prepareSalesData(
+    //             resultingId,
+    //             formattedSalesDate,
+    //             selectedChatData,
+    //             accountData
+    //         );
+
+    //         // 1) If it's new, upload; if not, just log and skip upload
+    //         if (wasNew) {
+    //             await uploadJackallSalesInfoData([salesData]);
+    //         } else {
+    //             console.log("SalesInfo upload skipped; salesInfoId was already present.");
+    //         }
+
+    //         // 2) Always set the order item, regardless of wasNew
+    //         const { data } = await setOrderItemFunction({ chatId, userEmail, ipInfo, tokyoTime, invoiceNumber: selectedChatData?.invoiceNumber, stockID: selectedChatData?.carData?.stockID });
+    //         if (data.success) {
+    //             console.log("✅ Ordered!");
+    //             setIsLoading(false)
+    //         } else {
+    //             throw new Error("Function returned no success flag");
+    //         }
+
+
+    //         // 3) Then clean up
+    //         await deleteFromTcvBoth();
+
+    //     } catch (error) {
+    //         console.error("Error in handleOrder:", error);
+    //     } finally {
+    //         setIsLoading(false);
+    //     }
+    // };
+
+    // Define animation classes
+
+    // const result = await setOrderItem(chatId, selectedChatData, userEmail)
     const handleOrder = async () => {
         setIsLoading(true);
         setOrdered(true);
         setIsOrderMounted(true);
-        router.push(`/chats/ordered/${chatId}`)
         try {
+            // ---- STEP 1 Format date ----
+            const momentDate = moment(tokyoTime?.datetime, "YYYY/MM/DD HH:mm:ss.SSS");
+            const formattedSalesDate = momentDate.format('YYYY/MM/DD');
 
+            //3) allocate/retrieve salesInfoId
+            const { data } = await setOrderItemFunction({
+                chatId,
+                userEmail,
+                ipInfo,
+                tokyoTime,
+                invoiceNumber: selectedChatData?.invoiceNumber,
+                stockID: selectedChatData?.carData?.stockID
+            });
+            if (!data.success) {
 
-            // 2) format date
-            const momentDate = moment(
-                tokyoTime?.datetime,
-                "YYYY/MM/DD HH:mm:ss.SSS"
-            );
-            const formattedSalesDate = momentDate.format("YYYY/MM/DD");
+                throw new Error("The order could not be confirmed by the server.")
+            };
+            console.log('Item reserved successfully in Firestore. Proceeding...');
 
-            // 3) allocate/retrieve salesInfoId
+            //----STEP 2: Proceed with other operations ONLY after successful reservation ----
             const { resultingId, wasNew } = await processJackallSalesInfo(chatId);
             await submitJackallClient({
                 userEmail,
@@ -212,47 +290,37 @@ export default function OrderButton({ ipInfo, tokyoTime, accountData, isOrderMou
                 city: accountData?.city,
                 phoneNumber: accountData?.textPhoneNumber,
                 countryName: accountData?.country,
-                note: "",
+                note: ''
             })
-
-            // 4) only prepare & upload if it’s newly allocated
-            const salesData = prepareSalesData(
-                resultingId,
-                formattedSalesDate,
-                selectedChatData,
-                accountData
-            );
-
-            // 1) If it's new, upload; if not, just log and skip upload
+            const salesData = prepareSalesData(resultingId, formattedSalesDate, selectedChatData, accountData);
             if (wasNew) {
                 await uploadJackallSalesInfoData([salesData]);
+
             } else {
-                console.log("SalesInfo upload skipped; salesInfoId was already present.");
+                console.log("SalesInfo upload skipped; salesInfoId was already present.")
             }
 
-            // 2) Always set the order item, regardless of wasNew
-            const { data } = await setOrderItemFunction({ chatId, userEmail, ipInfo, tokyoTime, invoiceNumber: selectedChatData?.invoiceNumber, stockID: selectedChatData?.carData?.stockID });
-            if (data.success) {
-                console.log("✅ Ordered!");
-                setIsLoading(false)
-            } else {
-                throw new Error("Function returned no success flag");
-            }
-
-
-            // 3) Then clean up
+            // --- STEP 3: Final cleanup ---
             await deleteFromTcvBoth();
 
+            // --- STEP 4: Update UI and navigate on FULL success ---
+            console.log("Full order process complete!");
+            setOrdered(true);
+            setIsOrderMounted(true);
+            // Navigation removed: stay on the current chat detail. If you need a visible
+            // URL change for tracking, rely on server/middleware or GTM click triggers.
+
         } catch (error) {
-            console.error("Error in handleOrder:", error);
-        } finally {
+            console.log("Order process failed:", error.message);
+            setShowAlert(true);
             setIsLoading(false);
+            setOrdered(false);
+            setIsOrderMounted(false);
+        } finally {
+            setIsLoading(false)
         }
-    };
+    }
 
-    // Define animation classes
-
-    // const result = await setOrderItem(chatId, selectedChatData, userEmail)
     const [copied, setCopied] = useState(false)
 
     const copyInvoiceNumber = async () => {
@@ -296,10 +364,14 @@ export default function OrderButton({ ipInfo, tokyoTime, accountData, isOrderMou
     return (
         <>
 
-            <Button size="sm" onClick={handleOrder} className="ml-2 font-medium bg-red-500 hover:bg-red-600 text-white">
+            <Button id="rmj_order_confirm" size="sm" onClick={handleOrder} className="ml-2 font-medium bg-red-500 hover:bg-red-600 text-white">
                 Order Now
             </Button>
-
+            <FloatingAlertPortal
+                show={showAlert}
+                onClose={() => setShowAlert(false)}
+                duration={5000} // 5 seconds
+            />
             {ordered && (
                 <Modal context={'order'} showModal={isOrderMounted} setShowModal={() => setIsOrderMounted(true)}>
                     {isLoading === false ? (

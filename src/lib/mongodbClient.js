@@ -52,6 +52,8 @@ if (!uri) {
 const DB_NAME = "mongodb";
 
 // Use a cached connection in dev to prevent multiple connections during hot reloads
+
+//the quick brown
 let cached = global._mongoClientPromise;
 
 if (!cached) {

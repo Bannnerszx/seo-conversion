@@ -1,47 +1,62 @@
-// pages/api/show-banner.js
-import { getCookie, setCookie } from 'cookies-next/server'
-import { admin } from '@/lib/firebaseAdmin'
+//pages/api/show-banner.js
+import { getCookie, setCookie } from "cookies-next/server";
+import { admin } from "@/lib/firebaseAdmin";
+
+//In-memory cache for the Firestore result
+let cachedConfig = {
+  showBanner: null,
+  timestamp: 0
+}
+
+const CACHE_DURATION_MS = 60 * 1000; //Cache for 60 seconds
+
 export default async function handler(req, res) {
-  // 0) prevent any caching
+  //0) prevent any caching of the final user-specific respsonse
   res.setHeader('Cache-Control', 'no-store')
 
-  // 1) fetch your banner‐enabled flag from Firestore
-  const docSnap = await admin
-    .firestore()
-    .collection('InfoBanner')
-    .doc('config')
-    .get()
+  //1A) Check if we have a fresh cached value from firestore
+  const now = Date.now();
+  const isCacheInvalid = cachedConfig.showBanner === null || now - cachedConfig.timestamp >= CACHE_DURATION_MS
+  if (isCacheInvalid) {
+    console.log('Cache MISS: Fetching banner config from Firestore.');
+    const docSnap = await admin
+      .firestore()
+      .collection('InfoBanner')
+      .doc('config')
+      .get();
 
-  const showBannerConfig = docSnap.exists
-    ? docSnap.data().showBanner
-    : false
-
-  // 2) if the flag is off, bail immediately
-  if (!showBannerConfig) {
-    return res.status(200).json({ showBanner: false })
+    const showBannerFromDB = docSnap.exists ? docSnap.data().showBanner : false
+    cachedConfig = {
+      showBanner: showBannerFromDB,
+      timestamp: now
+    }
+  } else {
+    console.log('Cache HIT: Using cached banner config.');
   }
 
-  // 3) otherwise, run your “last‐shown” cookie logic
-  const last     = await getCookie('banner_last_shown', { req, res })
-  const now      = Date.now()
-  const ageDays  = last
-    ? (now - Number(last)) / (1000 * 60 * 60 * 24)
-    : Infinity
+  //Now, the rest of the code can safely use the (potentially updated) cachedConfig
+  if (!cachedConfig.showBanner) {
+    return res.status(200).json({ showBanner: false });
+  }
 
+  //3. Otherwise, run the user-specific cookie logic
+  const last = await getCookie('banner_last_shown', { req, res });
+  const ageDays = last ? (now - Number(last)) / (1000 * 60 * 60 * 24) : Infinity;
+
+  //4. If the user hasn't sseen the banner or saw it more than 2 days ago, show it
   if (!last || ageDays >= 2) {
-    // reset timer
     await setCookie('banner_last_shown', String(now), {
       req,
       res,
-      maxAge: 60 * 60 * 24 * 365,  // 1 year
+      maxAge: 60 * 60 * 24 * 365,
       path: '/',
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-    })
-    return res.status(200).json({ showBanner: true })
+      sameSite: 'lax'
+    });
+    return res.status(200).json({ showBanner: true });
   }
 
-  // 4) don’t show if it’s been under 2 days
+  //5. If they saw it recently, don't show it
   return res.status(200).json({ showBanner: false })
 }
