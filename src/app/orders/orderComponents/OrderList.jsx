@@ -1,6 +1,6 @@
 "use client"
 import Link from "next/link"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -8,8 +8,19 @@ import { Calendar, MapPin, Ship, Info, X, Package, FileText, ExternalLink, Check
 import TimelineStatus from "@/app/chats/chatComponents/timelineStatus"
 import { fetchBookingData, fetchInvoiceData } from "@/app/actions/actions";
 import PreviewInvoice from "@/app/chats/chatComponents/previewInvoice";
+import { doc, query, collection, where, orderBy, limit as qlimit, onSnapshot, startAfter, getDocs, updateDoc, documentId, getDoc } from "firebase/firestore"
+import { firestore } from "../../../../firebase/clientApp"
+import { m } from "framer-motion"
 
 // 1️⃣ Define a single lookup object:
+
+const LIVE_LIMIT = 20;
+const PAGE_SIZE = 10;
+
+let lastCursor = null;
+
+const invoiceCache = new Map();
+
 const statusConfig = {
     1: {
         color: 'bg-gray-100 text-gray-800',
@@ -76,6 +87,7 @@ function InfoItem({ label, value }) {
 }
 
 function OrderCard({ order, userEmail }) {
+    console.log(order?.invoice?.invoiceData?.paymentDetails.totalAmount, 'amount')
     const [showModal, setShowModal] = useState(false);
     const [activeTab, setActiveTab] = useState("shipping");
     const [invoiceData, setInvoiceData] = useState(null);
@@ -101,7 +113,7 @@ function OrderCard({ order, userEmail }) {
         parseFloat(order?.carData?.fobPrice)
         * parseFloat(order?.currency.jpyToUsd);
 
-    const baseFinalPrice = order.invoice.invoiceData?.paymentDetails.totalAmount ? parseFloat(order.invoice.invoiceData?.paymentDetails.totalAmount) - (order?.inspection ? 300 : 0) :
+    const baseFinalPrice = order.invoice?.invoiceData?.paymentDetails.totalAmount ? parseFloat(order.invoice?.invoiceData?.paymentDetails.totalAmount) - (order?.inspection ? 300 : 0) :
         basePrice
         + parseFloat(order?.carData?.dimensionCubicMeters)
         * parseFloat(order?.freightPrice);
@@ -428,7 +440,21 @@ function OrderCard({ order, userEmail }) {
                             <div>
                                 <p className="text-sm text-gray-600">Total Price</p>
                                 <p className="font-bold text-lg text-green-600">
-                                    {currency.symbol}{Math.ceil(finalPrice).toLocaleString()}
+                                    {
+                                        (() => {
+                                            const invoiceTotal = Number(order?.invoice?.invoiceData?.paymentDetails?.totalAmount);
+                                            const fallback = Number(finalPrice);
+
+                                            const amount =
+                                                invoiceTotal > 0 ? invoiceTotal :
+                                                    fallback > 0 ? fallback :
+                                                        null;
+                                            return amount != null
+                                                ? `${currency.symbol} ${Math.ceil(amount).toLocaleString()}`
+                                                : 'ASK';
+                                        })()
+                                    }
+
                                 </p>
                             </div>
                         </div>
@@ -440,11 +466,11 @@ function OrderCard({ order, userEmail }) {
                                 <p className="text-sm text-gray-600">
 
                                     {[
-                                        (order.invoice.invoiceData?.paymentDetails?.inspectionIsChecked ?? order?.inspection) ? 'INSPECTION' : null,
-                                        (order.invoice.invoiceData?.paymentDetails?.incoterms
-                                            ? (order.invoice.invoiceData?.paymentDetails?.incoterms === 'C&F' ? 'C&F' : 'CIF')
+                                        (order.invoice?.invoiceData?.paymentDetails?.inspectionIsChecked ?? order?.inspection) ? 'INSPECTION' : null,
+                                        (order.invoice?.invoiceData?.paymentDetails?.incoterms
+                                            ? (order.invoice?.invoiceData?.paymentDetails?.incoterms === 'C&F' ? 'C&F' : 'CIF')
                                             : (order?.insurance ? 'CIF' : 'C&F')),
-                                        (order.invoice.invoiceData?.paymentDetails?.warrantyIsChecked ?? order?.warranty) ? 'WARRANTY' : null
+                                        (order.invoice?.invoiceData?.paymentDetails?.warrantyIsChecked ?? order?.warranty) ? 'WARRANTY' : null
                                     ].filter(Boolean).join(' + ')}
                                 </p>
                             </div>
@@ -798,10 +824,233 @@ function OrderCard({ order, userEmail }) {
     )
 }
 
-export default function Component({ prefetchedData, currency, userEmail }) {
+function formatDueDate(due) {
+    if (!due) return "No due date available";
+    try {
+        if (due?.toDate) {
+            const d = due.toDate();
+            return new Intl.DateTimeFormat("en-US", { month: "long", day: "2-digit", year: "numeric" }).format(d)
+        }
+        if (typeof due === "string") {
+            const s = due.replace(" at ", " ");
+            const d = new Date(s);
+
+            if (!Number.isNaN(d.getTime())) {
+                return new Intl.DateTimeFormat("en-US", { month: "long", day: "2-digit", year: "numeric" }).format(due)
+            }
+        }
+    } catch { }
+    return "No due date available"
+}
+
+async function fetchInvoice(invoiceNumber) {
+    if (!invoiceNumber) return null;
+    if (invoiceCache.has(invoiceNumber)) return invoiceCache.get(invoiceNumber);
+
+    let result = { invoiceData: null, formattedDate: "No due date available" };
+
+    try {
+        const invSnap = await getDoc(doc(firestore, "IssuedInvoice", invoiceNumber));
+        if (invSnap.exists()) {
+            const invoiceData = invSnap.data();
+            const formattDate = formatDueDate(invoiceData?.bankInformations?.dueDate);
+            result = { invoiceData, formattedDate };
+        }
+    } catch { }
+
+    invoiceCache.set(invoiceNumber, result);
+    return result;
+}
+
+const norm = (c) => c ? ({
+    ...c,
+    lastMessageDateStr: String(c.lastMessageDate ?? c.lastMessageDateStr ?? ""),
+}) : c;
+
+const sortChats = (a, b) => {
+    if (!a && !b) return 0
+    if (!a) return 1;
+    if (!b) return -1;
+
+    const aS = String(a.lastMessageDateStr ?? a.lastMessageDate ?? '');
+    const bS = String(b.lastMessageDateStr ?? b.lastMessageDate ?? '');
+
+    const cmp = bS.localeCompare(aS);
+    if (cmp !== 0) return cmp;
+    return String(b.id ?? '').localeCompare(String(a.id ?? ''));
+}
+
+
+
+
+async function hydrateMissingInvoice(items) {
+    const enriched = await Promise.all(
+        items.map(async (c) => {
+            if (c.invoice || !c.invoiceNumber) return c;
+            const invoice = await fetchInvoice(c.invoiceNumber);
+            return { ...c, invoice }
+        })
+    );
+    return enriched;
+};
+
+async function loadMoreData(userEmail, callback) {
+    if (!userEmail || !lastCursor) {
+        callback([], true);
+        return;
+    }
+
+    try {
+        const nextQuery = query(
+            collection(firestore, 'chats'),
+            where('participants.customer', '==', userEmail),
+            orderBy("lastMessageDate", "desc"),
+            orderBy(documentId(), "desc"),
+            startAfter(lastCursor.lmd || "", lastCursor.id),
+            qlimit(PAGE_SIZE)
+        );
+        const snap = await getDocs(nextQuery);
+        let moreChats = snap.docs.map((d) => norm({ id: d.id, ...d.data() }));
+
+        moreChats = await hydrateMissingInvoice(moreChats);
+
+        if (snap.docs.length > 0) {
+            const last = snap.docs[snap.docs.length - 1];
+            lastCursor = { lmd: String(last.get("lastMessageDate") || ''), id: last.id }
+        }
+        const noMore = snap.docs.length < PAGE_SIZE;
+        callback(moreChats, noMore)
+    } catch (err) {
+        console.error("Error loading more chats:", err);
+        callback([], true)
+
+    }
+}
+
+export default function Component({ prefetchedData = [], currency, userEmail }) {
+    const [chatList, setChatList] = useState(() =>
+        prefetchedData.map(norm).filter(Boolean)
+    );
+    const [hasMore, setHasMore] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+
+    useEffect(() => {
+        if (prefetchedData.length > 0) {
+            const oldest = prefetchedData[prefetchedData.length - 1];
+            lastCursor = {
+                lmd: String(oldest.lastMessageDate ?? oldest.lastMessageDateStr ?? ""),
+                id: oldest.id
+            }
+        } else {
+            lastCursor = null
+        }
+    }, [prefetchedData])
+    useEffect(() => {
+        prefetchedData.forEach((c) => {
+            if (c.invoiceNumber && c.invoice) {
+                invoiceCache.set(c.invoiceNumber, c.invoice)
+            }
+        })
+    }, [prefetchedData])
+
+    const liveQuery = useMemo(() => {
+        if (!userEmail) return null;
+        return query(
+            collection(firestore, 'chats'),
+            where('participants.customer', '==', userEmail),
+            orderBy('lastMessageDate', "desc"),
+            orderBy(documentId(), "desc"),
+            qlimit(LIVE_LIMIT)
+        );
+    }, [userEmail])
+
+    useEffect(() => {
+        if (!liveQuery) return;
+
+        const unsub = onSnapshot(liveQuery, async (snap) => {
+            const liveRaw = snap.docs.map((d) => norm({ id: d.id, ...d.data() }));
+
+            //carry over invoice from previous state to avoid flicker
+            setChatList((prev) => {
+                const live = snap.docs.map((d) => norm({ id: d.id, ...d.data() })).filter(Boolean);
+
+                // carry over existing invoice (optional, avoids flicker)
+                const prevMap = new Map(prev.map((x) => [x.id, x]));
+                const liveCarry = live.map((c) => (c.invoice || !prevMap.get(c.id)?.invoice)
+                    ? c
+                    : { ...c, invoice: prevMap.get(c.id).invoice }
+                );
+
+                const liveIds = new Set(liveCarry.map((x) => x.id));
+                const older = prev.filter((x) => x && !liveIds.has(x.id));
+
+                const merged = [...liveCarry, ...older].filter(Boolean).sort(sortChats);
+
+                const tail = merged[merged.length - 1];
+                if (tail) lastCursor = { lmd: tail.lastMessageDateStr, id: tail.id };
+
+                return merged;
+            });
+
+            const live = await hydrateMissingInvoice(liveRaw);
+            setChatList((prev) => {
+                const map = new Map(prev.map((x) => [x.id, x]));
+                live.forEach((c) => map.set(c.id, { ...map.get(c.id), ...c }));
+                const merged = Array.from(map.values()).sort(sortChats);
+                const tail = merged[merged.length - 1];
+                if (tail) lastCursor = { lmd: tail.lastMessageDateStr, id: tail.id };
+                return merged;
+            });
+        });
+
+        return () => unsub();
+    }, [liveQuery])
+    //added reusable loadMore callback
+    const loadMore = useCallback(() => {
+        if (!hasMore || loadingMore) return;
+        setLoadingMore(true);
+
+        loadMoreData(userEmail, (moreChats, noMore) => {
+            setChatList((prev) => {
+                const prevIds = new Set(prev.map((c) => c?.id).filter(Boolean));
+                const merged = [
+                    ...prev.filter(Boolean),
+                    ...moreChats.map(norm).filter((c) => c && !prevIds.has(c.id)),
+                ].sort(sortChats);
+
+                const tail = merged[merged.length - 1];
+                if (tail) lastCursor = { lmd: tail.lastMessageDateStr, id: tail.id };
+
+                return merged;
+            });
+            setHasMore(!noMore);
+            setLoadingMore(false)
+        });
+    }, [userEmail, hasMore, loadingMore])
+
+
+    const observer = useRef(null);
+    const observerRef = useCallback(
+        (node) => {
+            if (observer.current) observer.current.disconnect();
+            if (!node || !hasMore || loadingMore) return;
+
+            observer.current = new IntersectionObserver(
+                ([entry]) => {
+                    if (entry.isIntersecting && hasMore && !loadingMore) {
+                        loadMore();
+                    }
+                },
+                { threshold: 0.1, rootMargin: '100px' }
+            );
+            observer.current.observe(node);
+        },
+        [loadMore, hasMore, loadingMore]
+    )
+
 
     return (
-        <div className="container mx-auto p-4 space-y-6">
+        <div className="container mx-auto p-4 pb-24 min-h-screen space-y-6">
             {/* <div className="space-y-4 sm:space-y-0 sm:flex sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-2xl font-bold sm:text-3xl">Vehicle Export Orders</h1>
@@ -821,10 +1070,32 @@ export default function Component({ prefetchedData, currency, userEmail }) {
             </div> */}
 
             <div className="space-y-4 sm:space-y-6">
-                {prefetchedData.map((order) => (
-                    <OrderCard key={order.id} order={order} currency={currency} userEmail={userEmail} />
-                ))}
+                {chatList.map((order, index) => {
+                    const isLast = index === chatList.length - 1;
+
+                    return (
+                        <OrderCard
+                            key={order.id}
+                            order={order}
+                            currency={currency}
+                            userEmail={userEmail}
+                            observerRef={observerRef}
+                            isLast={isLast}
+                        />
+                    )
+                })}
             </div>
+            {hasMore && (
+                <div ref={observerRef} className="mt-6 flex items-center justify-center">
+                    <button
+                        onClick={loadMore}            // manual fallback
+                        disabled={loadingMore}
+                        className="px-4 py-2 rounded-xl border border-gray-300 shadow-sm disabled:opacity-60"
+                    >
+                        {loadingMore ? "Loading..." : "Load more"}
+                    </button>
+                </div>
+            )}
         </div>
     )
 }

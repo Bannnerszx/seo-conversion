@@ -366,7 +366,7 @@ export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, ac
                                                             fallback > 0 ? fallback :
                                                                 null;
                                                     return amount != null
-                                                        ? `${currency.symbol} ${Math.ceil(amount).toLocaleString()}`
+                                                        ? `${currencyInside.symbol} ${Math.ceil(amount).toLocaleString()}`
                                                         : 'ASK';
                                                 })()
                                             }
