@@ -34,8 +34,8 @@ export default function CarDetails({ chatId, handleBackToList, isMobileView, isD
         + parseFloat(contact?.carData?.dimensionCubicMeters)
         * parseFloat(contact?.freightPrice);
 
-    const inspectionSurcharge = contact?.inspection ? 300 * currency.value : 0;
-    const insuranceSurcharge = contact?.insurance ? 50 * currency.value : 0
+    const inspectionSurcharge = contact?.inspection === true ? 300 * currency.value : 0;
+    const insuranceSurcharge = contact?.insurance === true ? 50 * currency.value : 0
     const finalPrice = (baseFinalPrice * currency.value + inspectionSurcharge + insuranceSurcharge);
 
 
@@ -44,62 +44,62 @@ export default function CarDetails({ chatId, handleBackToList, isMobileView, isD
     const [error, setError] = useState(null);
 
     const carId = contact?.carData?.stockID
-useEffect(() => {
-  let cancelled = false;
+    useEffect(() => {
+        let cancelled = false;
 
-  const normalizeToArray = (payload) => {
-    if (!payload) return [];
-    if (Array.isArray(payload)) return payload;
-    if (typeof payload === "string") return payload ? [payload] : [];
-    if (typeof payload === "object") {
-      if (Array.isArray(payload.images)) return payload.images;
-      if (typeof payload.images === "string") return [payload.images];
-      if (typeof payload.image === "string") return [payload.image];
-      if (typeof payload.url === "string") return [payload.url];
-      if (typeof payload.href === "string") return [payload.href];
-    }
-    return [];
-  };
+        const normalizeToArray = (payload) => {
+            if (!payload) return [];
+            if (Array.isArray(payload)) return payload;
+            if (typeof payload === "string") return payload ? [payload] : [];
+            if (typeof payload === "object") {
+                if (Array.isArray(payload.images)) return payload.images;
+                if (typeof payload.images === "string") return [payload.images];
+                if (typeof payload.image === "string") return [payload.image];
+                if (typeof payload.url === "string") return [payload.url];
+                if (typeof payload.href === "string") return [payload.href];
+            }
+            return [];
+        };
 
-  async function loadImages() {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/car-images/${carId}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        async function loadImages() {
+            setLoading(true);
+            setError(null);
+            try {
+                const res = await fetch(`/api/car-images/${carId}`);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-      const ct = res.headers.get("content-type") || "";
-      const data = ct.includes("application/json") ? await res.json() : await res.text();
+                const ct = res.headers.get("content-type") || "";
+                const data = ct.includes("application/json") ? await res.json() : await res.text();
 
-      const imagesArr = normalizeToArray(data);
+                const imagesArr = normalizeToArray(data);
 
-      if (!cancelled) {
-        setImages(imagesArr);
-      }
-    } catch (err) {
-      if (!cancelled) {
-        setImages([]); // keep state consistent
-        setError(err);
-      }
-    } finally {
-      if (!cancelled) setLoading(false);
-    }
-  }
+                if (!cancelled) {
+                    setImages(imagesArr);
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    setImages([]); // keep state consistent
+                    setError(err);
+                }
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        }
 
-  if (carId) {
-    loadImages();
-  } else {
-    setImages([]);
-    setLoading(false);
-  }
+        if (carId) {
+            loadImages();
+        } else {
+            setImages([]);
+            setLoading(false);
+        }
 
-  return () => {
-    cancelled = true;
-  };
-}, [carId]);
+        return () => {
+            cancelled = true;
+        };
+    }, [carId]);
 
     const src = images[0] ? images[0] : '/placeholder.jpg';
-    
+
 
     return (
 

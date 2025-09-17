@@ -78,6 +78,7 @@ export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, ac
     const [ipInfo, setIpInfo] = useState(null);
     const [tokyoTime, setTokyoTime] = useState(null);
     const [showPaymentModal, setShowPaymentModal] = useState(false)
+    const navigatedToPaymentRef = useRef(false)
 
     // Initial load on mount
     useEffect(() => {
@@ -319,10 +320,10 @@ export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, ac
         + parseFloat(contact?.carData?.dimensionCubicMeters)
         * parseFloat(contact?.freightPrice);
 
-    const inspectionSurcharge = contact?.inspection ? 300 * currencyInside.value : 0;
-    const insuranceSurcharge = contact?.insurance ? 50 * currencyInside.value : 0
+    const inspectionSurcharge = contact?.inspection === true ? 300 * currencyInside.value : 0;
+    const insuranceSurcharge = contact?.insurance === true ? 50 * currencyInside.value : 0
     const finalPrice = (baseFinalPrice * currencyInside.value + inspectionSurcharge + insuranceSurcharge);
-    console.log(finalPrice)
+
 
     return (
         isLoadingTransaction ? <TransactionCSRLoader /> : (
@@ -353,7 +354,24 @@ export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, ac
                                 <div className="bg-blue-50 rounded-lg p-4 mb-6 border border-blue-100">
                                     <div className="flex justify-between items-center text-sm">
                                         <span className="text-gray-600">Amount:</span>
-                                        <span className="font-semibold text-gray-900">{currencyInside.symbol} {Math.ceil(finalPrice).toLocaleString()}</span>
+                                        <span className="font-semibold text-gray-900">
+
+                                            {
+                                                (() => {
+                                                    const invoiceTotal = Number(invoiceData?.paymentDetails?.totalAmount);
+                                                    const fallback = Number(finalPrice);
+
+                                                    const amount =
+                                                        invoiceTotal > 0 ? invoiceTotal :
+                                                            fallback > 0 ? fallback :
+                                                                null;
+                                                    return amount != null
+                                                        ? `${currencyInside.symbol} ${Math.ceil(amount).toLocaleString()}`
+                                                        : 'ASK';
+                                                })()
+                                            }
+
+                                        </span>
                                     </div>
                                     <div className="flex justify-between items-center text-sm mt-2">
                                         <span className="text-gray-600">Status:</span>
@@ -373,6 +391,21 @@ export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, ac
                                                 try { window.dataLayer = window.dataLayer || [] } catch (e) { }
                                                 if (typeof window !== 'undefined' && window.dataLayer) {
                                                     window.dataLayer.push({ event: 'rmj_payment_confirmed', chatId })
+                                                }
+                                                // One-time navigate to /chats/payment/:chatId for SEO/analytics if not yet navigated
+                                                try {
+                                                    if (typeof window !== 'undefined' && !navigatedToPaymentRef.current) {
+                                                        const targetPath = `/chats/payment/${chatId}`
+                                                        const currentPath = window.location.pathname || ''
+                                                        if (!currentPath.startsWith(targetPath)) {
+                                                            navigatedToPaymentRef.current = true
+                                                            window.location.assign(targetPath)
+                                                        } else {
+                                                            navigatedToPaymentRef.current = true
+                                                        }
+                                                    }
+                                                } catch (navErr) {
+                                                    console.error('Navigation to payment failed:', navErr)
                                                 }
                                             } catch (err) {
                                                 console.error('Failed to persist confirmedPayment:', err)

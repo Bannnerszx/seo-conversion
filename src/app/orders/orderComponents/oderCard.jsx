@@ -1,12 +1,13 @@
 'use client'
 import { Button } from "@/components/ui/button";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Image from "next/image"
 import { FileText, MapPin, User, Calendar, Clock, Package, X, ExternalLink, MessageSquare, Info, Check, Download } from "lucide-react"
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { fetchBookingData, fetchInvoiceData } from "@/app/actions/actions";
 import PreviewInvoice from "@/app/chats/chatComponents/previewInvoice";
+import next from "next";
 
 
 async function fetchChatData(chatId) {
@@ -14,9 +15,24 @@ async function fetchChatData(chatId) {
   if (!res.ok) throw new Error(`Chat fetch failed: ${res.status}`)
   return res.json()
 }
+const INIT_COUNTS = { total: 0, shipping: 0, documents: 0, tracking: 0, dhl: 0, consignee: 0 };
+
+export default function OrderCard({ order, currency, userEmail, observerRef, isLast }) {
+
+  //notification state
+  const [changeCounts, setChangeCounts] = useState(INIT_COUNTS);
+  const baselineRef = useRef(null);
+
+  //Normalizers
+  const str = (v) => (v ?? '') + '';
+  const docUrlToString = (u) => {
+    if (typeof u === 'string') return u;
+    if (u && u.props && u.props.href) return u.props.href + '';
+    return u ? '[node]' : '';
+  }
 
 
-export default function OrderCard({ order, currency, userEmail }) {
+
   const fobDollar = parseFloat(currency.jpyToUsd) * parseFloat(order.carData?.fobPrice) || 0;
   const [showModal, setShowModal] = useState(false);
   const [activeTab, setActiveTab] = useState("shipping");
@@ -24,6 +40,11 @@ export default function OrderCard({ order, currency, userEmail }) {
   const [bookingData, setBookingData] = useState(null);
   const [hasFetchedInvoice, setHasFetchedInvoice] = useState(false);
   const [hasFetchedBooking, setHasFetchedBooking] = useState(false);
+  const elRef = useRef(null);
+  useEffect(() => {
+    if (isLast && observerRef) observerRef(elRef.current);
+  }, [isLast, observerRef])
+
   function formatToShortDate(ts) {
     // remove the “ at …” part so Date can parse it
     const cleaned = ts.replace(/ at.*$/, '')
@@ -57,7 +78,8 @@ export default function OrderCard({ order, currency, userEmail }) {
   }
   const openModal = async () => {
     setShowModal(true);
-
+    baselineRef.current = snapshotOrder(carOrder);
+    setChangeCounts(INIT_COUNTS);
     // only fetch once, when modal opens
     if (
       order?.invoiceNumber &&
@@ -117,18 +139,6 @@ export default function OrderCard({ order, currency, userEmail }) {
     const m = log.match(/(\d{1,2}:\d{2}\s*(?:AM|PM))/i)
     return m ? m[1] : ''
   }
-
-  const rawTs = order?.payments?.[0]?.timestamp
-  const rawBookingTs = bookingData?.exportCert?.timestamp
-  const rawBookingShippingTs = bookingData?.shippingInfo?.lastUpdated
-  const rawBookingSi = bookingData?.sI?.lastUpdated
-  const date = rawTs ? formatToShortDate(rawTs) : 'TBA'
-  const time = rawTs ? formatToTime(rawTs) : 'TBA'
-  const dateBooking = rawBookingTs ? extractDate(rawBookingTs) : 'TBA'
-  const dateShipping = rawBookingShippingTs ? extractDateFromLog(rawBookingShippingTs) : 'TBA'
-  const timeShipping = rawBookingShippingTs ? extractTimeFromLog(rawBookingShippingTs) : 'TBA'
-  const dateSi = rawBookingSi ? extractDateFromLog(rawBookingSi) : 'TBA'
-  const timeSi = rawBookingSi ? extractTimeFromLog(rawBookingSi) : 'TBA'
   const carOrder = {
     id: "T202406909/RM-21",
     title: "2009 NISSAN NOTE",
@@ -243,6 +253,135 @@ export default function OrderCard({ order, currency, userEmail }) {
       Tel: invoiceData?.notifyParty?.contactNumber,
     },
   }
+  const snapshotOrder = (o) => ({
+    shipping: {
+      carrier: str(o?.shipping?.carrier),
+      etd: str(o?.shipping?.etd),
+      vesselLoading: str(o?.shipping?.vesselLoading),
+      voyNoLoading: str(o?.shipping?.voyNoLoading),
+      portOfLoading: str(o?.shipping?.portOfLoading),
+      eta: str(o?.shipping?.eta),
+      vesselDischarge: str(o?.shipping?.vesselDischarge),
+      voyNoDischarge: str(o?.shipping?.voyNoDischarge),
+      portOfDischarge: str(o?.shipping?.portOfDischarge),
+    },
+    documents: (o?.documents ?? []).map(d => ({
+      name: str(d?.name),
+      status: str(d?.status),
+      url: docUrlToString(d?.url),
+    })),
+    tracking: (o?.statuses ?? []).map(s => ({
+      stage: str(s?.stage),
+      status: str(s?.status),
+      action: str(s?.action),
+      date: str(s?.date),
+      time: str(s?.time),
+      location: str(s?.location),
+      actionTaker: str(s?.actionTaker),
+    })),
+    dhl: {
+      name: str(o?.dhl?.name),
+      address: str(o?.dhl?.address),
+      city: str(o?.dhl?.city),
+      country: str(o?.dhl?.country),
+      trackingNumber: str(o?.dhl?.trackingNumber),
+    },
+    consignee: {
+      // Consignee
+      c_name: str(o?.consignee?.name),
+      c_address: str(o?.consignee?.address),
+      c_city: str(o?.consignee?.city),
+      c_country: str(o?.consignee?.country),
+      c_tel: str(o?.consignee?.Tel),
+      // Notify
+      n_name: str(o?.notify?.name),
+      n_address: str(o?.notify?.address),
+      n_city: str(o?.notify?.city),
+      n_country: str(o?.notify?.country),
+      n_tel: str(o?.notify?.Tel),
+    },
+  });
+
+  const countObjDiffs = (a, b) => {
+    let c = 0;
+    for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) {
+      if ((a[k] ?? '') !== (b[k] ?? '')) c++;
+    }
+    return c;
+  };
+
+  const toDocsMap = (arr) => {
+    const m = new Map();
+    for (const d of arr) m.set(d.name, JSON.stringify({ status: d.status, url: d.url }));
+    return m;
+  }
+
+  const countDocsDiffs = (prevDocs, nextDocs) => {
+    const pM = toDocsMap(prevDocs);
+    const nM = toDocsMap(nextDocs);
+    const keys = new Set([...pM.keys(), ...nodeModuleNameResolver.keys()]);
+    let c = 0;
+    for (const k of keys) {
+      if ((pM.get(k) ?? '') !== (nM.get(k) ?? '')) c++;
+    }
+    return c;
+  };
+
+
+  const trackKey = (t) => `${t.stage}|${t.action}|${t.date}|${t.time}|${t.location}`;
+  const toTrackMap = (arr) => {
+    const m = new Map();
+    for (const t of arr) m.set(trackKey(t), JSON.stringify(t));
+    return m;
+  }
+
+  const countTrackDiffs = (prevT, nextT) => {
+    const pM = toTrackMap(prevT);
+    const nM = toTrackMap(nextT);
+
+    const keys = new Set([...pM.key(), ...nM.keys()]);
+    let c = 0;
+    for (const k of keys) {
+      if ((pM.get(k) ?? '') !== (nM.get(k) ?? '')) c++;
+    }
+    return c;
+  }
+
+  useEffect(() => {
+    if (!carOrder) return;
+    const nextSnap = snapshotOrder(carOrder);
+    if (!baselineRef.current) {
+      baselineRef.current = nextSnap;
+      setChangeCounts(INIT_COUNTS);
+      return;
+    };
+
+    const prevSnap = baselineRef.current;
+
+    const shipping = countObjDiffs(prevSnap.showModal, nextSnap.shipping);
+    const documents = countDocsDiffs(prevSnap.documents, nextSnap.documents);
+    const tracking = countTrackDiffs(prevSnap.tracking, nextSnap.tracking);
+    const dhl = countObjDiffs(prevSnap.dhl, nextSnap.dhl);
+    const consignee = countObjDiffs(prevSnap.consignee, nextSnap.consignee);
+
+    const total = shipping + documents + tracking + dhl + consignee;
+    setChangeCounts({ total, shipping, documents, tracking, dhl, consignee })
+  }, [carOrder]);
+
+
+
+  const rawTs = order?.payments?.[0]?.timestamp
+  const rawBookingTs = bookingData?.exportCert?.timestamp
+  const rawBookingShippingTs = bookingData?.shippingInfo?.lastUpdated
+  const rawBookingSi = bookingData?.sI?.lastUpdated
+  const date = rawTs ? formatToShortDate(rawTs) : 'TBA'
+  const time = rawTs ? formatToTime(rawTs) : 'TBA'
+  const dateBooking = rawBookingTs ? extractDate(rawBookingTs) : 'TBA'
+  const dateShipping = rawBookingShippingTs ? extractDateFromLog(rawBookingShippingTs) : 'TBA'
+  const timeShipping = rawBookingShippingTs ? extractTimeFromLog(rawBookingShippingTs) : 'TBA'
+  const dateSi = rawBookingSi ? extractDateFromLog(rawBookingSi) : 'TBA'
+  const timeSi = rawBookingSi ? extractTimeFromLog(rawBookingSi) : 'TBA'
+
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -279,7 +418,7 @@ export default function OrderCard({ order, currency, userEmail }) {
   }, [carId]);
   const src = images[0] ? images[0] : '/placeholder.jpg';
   return (
-    <div className="bg-white rounded-lg border overflow-hidden">
+    <div className="bg-white rounded-lg border overflow-hidden" ref={elRef}>
       <div className="p-4">
         <div className="flex flex-col md:flex-row gap-6">
           {/* Left side – Vehicle image */}
@@ -347,24 +486,40 @@ export default function OrderCard({ order, currency, userEmail }) {
               >
                 Send Message
               </Link>
+
               {order.stepIndicator.value > 3 && (
-                <Button
-                  onClick={openModal}
-                  variant="outline"
-                  className="
-      border-blue-600 text-blue-600
-      hover:bg-blue-50
-      flex items-center justify-center
-      px-4 py-2          
-      whitespace-normal 
-      flex-wrap          
-      h-auto             
-    "
-                >
-                  <Info className="h-4 w-4" />
-                  Progress Details
-                </Button>
+                <div className="relative inline-block">
+                  <Button
+                    onClick={openModal} // <— uses the one defined above
+                    variant="outline"
+                    className="
+        border-blue-600 text-blue-600
+        hover:bg-blue-50
+        flex items-center justify-center
+        px-4 py-2 whitespace-normal flex-wrap h-auto
+      "
+                  >
+                    <Info className="h-4 w-4" />
+                    <span className="ml-2">Progress Details</span>
+                  </Button>
+
+                  {changeCounts.total > 0 && (
+                    <span
+                      className="
+          absolute -top-2 -right-2
+          min-w-[1.25rem] h-5 px-1
+          inline-flex items-center justify-center
+          rounded-full bg-red-600 text-white text-xs font-semibold
+          shadow
+        "
+                    >
+                      {changeCounts.total > 99 ? '99+' : changeCounts.total}
+                    </span>
+                  )}
+                </div>
               )}
+
+
 
             </div>
           </div>

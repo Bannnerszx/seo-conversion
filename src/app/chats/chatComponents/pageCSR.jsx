@@ -522,7 +522,7 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
                 {/* LIST PANE */}
                 <aside
                     className={`
-                        ${!isDetail  ? 'block' : 'hidden'}
+                        ${!isDetail ? 'block' : 'hidden'}
                         md:block
                         w-full md:w-[350px]
                         border-r border-gray-200
@@ -561,7 +561,7 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
                     flex-1
                     h-full
                     overflow-y-auto">
-                    
+
                             <TransactionCSRLoader />
                         </div>
                     )
