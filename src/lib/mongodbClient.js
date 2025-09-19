@@ -52,7 +52,6 @@ if (!cached) {
     minPoolSize: 0,
     serverSelectionTimeoutMS: 10000,
     socketTimeoutMS: 45000,
-    retryWrites: false
   });
   cached = client.connect();
   global._mongoClientPromise = cached;

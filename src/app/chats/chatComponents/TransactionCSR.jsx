@@ -2,7 +2,7 @@
 import Link from "next/link"
 import { functions } from "../../../../firebase/clientApp"
 import { httpsCallable } from "firebase/functions"
-import { useState, useRef, useEffect, useCallback } from "react"
+import { useState, useRef, useEffect, useCallback, useMemo } from "react"
 import { firestore } from "../../../../firebase/clientApp"
 import { doc, updateDoc } from "firebase/firestore"
 import { subscribeToChatDoc } from "./chatSubscriptions"
@@ -16,7 +16,7 @@ import { AnnouncementBar } from "./announcementBar"
 import PreviewInvoice from "./previewInvoice"
 import DeliveryAddress from "./deliveryAddress"
 import ChatMessage from "./messageLinks"
-import moment from "moment"
+
 import WarningDialog from "./warningDialog"
 import ProductReview from "./ProductReview"
 import TransactionCSRLoader from "./TransactionCSRLoader"
@@ -89,8 +89,8 @@ export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, ac
         ])
             .then(([ip, time]) => {
                 if (!mounted) return;
-                setIpInfo(ip);
-                setTokyoTime(time);
+                setIpInfo(ip ?? null);
+                setTokyoTime(time ?? null);
             })
             .catch(err => {
                 if (!mounted) return;
@@ -99,33 +99,58 @@ export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, ac
         return () => { mounted = false; };
     }, []);
 
+
+    function formatTokyoLocal(ymdHmsMsStr) {
+        if (!ymdHmsMsStr) return '';
+        const [datePart, timePart = ''] = ymdHmsMsStr.trim().split(' ');
+        const [hh = '00', mm = '00', secMs = '00'] = timePart.split(':');
+        const ss = (secMs.split('.')[0] || '00');
+        return `${datePart} at ${hh}:${mm}:${ss}`;
+    }
+
+    // Only compute when value exists
+
+
     // Subscribe to chat doc for payment events and show modal when appropriate (detail view only)
     // Persist confirmation to Firestore (confirmedPayment) so it survives cookie/LS clears.
     useEffect(() => {
-        if (!chatId || !isDetailView) return
+        // if we’re not looking at a detail view for a specific chat, keep modal hidden
+        if (!chatId || !isDetailView) {
+            setShowPaymentModal(false);
+            return;
+        }
 
         const unsubscribe = subscribeToChatDoc(chatId, (chatData) => {
-            if (!chatData) return
-            const rawStep = chatData?.stepIndicator?.value ?? chatData?.tracker ?? null
-            const tracker = rawStep == null ? null : Number(rawStep)
-            // Only show modal when tracker reaches payment stage AND the chat hasn't been confirmed yet
-            if (tracker !== null && !Number.isNaN(tracker) && tracker >= 4) {
-                try {
-                    const alreadyConfirmed = chatData?.confirmedPayment === true
-                    if (!alreadyConfirmed) {
-                        setShowPaymentModal(true)
-                    } else {
-                        // ensure modal is hidden if already confirmed elsewhere
-                        setShowPaymentModal(false)
-                    }
-                } catch (err) {
-                    console.error('Failed to handle payment event:', err)
-                }
+            if (!chatData) {
+                setShowPaymentModal(false);
+                return;
             }
-        })
 
-        return () => unsubscribe()
-    }, [chatId, isDetailView])
+            const rawStep = chatData?.stepIndicator?.value ?? chatData?.tracker ?? null;
+            const tracker = rawStep == null ? null : Number(rawStep);
+
+            // Only consider showing while tracker === 4
+            if (tracker === 4 && !Number.isNaN(tracker)) {
+                try {
+                    const alreadyConfirmed = chatData?.confirmedPayment === true;
+                    const isCancelled = chatData?.isCancelled === true; // only true if explicitly true
+
+                    // Show when: tracker is 4, not confirmed, and not cancelled (or missing)
+                    setShowPaymentModal(!alreadyConfirmed && !isCancelled);
+                } catch (err) {
+                    console.error("Failed to handle payment event:", err);
+                    // be safe: hide on error
+                    setShowPaymentModal(false);
+                }
+            } else {
+                // tracker moved away from 4 (or invalid) → hide
+                setShowPaymentModal(false);
+            }
+        });
+
+        return () => unsubscribe();
+    }, [chatId, isDetailView]);
+
 
     const handleSendMessage = async (e) => {
         if (loadingSent || isLoading || (!newMessage.trim() && !attachedFile)) {
@@ -170,9 +195,7 @@ export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, ac
             }
 
             // Format the time
-            const momentDate = moment(currentTokyoTime?.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');
-            const formattedTime = momentDate.format('YYYY/MM/DD [at] HH:mm:ss');
-
+            const formattedTime = formatTokyoLocal(currentTokyoTime?.datetime);
             // Extract IP info details
             const ip = currentIpInfo.ip;
             const ipCountry = currentIpInfo.country_name;
@@ -290,7 +313,9 @@ export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, ac
             endOfMessagesRef.current.scrollIntoView({ behavior: 'smooth' });
             setShouldScroll(false);
         }
+
     }, [chatMessages, shouldScroll]);
+
     const { stockStatus, reservedTo } = vehicleStatus[contact?.carData?.stockID] || {};
     const isReservedOrSold = (stockStatus === "Reserved" || stockStatus === "Sold") && reservedTo !== userEmail
 
@@ -323,7 +348,6 @@ export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, ac
     const inspectionSurcharge = contact?.inspection === true ? 300 * currencyInside.value : 0;
     const insuranceSurcharge = contact?.insurance === true ? 50 * currencyInside.value : 0
     const finalPrice = (baseFinalPrice * currencyInside.value + inspectionSurcharge + insuranceSurcharge);
-
 
     return (
         isLoadingTransaction ? <TransactionCSRLoader /> : (
@@ -487,18 +511,15 @@ export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, ac
                 </div>
 
                 <ScrollArea
-
-                    onScrollCapture={(event) => {
-                        if (event.target.scrollTop === 0) {
-                            handleLoadMore();
-                        }
+                    onScrollCapture={(e) => {
+                        if (e.target.scrollTop === 0) handleLoadMore();
                     }}
-
-                    ref={scrollAreaRef} className="h-full p-4 custom-scroll bg-[#E5EBFE]"
+                    ref={scrollAreaRef}
+                    className="h-full p-4 custom-scroll bg-[#E5EBFE]"
                 >
 
                     <div className="space-y-4 mt-8">
-                        {chatMessages.slice().reverse().map((message, index) => (
+                        {chatMessages.map((message, index) => (
                             <div key={index} className="w-full">
                                 <div className={`flex w-full ${message.sender === userEmail ? "justify-end" : "justify-start"}`}>
 

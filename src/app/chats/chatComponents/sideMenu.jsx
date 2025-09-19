@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Menu, X, UserPlus, LogIn, ChevronDown } from 'lucide-react'
+import { Menu, ChevronDown } from 'lucide-react'
 import { useState } from 'react'
 import {
     Sheet,
