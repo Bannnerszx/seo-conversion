@@ -10,13 +10,13 @@ import { fetchBookingData, fetchInvoiceData } from "@/app/actions/actions";
 import PreviewInvoice from "@/app/chats/chatComponents/previewInvoice";
 import { doc, query, collection, where, orderBy, limit as qlimit, onSnapshot, startAfter, getDocs, updateDoc, documentId, getDoc } from "firebase/firestore"
 import { firestore } from "../../../../firebase/clientApp"
-import { m } from "framer-motion"
 
 // 1️⃣ Define a single lookup object:
 
 const LIVE_LIMIT = 20;
 const PAGE_SIZE = 10;
-
+const C = new Map();
+const TTL = 5 * 60 * 1000;
 let lastCursor = null;
 
 const invoiceCache = new Map();
@@ -87,7 +87,7 @@ function InfoItem({ label, value }) {
 }
 
 function OrderCard({ order, userEmail }) {
-    console.log(order?.invoice?.invoiceData?.paymentDetails.totalAmount, 'amount')
+
     const [showModal, setShowModal] = useState(false);
     const [activeTab, setActiveTab] = useState("shipping");
     const [invoiceData, setInvoiceData] = useState(null);
@@ -368,33 +368,33 @@ function OrderCard({ order, userEmail }) {
     const carId = order?.carData?.stockID
     useEffect(() => {
         let cancelled = false;
+        async function run() {
+            if (!carId) { setLoading(false); setImages([]); setError(null); return; }
 
-        async function loadImages() {
+            const cached = C.get(carId);
+            if (cached && Date.now() - cached.ts < TTL) {
+                setImages(cached.images);
+                setLoading(false);
+                return;
+            }
             setLoading(true);
+            setError(null);
             try {
-                const res = await fetch(`/api/car-images/${carId}`);
+                const res = await fetch(`/api/car-images/${encodeURIComponent(carId)}`);
                 if (!res.ok) throw new Error(`Error ${res.status}`);
                 const json = await res.json();
-                if (!cancelled) {
-                    setImages(Array.isArray(json.images) ? json.images : []);
-                }
+                const imgs = Array.isArray(json.images) ? json.images : [];
+                C.set(carId, { images: imgs, ts: Date.now() });
+                if (!cancelled) setImages(imgs);
             } catch (err) {
-                if (!cancelled) setError(err);
+                if (!cancelled) setError(err)
             } finally {
-                if (!cancelled) setLoading(false);
+                if (!cancelled) setLoading(false)
             }
         }
-
-        if (carId) {
-            loadImages();
-        } else {
-            setLoading(false);
-        }
-
-        return () => {
-            cancelled = true;
-        };
-    }, [carId]);
+        run();
+        return () => { cancelled = true }
+    }, [carId])
     const src = images[0] ? images[0] : '/placeholder.jpg';
     return (
         <Card className="w-full">

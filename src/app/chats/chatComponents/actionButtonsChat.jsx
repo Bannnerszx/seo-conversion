@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { FileText, Edit, MapPin, Download, Printer, ChevronLeft, ChevronRight } from "lucide-react";
+import {  Download, ChevronLeft, ChevronRight } from "lucide-react";
 import PreviewInvoice from "./previewInvoice";
 import InvoiceAmendmentForm from "./amendInvoice";
 import DocumentAddress from "./documentAddress";

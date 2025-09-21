@@ -43,6 +43,8 @@ export function Ribbon({ stockStatus, className, children, userEmail, reservedTo
     </div>
   )
 }
+const C = new Map();
+const TTL = 5 * 60 * 1000;
 export default function TransactionList({
   vehicleStatus,
   makeTrueRead,
@@ -106,52 +108,67 @@ export default function TransactionList({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+
   useEffect(() => {
     let cancelled = false;
-    async function loadAllImages() {
+
+    async function run() {
+      // no chats → clear state and stop loading
+      if (!Array.isArray(chatList) || chatList.length === 0) {
+        setImagesMap({});
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
+
       const map = {};
 
-      // 2. Kick off a fetch for each chat’s stockID
       await Promise.all(
         chatList.map(async (chat) => {
           const id = chat?.carData?.stockID;
           if (!id) return;
 
-          // Prefer images already embedded on the chat object (if any)
+          // 1) prefer embedded images if present
           const embedded = chat?.carData?.images;
           if (Array.isArray(embedded) && embedded.length > 0) {
             map[id] = embedded;
+            // prime cache for consistency with /orders
+            C.set(id, { images: embedded, ts: Date.now() });
             return;
           }
 
-          // Otherwise fall back to the API that reads VehicleProducts
+          // 2) use cache if fresh
+          const cached = C.get(id);
+          if (cached && Date.now() - cached.ts < TTL) {
+            map[id] = cached.images;
+            return;
+          }
+
+          // 3) fallback to API fetch
           try {
-            const res = await fetch(`/api/car-images/${id}`);
-            if (!res.ok) throw new Error(res.statusText);
-            const { images } = await res.json();
-            map[id] = Array.isArray(images) ? images : [];
-          } catch (e) {
-            map[id] = []; // on error, just set empty
+            const res = await fetch(`/api/car-images/${encodeURIComponent(id)}`);
+            if (!res.ok) throw new Error(`Error ${res.status}`);
+            const json = await res.json();
+            const imgs = Array.isArray(json.images) ? json.images : [];
+            map[id] = imgs;
+            C.set(id, { images: imgs, ts: Date.now() });
+          } catch {
+            map[id] = []; // on error, set empty like before
           }
         })
       );
 
-      // only update state if we’re still mounted
       if (!cancelled) {
         setImagesMap(map);
         setLoading(false);
       }
     }
 
-    if (chatList.length) {
-      loadAllImages();
-    }
-
-    return () => {
-      cancelled = true;
-    };
+    run();
+    return () => { cancelled = true; };
   }, [chatList]);
+
   // map Firestore data to your UI shape
 
   const contacts = chatList.map((chat) => {
@@ -338,7 +355,7 @@ export default function TransactionList({
                           ${isReservedOrSold && "opacity-50"}
                       `}
                           onClick={() => {
-                    
+
                             setChatId(contact.id);
                             onSelectContact(contact);
                             markRead(contact.id);

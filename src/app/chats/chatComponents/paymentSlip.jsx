@@ -2,8 +2,8 @@
 import { format } from "date-fns"
 import { useState, useRef, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { CheckCircle, X, Calendar as CalendarIcon, Upload, RefreshCw, Paperclip } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { X, Calendar as CalendarIcon, Upload, RefreshCw, Paperclip } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Calendar } from "@/components/ui/calendar"
@@ -12,7 +12,6 @@ import moment from "moment"
 import Modal from "@/app/components/Modal"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { updatePaymentNotifications } from "@/app/actions/actions"
-import { useCurrency } from "@/providers/CurrencyContext"
 import WarningDialog from "./warningDialog"
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
 
@@ -119,6 +118,11 @@ export default function PaymentSlip({ chatId, selectedChatData, userEmail, invoi
             });
         return () => { mounted = false; };
     }, []);
+
+
+
+
+
     const handleSendMessage = async (e) => {
         e.preventDefault();
         setPaymentVisible(false);

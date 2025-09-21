@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Text, View, ScrollView, Pressable, Image } from "react-native-web";
+import { Text, View, ScrollView,  Image } from "react-native-web";
 import { Button } from "@/components/ui/button";
-import { FileText, Image as ImageIcon, Edit, MapPin, Download, Printer, ChevronLeft, ChevronRight } from "lucide-react";
+import { FileText, Image as ImageIcon, Download, } from "lucide-react";
 import { QRCodeSVG } from 'qrcode.react';
 // import { captureRef } from 'react-native-view-shot';
 // import QRCode from 'react-native-qrcode-svg';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
+
 import Loader from '@/app/components/Loader';
 import Modal from '@/app/components/Modal';
 const PreviewInvoice = ({ messageText, activeChatId, selectedChatData, invoiceData, context }) => {
@@ -94,34 +93,43 @@ const PreviewInvoice = ({ messageText, activeChatId, selectedChatData, invoiceDa
 
 
     useEffect(() => {
-        const captureImageAsync = async () => {
-            try {
-                if (invoiceRef.current) {
-                    // Adjust the scale to control the captured image resolution
-                    const scale = 1; // Experiment with different scale values
-                    const canvas = await html2canvas(invoiceRef.current, {
-                        scale: scale,
-                        width: 2480 * scale,
-                        height: 3508 * scale,
-                    });
+        let cancelled = false;
 
-                    // Convert the canvas to a base64-encoded JPEG image
-                    const imageUri = canvas.toDataURL("image/jpeg", 1.0);
+        async function captureImageAsync() {
+            if (!invoiceRef.current || !invoiceData) return;
 
-                    // Process the invoice data as before
-                    const trueCount = countTrueValuesInCarData(invoiceData);
-                    setFeaturesTrueCount(trueCount);
-                    setCapturedImageUri(imageUri);
-                    // Optionally, you can log the generated image URI:
-                    // console.log(imageUri);
-                }
-            } catch (error) {
-                console.error("Error capturing view:", error);
-            }
-        };
+            // wait a frame so layout/webfonts settle
+            await new Promise(r => requestAnimationFrame(() => r()));
+
+            // dynamic import so it’s not in the initial bundle
+            const mod = await import('html2canvas');
+            const html2canvas = mod.default || mod;
+
+            const el = invoiceRef.current;
+            const scale = 1; // tweak 0.8–1.5 for quality vs size
+
+            const canvas = await html2canvas(el, {
+                scale,
+                useCORS: true,
+                allowTaint: false,
+                backgroundColor: '#fff',
+                windowWidth: el.scrollWidth,
+                windowHeight: el.scrollHeight,
+            });
+
+            if (cancelled) return;
+
+            const imageUri = canvas.toDataURL('image/jpeg', 0.9);
+            setFeaturesTrueCount(countTrueValuesInCarData(invoiceData));
+            setCapturedImageUri(imageUri);
+        }
 
         captureImageAsync();
-    }, [invoiceRef.current, invoiceData]);
+
+        return () => { cancelled = true; };
+    }, [invoiceRef.current]); // <- not invoiceRef.current
+
+
 
     useEffect(() => {
         setCapturedImageUri(capturedImageUri);
@@ -129,67 +137,100 @@ const PreviewInvoice = ({ messageText, activeChatId, selectedChatData, invoiceDa
 
     const captureImage = async () => {
         try {
-            // Adjust the scale to control the captured image resolution
-            const scale = 0.9; // Experiment with different scale values
-            const width = 2480 * scale;
-            const height = 3508 * scale;
+            const el = invoiceRef.current;
+            if (!el) throw new Error('invoiceRef missing');
 
-            // Capture the invoice element referenced by invoiceRef.current
-            const canvas = await html2canvas(invoiceRef.current, {
-                scale: scale,
-                width: width,
-                height: height,
+            // Load only when needed
+            const html2canvas = (await import('html2canvas')).default || (await import('html2canvas'));
+
+            // Tweak these for quality vs size
+            const scale = 1; // 0.8–1.5 is a good range
+            const width = el.scrollWidth;
+            const height = el.scrollHeight;
+
+            const canvas = await html2canvas(el, {
+                scale,
+                useCORS: true,
+                allowTaint: false,
+                backgroundColor: '#fff',
+                windowWidth: width,
+                windowHeight: height,
+                // If your element uses webfonts, give them time to load first
+                // onclone: (doc) => { /* optional */ },
             });
 
-            // Convert the canvas to a JPEG image data URI (base64-encoded)
-            const imageUri = canvas.toDataURL("image/jpeg", 1.0);
+            // JPEG quality: 0.7–0.9 usually looks good, keeps size down
+            const imageUri = canvas.toDataURL('image/jpeg', 0.9);
             return imageUri;
         } catch (error) {
-            console.error("Error capturing view:", error);
+            console.error('Error capturing view:', error);
+            return null;
         }
     };
 
-    const createPDF = async () => {
-        const element = invoiceRef.current;
-        if (element) {
-            // Reduce the scale slightly for smaller file size
-            const scale = 1; // Fine-tune this value for balance
 
-            const canvas = await html2canvas(element, {
-                scale: scale,
+    const createPDF = async () => {
+        const el = invoiceRef.current;
+        if (!el) {
+            console.error('No element to capture');
+            return;
+        }
+
+        try {
+            // Load libs only when needed
+            const [{ jsPDF }, html2canvas] = await Promise.all([
+                import('jspdf').then(m => ({ jsPDF: m.jsPDF || m.default })),
+                import('html2canvas').then(m => m.default || m),
+            ]);
+
+            const scale = 1; // tweak for quality vs size
+            const canvas = await html2canvas(el, {
+                scale,
+                useCORS: true,           // helpful if images/fonts are cross-origin
+                allowTaint: false,
+                backgroundColor: '#fff', // avoid transparent to black issues
+                windowWidth: el.scrollWidth,
+                windowHeight: el.scrollHeight,
             });
 
-            // Experiment with JPEG quality for a balance between quality and file size
             const imageData = canvas.toDataURL('image/jpeg', 0.9);
 
-            // A4 size dimensions in mm
-            const pdfWidth = 210;
-            const pdfHeight = 297;
+            // A4 in mm
+            const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
 
-            const pdf = new jsPDF({
-                orientation: 'portrait',
-                unit: 'mm',
-                format: 'a4'
-            });
-
-            // Adjust PDF compression settings
-            const options = {
-                imageCompression: 'JPEG',
-                imageQuality: 1, // Fine-tune this value as well
-            };
-
+            // Fit width, keep aspect
             const imgProps = pdf.getImageProperties(imageData);
-            const pdfWidthFit = pdfWidth;
-            const pdfHeightFit = (imgProps.height * pdfWidthFit) / imgProps.width;
+            const ratio = imgProps.height / imgProps.width;
+            const imgWidth = pageWidth;
+            const imgHeight = imgWidth * ratio;
 
-            pdf.addImage(imageData, 'JPEG', 0, 0, pdfWidthFit, pdfHeightFit, undefined, 'FAST', 0, options);
+            // If content is taller than one page, add pages
+            let y = 0;
+            while (y < imgHeight) {
+                if (y > 0) pdf.addPage();
+                pdf.addImage(
+                    imageData,
+                    'JPEG',
+                    0,
+                    -y * (pageHeight / imgHeight), // shift viewport
+                    imgWidth,
+                    imgHeight,
+                    undefined,
+                    'FAST'
+                );
+                y += pageHeight;
+            }
 
-            // Filename logic
-            selectedChatData?.stepIndicator.value < 3 ?
-                pdf.save(`Proforma Invoice (${invoiceData?.carData?.carName} [${invoiceData?.carData?.referenceNumber}]) (A4 Paper Size).pdf`) :
-                pdf.save(`Invoice No. ${selectedChatData?.invoiceNumber} (A4 Paper Size).pdf`);
-        } else {
-            console.error("No element to capture");
+            const filename =
+                (selectedChatData?.stepIndicator?.value ?? 0) < 3
+                    ? `Proforma Invoice (${invoiceData?.carData?.carName} [${invoiceData?.carData?.referenceNumber}]) (A4 Paper Size).pdf`
+                    : `Invoice No. ${selectedChatData?.invoiceNumber} (A4 Paper Size).pdf`;
+
+            pdf.save(filename);
+        } catch (err) {
+            console.error('PDF generation failed:', err);
         }
     };
 

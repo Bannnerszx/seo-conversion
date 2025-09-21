@@ -10,7 +10,7 @@ import { firestore } from "../../../../firebase/clientApp"
 import { loadMoreMessages } from "@/app/actions/actions"
 import { SortProvider } from "@/app/stock/stockComponents/sortContext"
 import TransactionCSRLoader from "./TransactionCSRLoader"
-import { TransactionSkeleton } from "./TransactionListCSRLoader"
+
 // import { SurveyModal } from "@/app/components/SurveyModal"
 
 let lastVisible = null;
@@ -212,7 +212,19 @@ const fetchVehicleStatuses = (stockIDs, updateStatuses) => {
         Object.values(unsubscribeMap).forEach((unsubscribe) => unsubscribe());
     };
 };
-
+const tsKey = (ts) => {
+    if (!ts) return "";
+    if (typeof ts?.toMillis === "function") {
+        // Firestore Timestamp
+        return String(ts.toMillis()).padStart(13, "0"); // ms since epoch
+    }
+    // string like "2025/08/10 at 18:01:15.892" (ms optional)
+    return String(ts)
+        .trim()
+        .replace(" at ", " ")
+        .replace(/[^\d]/g, "")     // -> YYYYMMDDHHmmssSSS
+        .padEnd(17, "0");          // normalize when .SSS missing
+};
 export default function ChatPageCSR({ accountData, userEmail, currency, fetchInvoiceData, countryList, prefetchedData }) {
     const [chatList, setChatList] = useState(prefetchedData?.map(chat => ({ id: chat.id, ...chat })) || []);
     const [selectedContact, setSelectedContact] = useState(prefetchedData?.[0] || null);
@@ -255,56 +267,55 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
     }, [])
 
     // Check if we're on a specific chat route
-
     useEffect(() => {
         if (!chatId) {
             console.warn("chatId is not set. Messages cannot be fetched or scrolled.");
             return;
         }
 
-        // 1) Instant prefill from prefetchedData that matches chatId
+        // 1) prefill
         if (Array.isArray(prefetchedData) && prefetchedData.length) {
-            const match =
-                prefetchedData.find(c => c.id === chatId || c.chatId === chatId) || null;
-
+            const match = prefetchedData.find(c => c.id === chatId || c.chatId === chatId) || null;
             if (match) {
                 const pre = Array.isArray(match.messages) ? match.messages : [];
                 if (pre.length) {
-                    setChatMessages(pre);
-                    setLastTimestamp(pre[pre.length - 1]?.timestamp ?? null); // keep your "oldest" logic
+                    // sort ascending so latest shows at the bottom
+                    const preAsc = [...pre].sort((a, b) => tsKey(a.timestamp).localeCompare(tsKey(b.timestamp)));
+                    setChatMessages(preAsc);
+
+                    // pick ONE, depending on your paging:
+                    // If you page "older" when user scrolls up, store the OLDEST:
+                    setLastTimestamp(preAsc[0]?.timestamp ?? null);
+                    // If you need the NEWEST instead, use:
+                    // setLastTimestamp(preAsc.at(-1)?.timestamp ?? null);
                 }
             }
         }
 
-        // 2) Live subscription (authoritative)
+        // 2) live subscription
         const unsubscribe = subscribeToMessages(chatId, (msgs) => {
-            if (!Array.isArray(msgs) || msgs.length === 0) {
-                console.warn("No messages fetched for chatId:", chatId);
-            } else {
-                console.log("Fetched messages:", msgs);
-            }
-
-            // Merge with any prefilled messages and dedupe
             setChatMessages(prev => {
-                const keyOf = (m) =>
-                    m.id ?? m.messageId ?? `${m.timestamp}-${m.senderId ?? ""}-${m.text ?? ""}`;
+                const keyOf = (m) => m.id ?? m.messageId ?? `${tsKey(m.timestamp)}_${m.senderId ?? ""}_${m.text ?? ""}`;
 
+                // merge + dedupe
                 const map = new Map();
-                [...prev, ...(Array.isArray(msgs) ? msgs : [])].forEach(m => map.set(keyOf(m), m));
+                for (const m of prev) map.set(keyOf(m), m);
+                if (Array.isArray(msgs)) for (const m of msgs) map.set(keyOf(m), m);
 
-                // Sort ascending by timestamp (adjust if your UI expects desc)
-                return Array.from(map.values()).sort((a, b) => {
-                    const toMs = (t) => (t?.toMillis ? t.toMillis() : new Date(t).getTime());
-                    return toMs(a.timestamp) - toMs(b.timestamp);
-                });
+                // sort ascending by our template-aware key
+                const mergedAsc = Array.from(map.values()).sort((a, b) =>
+                    tsKey(a.timestamp).localeCompare(tsKey(b.timestamp))
+                );
+
+                // update lastTimestamp consistently with your paging choice
+                // (same rule as above; here I assume we want the OLDEST for "load older" pagination)
+                const oldest = mergedAsc[0]?.timestamp ?? null;
+                setLastTimestamp(oldest);
+
+                return mergedAsc;
             });
-
-            if (Array.isArray(msgs) && msgs.length > 0) {
-                setLastTimestamp(msgs[msgs.length - 1]?.timestamp ?? null);
-            }
         });
 
-        // Clean up the listener on unmount or when chatId changes
         return () => unsubscribe();
     }, [chatId, prefetchedData]);
 
@@ -375,7 +386,7 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
 
         // Set loading state
         setIsLoadingTransaction(true);
-
+        setInvoiceData({})
         // Clear all state variables
         setSelectedContact(null);
         setChatMessages([]);
@@ -418,17 +429,46 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
         }
     }, [chatId, chatList])
 
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const keyOf = (m) => m.id ?? m.messageId ?? `${tsKey(m.timestamp)}_${m.senderId ?? ""}_${m.text ?? ""}`;
+
+
     const handleLoadMore = async () => {
+        if (isLoadingMore || !hasMore) return;
+        if (!chatId || !lastTimestamp) return; // nothing to page yet
+
+        setIsLoadingMore(true);
         try {
-            const newMessages = await loadMoreMessages(chatId, lastTimestamp)
-            if (newMessages.length > 0) {
-                // Prepend new messages and update the cursor with the last message's timestamp
-                setChatMessages((prev) => [...prev, ...newMessages])
-                const newLast = newMessages[newMessages.length - 1].timestamp
-                setLastTimestamp(newLast)
+            // Expectation: returns messages STRICTLY older than `lastTimestamp`
+            // (e.g., Firestore: .orderBy('timestamp').endBefore(lastTimestamp).limit(n))
+            const older = await loadMoreMessages(chatId, lastTimestamp);
+
+            if (!older || older.length === 0) {
+                setHasMore(false);
+                return;
             }
+
+            setChatMessages((prev) => {
+                // merge (older first so older wins on same key is fine either way)
+                const map = new Map();
+                for (const m of older) map.set(keyOf(m), m);
+                for (const m of prev) map.set(keyOf(m), m);
+
+                // sort ascending by the same template-aware key
+                const mergedAsc = Array.from(map.values()).sort((a, b) =>
+                    tsKey(a.timestamp).localeCompare(tsKey(b.timestamp))
+                );
+
+                // keep the cursor consistent with your useEffect: store the OLDEST
+                const newOldest = mergedAsc[0]?.timestamp ?? null;
+                setLastTimestamp(newOldest);
+
+                return mergedAsc;
+            });
         } catch (error) {
-            console.error("Error loading more messages:", error)
+            console.error("Error loading more messages:", error);
+        } finally {
+            setIsLoadingMore(false);
         }
     };
     useEffect(() => {

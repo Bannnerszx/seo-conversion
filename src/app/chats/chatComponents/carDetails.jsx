@@ -30,15 +30,15 @@ export default function CarDetails({ chatId, handleBackToList, isMobileView, isD
         * parseFloat(contact?.currency.jpyToUsd);
 
     const baseFinalPrice = invoiceData?.paymentDetails.totalAmount ? parseFloat(invoiceData?.paymentDetails.totalAmount) - (contact?.inspection ? 300 : 0) :
-        basePrice
-        + parseFloat(contact?.carData?.dimensionCubicMeters)
-        * parseFloat(contact?.freightPrice);
+        basePrice + parseFloat(contact?.carData?.dimensionCubicMeters) * parseFloat(contact?.freightPrice);
+ console.log(invoiceData?.paymentDetails.totalAmount, 'log')
 
     const inspectionSurcharge = contact?.inspection === true ? 300 * currency.value : 0;
     const insuranceSurcharge = contact?.insurance === true ? 50 * currency.value : 0
     const finalPrice = (baseFinalPrice * currency.value + inspectionSurcharge + insuranceSurcharge);
 
 
+   
     const [images, setImages] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);

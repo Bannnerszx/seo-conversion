@@ -1,5 +1,4 @@
 "use client"
-import moment from "moment"
 import { useState, useRef } from "react"
 import { X, Edit } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -17,6 +16,13 @@ export default function InvoiceAmendmentForm({ accountData, countryList, setOrde
   // Initialize refs for form data
 
   // Customer sample data for form prefill
+  function formatTokyoLocal(ymdHmsMsStr) {
+    if (!ymdHmsMsStr) return '';
+    const [datePart, timePart = ''] = ymdHmsMsStr.trim().split(' ');
+    const [hh = '00', mm = '00', secMs = '00'] = timePart.split(':');
+    const ss = (secMs.split('.')[0] || '00');
+    return `${datePart} at ${hh}:${mm}:${ss}`;
+  }
 
   const [useCustomerInfo, setUseCustomerInfo] = useState(false)
   const [copyFromForm1, setCopyFromForm1] = useState(true)
@@ -344,12 +350,8 @@ export default function InvoiceAmendmentForm({ accountData, countryList, setOrde
         ipResp.json(),
         timeResp.json(),
       ]);
-      const momentDate = moment(
-        tokyoTime?.datetime,
-        'YYYY/MM/DD HH:mm:ss.SSS'
-      );
-      const formattedTime = momentDate.format('YYYY/MM/DD [at] HH:mm:ss');
-
+      const formattedTime = formatTokyoLocal(tokyoTime?.datetime);
+      console.log('formatted time', formattedTime)
       // Build phone arrays
       const telephoneNumbersForm1 = [];
       const t1 = form1Ref.current.telephoneNumber?.value?.trim() ?? '';
