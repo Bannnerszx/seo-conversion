@@ -16,10 +16,10 @@ import { AnnouncementBar } from "./announcementBar"
 import PreviewInvoice from "./previewInvoice"
 import DeliveryAddress from "./deliveryAddress"
 import ChatMessage from "./messageLinks"
-
 import WarningDialog from "./warningDialog"
 import ProductReview from "./ProductReview"
 import TransactionCSRLoader from "./TransactionCSRLoader"
+// import { AssistiveTouch } from "./AssistiveTouch"
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
 
 export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, accountData, isMobileView, isDetailView, handleBackToList, bookingData, countryList, currency, dueDate, handleLoadMore, invoiceData, userEmail, contact, messages, onSendMessage, isLoading, chatId, chatMessages }) {
@@ -352,6 +352,7 @@ export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, ac
     return (
         isLoadingTransaction ? <TransactionCSRLoader /> : (
             <div className="flex flex-col h-full">
+
                 {showPaymentModal && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
                         <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 overflow-hidden animate-in fade-in-0 zoom-in-95 duration-200">
@@ -697,7 +698,7 @@ export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, ac
                         <div ref={endOfMessagesRef} />
                     </div>
                 </ScrollArea>
-
+                {/* <AssistiveTouch /> */}
                 <ChatInput accountData={accountData} loadingSent={loadingSent} setAttachedFile={setAttachedFile} fileInputRef={fileInputRef} attachedFile={attachedFile} handleFileUpload={handleFileUpload} userEmail={userEmail} chatId={chatId} newMessage={newMessage} setNewMessage={setNewMessage} handleSendMessage={handleSendMessage} isLoading={isLoading} />
             </div>
         )

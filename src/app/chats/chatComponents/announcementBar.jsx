@@ -1,10 +1,8 @@
 "use client"
-
 import { useState, useEffect } from "react"
-import { XCircle, Clock, Receipt, ShoppingCart, Car } from "lucide-react"
+import { XCircle, Clock, Receipt, ShoppingCart, Car, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-
 import OrderButton from "./confirmOrderModal"
 import PaymentSlip from "./paymentSlip"
 
@@ -15,33 +13,50 @@ export function AnnouncementBar({
   countryList,
   userEmail,
   accountData,
-  vehicleStatus,
+  vehicleStatus = {},
   onBrowseOtherVehicles,
   invoiceData,
   selectedCurrency
 }) {
-  const [ipInfo, setIpInfo] = useState(null);
-  const [tokyoTime, setTokyoTime] = useState(null);
-  const [preloadError, setPreloadError] = useState(null);
+  const [ipInfo, setIpInfo] = useState(null)
+  const [tokyoTime, setTokyoTime] = useState(null)
+  const [preloadError, setPreloadError] = useState(null)
+
+  // --- preload helpers (with retry) ---
+  const refetchPreloads = async () => {
+    setPreloadError(null)
+    try {
+      const [ip, time] = await Promise.all([
+        fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo").then(r => r.json()),
+        fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time").then(r => r.json()),
+      ])
+      setIpInfo(ip)
+      setTokyoTime(time)
+    } catch (err) {
+      console.error("Preload fetch failed", err)
+      setPreloadError(err?.message || "Failed to load prerequisites")
+    }
+  }
 
   useEffect(() => {
-    let mounted = true;
+    let mounted = true
     Promise.all([
       fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo").then(r => r.json()),
       fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time").then(r => r.json()),
     ])
       .then(([ip, time]) => {
-        if (!mounted) return;
-        setIpInfo(ip);
-        setTokyoTime(time);
+        if (!mounted) return
+        setIpInfo(ip)
+        setTokyoTime(time)
       })
-      .catch(err => {
-        if (!mounted) return;
-        console.error("Preload fetch failed", err);
-        setPreloadError(err.message);
-      });
-    return () => { mounted = false; };
-  }, []);
+      .catch((err) => {
+        if (!mounted) return
+        console.error("Preload fetch failed", err)
+        setPreloadError(err?.message || "Failed to load prerequisites")
+      })
+    return () => { mounted = false }
+  }, [])
+
   const [isVisible, setIsVisible] = useState(false)
   const [isClosed, setIsClosed] = useState(false)
   const [isOrderMounted, setIsOrderMounted] = useState(false)
@@ -51,38 +66,51 @@ export function AnnouncementBar({
     return () => clearTimeout(timer)
   }, [])
 
-  const stepValue = selectedChatData?.stepIndicator?.value
+  // --- derived flags ---
+  const stepValue = selectedChatData?.stepIndicator?.value ?? 0
 
-  // detect cancelled flag
   const isCancelled =
     selectedChatData && "isCancelled" in selectedChatData
-      ? selectedChatData.isCancelled
+      ? !!selectedChatData.isCancelled
       : false
 
   // if banner manually closed or no step AND not cancelled, hide entirely
-  if (isClosed || (!stepValue && !isCancelled)) return null
+  if (isClosed || (stepValue === 0 && !isCancelled)) return null
 
-  // for the “reserved/sold” logic
-  const { stockStatus, reservedTo } =
-    vehicleStatus[selectedChatData.carData.stockID] || {}
+  const stockID = selectedChatData?.carData?.stockID
+  const { stockStatus, reservedTo } = (stockID && vehicleStatus?.[stockID]) || {}
   const isReservedOrSold =
     (stockStatus === "Reserved" || stockStatus === "Sold") &&
     reservedTo !== userEmail
 
-  // pick icon
-  const getIcon = () => {
-    if (isCancelled) {
-      return <XCircle className="h-[25px] max-w-[25px] w-full text-red-500" />
-    } else if (isReservedOrSold) {
-      return <Clock className="h-[25px] max-w-[25px] w-full text-amber-500" />
-    } else if (stepValue >= 3 && !isOrderMounted) {
-      return <Receipt className="h-[25px] max-w-[25px] w-full text-green-500" />
-    } else if (stepValue >= 2) {
-      return <ShoppingCart className="h-[25px] max-w-[25px] w-full text-red-500" />
+  // readiness for showing the OrderButton
+  const isOrderPrereqsReady =
+    !!ipInfo &&
+    !!tokyoTime &&
+    !!accountData &&
+    !!selectedChatData &&
+    Array.isArray(countryList) &&
+    countryList.length > 0
+
+  // ✅ Payment phase ONLY when step >= 3
+  const shouldShowPayment = stepValue >= 3
+
+  // when entering payment phase, ensure the order-mounted state doesn't keep us stuck
+  useEffect(() => {
+    if (shouldShowPayment && isOrderMounted) {
+      setIsOrderMounted(false)
     }
+  }, [shouldShowPayment, isOrderMounted])
+
+  // --- icon + message ---
+  const getIcon = () => {
+    if (isCancelled) return <XCircle className="h-[25px] max-w-[25px] w-full text-red-500" />
+    if (isReservedOrSold) return <Clock className="h-[25px] max-w-[25px] w-full text-amber-500" />
+    if (shouldShowPayment) return <Receipt className="h-[25px] max-w-[25px] w-full text-green-500" />
+    if (stepValue >= 2) return <ShoppingCart className="h-[25px] max-w-[25px] w-full text-red-500" />
+    return null
   }
 
-  // pick message
   const getMessage = () => {
     if (isCancelled) {
       return "This transaction has been cancelled."
@@ -90,18 +118,21 @@ export function AnnouncementBar({
       return stockStatus === "Reserved"
         ? "This vehicle has been reserved by another customer."
         : "This vehicle has been sold to another customer."
-    } else if (stepValue >= 3 && !isOrderMounted) {
+    } else if (shouldShowPayment) {
       return "Please upload the payment slip to continue"
     } else if (stepValue >= 2) {
-      return "This unit is now ready to be ordered in your name."
+      return isOrderPrereqsReady
+        ? "This unit is now ready to be ordered in your name."
+        : "Preparing order..."
     }
+    return ""
   }
 
-  // buttons: none for cancelled
+  // --- buttons ---
   const renderButtons = () => {
-    if (isCancelled) {
-      return null
-    } else if (isReservedOrSold) {
+    if (isCancelled) return null
+
+    if (isReservedOrSold) {
       return (
         <Button
           variant="outline"
@@ -113,7 +144,9 @@ export function AnnouncementBar({
           Browse Similar Vehicles
         </Button>
       )
-    } else if (stepValue >= 3 && !isOrderMounted) {
+    }
+
+    if (shouldShowPayment) {
       return (
         <PaymentSlip
           selectedCurrency={selectedCurrency}
@@ -123,7 +156,30 @@ export function AnnouncementBar({
           userEmail={userEmail}
         />
       )
-    } else if (stepValue >= 2) {
+    }
+
+    if (stepValue >= 2) {
+      if (!isOrderPrereqsReady) {
+        return (
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" size="sm" disabled>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Preparing...
+            </Button>
+            {preloadError && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={refetchPreloads}
+                className="border-amber-600 text-amber-700"
+              >
+                Retry
+              </Button>
+            )}
+          </div>
+        )
+      }
+
       return (
         <OrderButton
           ipInfo={ipInfo}
@@ -139,6 +195,8 @@ export function AnnouncementBar({
         />
       )
     }
+
+    return null
   }
 
   return (
@@ -158,11 +216,18 @@ export function AnnouncementBar({
         <div className="flex flex-1 items-center justify-center gap-3 text-md">
           {getIcon()}
           <p className="w-full truncate">{getMessage()}</p>
+
           {/* only show buttons when not reserved/sold or cancelled */}
           {!isReservedOrSold && !isCancelled && (
             <div className="ml-4 flex-shrink-0">{renderButtons()}</div>
           )}
         </div>
+
+        {preloadError && stepValue >= 2 && !isOrderPrereqsReady && (
+          <p className="mt-2 text-xs text-amber-700">
+            Couldn’t load prerequisites: {preloadError}
+          </p>
+        )}
       </div>
     </div>
   )

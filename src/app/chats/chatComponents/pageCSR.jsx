@@ -327,7 +327,7 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
 
         // Clean up the listener on unmount or when chatId changes
         return () => unsubscribe()
-    }, [selectedContact?.invoiceNumber])
+    }, [selectedContact?.invoiceNumber, chatId])
 
 
     useEffect(() => {
