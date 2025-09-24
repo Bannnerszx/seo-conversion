@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import {  Download, ChevronLeft, ChevronRight } from "lucide-react";
+import { Download, ChevronLeft, ChevronRight } from "lucide-react";
 import PreviewInvoice from "./previewInvoice";
 import InvoiceAmendmentForm from "./amendInvoice";
 import DocumentAddress from "./documentAddress";
@@ -67,7 +67,7 @@ export default function ActionButtonsChat({ accountData, bookingData, countryLis
             window.removeEventListener("resize", handleScrollVisibility);
         };
     }, []);
-   
+
     const isCancelled =
         selectedChatData && "isCancelled" in selectedChatData
             ? selectedChatData.isCancelled
@@ -97,6 +97,8 @@ export default function ActionButtonsChat({ accountData, bookingData, countryLis
                 {/* only show these when not cancelled */}
                 {!isCancelled && selectedChatData.stepIndicator.value >= 2 && (
                     <PreviewInvoice
+                        chatId={chatId}
+                        userEmail={userEmail}
                         accountData={accountData}
                         selectedChatData={selectedChatData}
                         invoiceData={invoiceData}
@@ -119,7 +121,7 @@ export default function ActionButtonsChat({ accountData, bookingData, countryLis
                     />
                 )}
 
-                {!isCancelled  && (
+                {!isCancelled && (
                     <div className="flex gap-2">
                         {bookingData?.sI?.hasUrl && (
                             <Button
@@ -157,7 +159,7 @@ export default function ActionButtonsChat({ accountData, bookingData, countryLis
                 <ChevronRight className="h-5 w-5 text-gray-500" />
             </button>
 
-         
+
             <style jsx global>{`
           .scrollbar-hide::-webkit-scrollbar {
             display: none;

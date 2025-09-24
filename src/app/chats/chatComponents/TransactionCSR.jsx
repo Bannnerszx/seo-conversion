@@ -575,7 +575,7 @@ export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, ac
                                                 </p>
                                                 <div className={`mt-2 flex justify-${message.sender === userEmail ? "end" : "start"}`}>
 
-                                                    <PreviewInvoice accountData={accountData} selectedChatData={contact} invoiceData={invoiceData} />
+                                                  <PreviewInvoice userEmail={userEmail} chatId={chatId} accountData={accountData} selectedChatData={contact} invoiceData={invoiceData} />
                                                 </div>
                                             </>
 

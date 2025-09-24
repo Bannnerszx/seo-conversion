@@ -1,14 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Text, View, ScrollView,  Image } from "react-native-web";
+import { Text, View, ScrollView, Image } from "react-native-web";
 import { Button } from "@/components/ui/button";
 import { FileText, Image as ImageIcon, Download, } from "lucide-react";
 import { QRCodeSVG } from 'qrcode.react';
+import { httpsCallable } from 'firebase/functions';
+import { firestore, functions } from '../../../../firebase/clientApp';
+import { getDoc } from 'firebase/firestore';
 // import { captureRef } from 'react-native-view-shot';
 // import QRCode from 'react-native-qrcode-svg';
 
 import Loader from '@/app/components/Loader';
 import Modal from '@/app/components/Modal';
-const PreviewInvoice = ({ messageText, activeChatId, selectedChatData, invoiceData, context }) => {
+
+async function blobToBase64(blob) {
+    const ab = await blob.arrayBuffer();
+    let binary = '';
+    const bytes = new Uint8Array(ab);
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary)
+}
+
+const PreviewInvoice = ({ messageText, chatId, selectedChatData, invoiceData, context, userEmail }) => {
     let formattedIssuingDate;
     let formattedDueDate;
     const mobileViewBreakpoint = 768;
@@ -545,6 +557,134 @@ const PreviewInvoice = ({ messageText, activeChatId, selectedChatData, invoiceDa
         }
     }, [capturedImageUri, context]);
 
+    const uploadInFlightRef = useRef(false);
+
+
+
+    const invoiceUrlCacheRef = { current: new Map() };
+
+    async function uploadInvoicePDFAndOpen() {
+        if (uploadInFlightRef.current) return;
+        uploadInFlightRef.current = true;
+
+        try {
+            // Decide which link to use: proforma (< step 3) vs original invoice
+            const invoiceNo = selectedChatData?.invoiceNumber || 'proforma';
+            const isProforma =
+                (selectedChatData?.stepIndicator?.value ?? 0) < 3 ||
+                /proforma/i.test(String(invoiceNo));
+
+            // 1) Check Firestore first (no DOM access yet)
+            try {
+                const snap = await getDoc(doc(firestore, 'chats', chatId));
+                const data = snap.exists() ? snap.data() : null;
+                const arr = isProforma
+                    ? data?.invoiceLink?.proformaInvoice
+                    : data?.invoiceLink?.origInvoice;
+
+                const existingUrl = Array.isArray(arr) && arr.length ? arr[arr.length - 1] : null;
+                if (existingUrl) {
+                    window.open(existingUrl, '_blank', 'noopener,noreferrer');
+
+                    return { url: existingUrl, path: null };
+                }
+            } catch (e) {
+                console.warn('Invoice link check failed; will generate:', e);
+            }
+
+            // 2) No link yet → capture & generate PDF
+            const el = invoiceRef?.current;
+            if (!el) {
+                console.error('No element to capture (open the preview first).');
+                return;
+            }
+
+            const [{ jsPDF }, html2canvas] = await Promise.all([
+                import('jspdf').then(m => ({ jsPDF: m.jsPDF || m.default })),
+                import('html2canvas').then(m => m.default || m),
+            ]);
+
+            const canvas = await html2canvas(el, {
+                scale: 1,
+                useCORS: true,            // correct casing
+                allowTaint: false,
+                backgroundColor: '#fff',
+                windowWidth: el.scrollWidth,
+                windowHeight: el.scrollHeight,
+            });
+
+            const imageData = canvas.toDataURL('image/jpeg', 0.9);
+            const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+
+            const imgProps = pdf.getImageProperties(imageData);
+            const ratio = imgProps.height / imgProps.width;
+            const imgWidth = pageWidth;
+            const imgHeight = imgWidth * ratio;
+
+            let y = 0;
+            while (y < imgHeight) {
+                if (y > 0) pdf.addPage();
+                pdf.addImage(
+                    imageData,
+                    'JPEG',
+                    0,
+                    -y * (pageHeight / imgHeight),
+                    imgWidth,
+                    imgHeight,
+                    undefined,
+                    'FAST'
+                );
+                y += pageHeight;
+            }
+
+            const rawFilename =
+                (selectedChatData?.stepIndicator?.value ?? 0) < 3
+                    ? `Proforma Invoice (${invoiceData?.carData?.carName} [${invoiceData?.carData?.referenceNumber}]) (A4 Paper Size).pdf`
+                    : `Invoice No. ${invoiceNo} (A4 Paper Size).pdf`;
+            const filename = String(rawFilename).replace(/[^\w\s.\-\[\]\(\)]/g, '_');
+
+            // Blob -> base64
+            const pdfBlob = pdf.output('blob');
+            const base64Pdf = await (async () => {
+                const ab = await pdfBlob.arrayBuffer();
+                let s = ''; const b = new Uint8Array(ab);
+                for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+                return btoa(s);
+            })();
+
+            // 3) Upload via callable (also writes URL into invoiceLink.*)
+
+            const callUpload = httpsCallable(functions, 'uploadInvoicePdf');
+            const res = await callUpload({
+                chatId,
+                invoiceNumber: invoiceNo,
+                filename,
+                base64Pdf,
+                userEmail,
+            });
+
+            if (!res?.data?.success && !res?.data?.ok) {
+                throw new Error(res?.data?.error || 'Upload failed');
+            }
+
+            const url = res.data.downloadURL || res.data.url;
+
+            // 4) Open in a new tab
+            window.open(url, '_blank', 'noopener,noreferrer');
+
+            return { url, path: res.data.path };
+        } catch (err) {
+            console.error('uploadInvoicePDFAndOpen failed:', err);
+        } finally {
+            uploadInFlightRef.current = false;
+            handlePreviewInvoiceModal(false)
+        }
+    }
+
+
+
     return (
         <>
             <> {invoiceData &&
@@ -629,7 +769,7 @@ const PreviewInvoice = ({ messageText, activeChatId, selectedChatData, invoiceDa
                                         alignItems: 'center', // Center horizontally
                                     }}>
                                         {capturedImageUri ? (
-                                            (screenWidth < mobileViewBreakpoint ? handleCaptureAndCreatePDF() :
+                                            (screenWidth < mobileViewBreakpoint ? uploadInvoicePDFAndOpen() :
                                                 <Image
                                                     key={imagePreviewKey}
                                                     source={{ uri: capturedImageUri.toString() }}
