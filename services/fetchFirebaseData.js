@@ -544,7 +544,6 @@ export async function fetchCarDataAdmin(carId) {
     return null;
   }
 }
-
 // export async function fetchCurrency() {
 //   try {
 //     const currencyDocRef = db.collection('currency').doc('currency');
