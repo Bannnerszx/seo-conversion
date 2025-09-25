@@ -683,7 +683,42 @@ const PreviewInvoice = ({ messageText, chatId, selectedChatData, invoiceData, co
         }
     }
 
+    const pendingTabRef = useRef(null);
+    const [kickoffUpload, setKickoffUpload] = useState(false);
+    useEffect(() => {
+        if (!kickoffUpload) return;
 
+        let cancelled = false;
+        (async () => {
+            try {
+                // Your function should FIRST check Firestore for an existing link,
+                // otherwise generate+upload and return { url }.
+                const result = await uploadInvoicePDFAndOpen(); // must RETURN the URL; do NOT window.open inside it
+                const url = result?.url;
+                if (!url) return;
+
+                // Load the URL in the single pre-opened tab
+                if (pendingTabRef.current && !pendingTabRef.current.closed) {
+                    pendingTabRef.current.location.assign(url);
+                } else {
+                    // Fallback (rare): open via synthetic anchor
+                    const a = document.createElement('a');
+                    a.href = url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+                    document.body.appendChild(a); a.click(); a.remove();
+                }
+            } catch (err) {
+                console.error('Open failed:', err);
+                if (pendingTabRef.current && !pendingTabRef.current.closed) {
+                    pendingTabRef.current.close();
+                }
+            } finally {
+                pendingTabRef.current = null;
+                if (!cancelled) setKickoffUpload(false);
+            }
+        })();
+
+        return () => { cancelled = true; };
+    }, [kickoffUpload]);
 
     return (
         <>
@@ -691,7 +726,22 @@ const PreviewInvoice = ({ messageText, chatId, selectedChatData, invoiceData, co
 
                 <>
                     <Button
-                        onClick={() => { handlePreviewInvoiceModal(true); }}
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+
+                            handlePreviewInvoiceModal(true);         // your existing modal open
+
+                            // Pre-open ONE blank tab under the user gesture (PC & mobile safe)
+                            const tab = window.open('about:blank', '_blank', 'noopener,noreferrer');
+                            if (tab) {
+                                try { tab.opener = null; } catch { }
+                                pendingTabRef.current = tab;
+                            }
+
+                            // Start the async upload-or-open logic
+                            setKickoffUpload(true);
+                        }}
                         variant="default" className="gap-2 bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100"
                     >
                         <FileText className="h-3 w-3 mr-1" />

@@ -530,33 +530,20 @@ export const fetchVehicleProductsByPage = cache(
 //   }
 // }
 
-export const fetchCarDataAdmin = cache(
-  async (carId) => {
-    console.log(`Cache MISS: Fetching carId ${carId} from Firestore.`); //Check logs
+export async function fetchCarDataAdmin(carId) {
+  console.log(`Fetching carId ${carId} from Firestore.`);
 
-    try {
-      const snapshot = await db.collection("VehicleProducts")
-        .doc(carId)
-        .get();
+  try {
+    const snapshot = await db.collection('VehicleProducts').doc(carId).get();
 
-      if (!snapshot.exists) {
-        return null;
-      }
+    if (!snapshot.exists) return null;
 
-      //Important: Return the ID along with the data
-      return { id: snapshot.id, ...snapshot.data() };
-    } catch (error) {
-      console.error('Error fetching vehicle data:', error);
-      //It's often better to return null or an empty object on error
-      //to prevent a cached error from breaking the page repeatedly
-      return null
-    }
-  },
-  {
-    revalidate: 200,
-    tags: ['products']
+    return { id: snapshot.id, ...snapshot.data() };
+  } catch (error) {
+    console.error('Error fetching vehicle data:', error);
+    return null;
   }
-)
+}
 
 // export async function fetchCurrency() {
 //   try {
