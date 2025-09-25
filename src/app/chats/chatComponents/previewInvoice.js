@@ -677,7 +677,7 @@ const PreviewInvoice = ({ messageText, chatId, selectedChatData, invoiceData, co
         } catch (err) {
             console.error('uploadInvoicePDFAndOpen failed:', err);
         } finally {
-            uploadInFlightRef.current = false;
+
             handlePreviewInvoiceModal(false)
         }
     }
