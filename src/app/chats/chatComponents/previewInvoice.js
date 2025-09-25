@@ -714,29 +714,49 @@ const PreviewInvoice = ({ messageText, chatId, selectedChatData, invoiceData, co
                             handlePreviewInvoiceModal(true);
 
                             if (screenWidth < mobileViewBreakpoint) {
-                                // ----- MOBILE PATH: pre-open a tab, then assign URL -----
-                                const tab = window.open('about:blank', '_blank', 'noopener,noreferrer');
+                                // OPEN a real tab synchronously (iOS-safe)
+                                const tab = window.open('', '_blank'); // <-- no features string here on purpose
                                 if (tab) {
-                                    try { tab.opener = null; } catch { }
+                                    try {
+                                        // Optional: lightweight loader so the tab isn't blank
+                                        tab.document.title = 'Loading invoice…';
+                                        tab.document.body.innerHTML = '<p style="font:14px system-ui;margin:16px">Loading invoice…</p>';
+                                    } catch { }
                                     pendingTabRef.current = tab;
                                 }
 
-                                const result = await uploadInvoicePDFAndOpen(); // returns { url }
+                                // Do the async work (this function must RETURN the URL; do NOT window.open inside it)
+                                const result = await uploadInvoicePDFAndOpen();
                                 const url = result?.url;
 
                                 if (url && pendingTabRef.current && !pendingTabRef.current.closed) {
-                                    pendingTabRef.current.location.assign(url);
+                                    try {
+                                        // Use replace() so back button doesn’t land on the placeholder
+                                        pendingTabRef.current.location.replace(url);
+                                    } catch {
+                                        // Fallback: anchor click
+                                        const a = document.createElement('a');
+                                        a.href = url; a.target = '_blank'; a.rel = 'noopener';
+                                        document.body.appendChild(a); a.click(); a.remove();
+                                    }
                                 } else if (url) {
-                                    // fallback if tab missing
+                                    // If tab handle was lost, still try opening via anchor
                                     const a = document.createElement('a');
-                                    a.href = url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+                                    a.href = url; a.target = '_blank'; a.rel = 'noopener';
                                     document.body.appendChild(a); a.click(); a.remove();
                                 } else if (pendingTabRef.current && !pendingTabRef.current.closed) {
+                                    // No URL (error/early return) -> close the placeholder tab
                                     pendingTabRef.current.close();
                                 }
 
                                 pendingTabRef.current = null;
+                                return;
                             }
+
+                            // DESKTOP path (unchanged): run then open
+                            const result = await uploadInvoicePDFAndOpen();
+                            const url = result?.url;
+                            if (url) window.open(url, '_blank', 'noopener,noreferrer');
                         }}
                         variant="default"
                         className="gap-2 bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100"
