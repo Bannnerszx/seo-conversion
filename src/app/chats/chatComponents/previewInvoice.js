@@ -696,7 +696,7 @@ const PreviewInvoice = ({ messageText, chatId, selectedChatData, invoiceData, co
                 const url = result?.url;
                 if (!url) return;
 
-                // Load the URL in the single pre-opened tab
+       
                 if (pendingTabRef.current && !pendingTabRef.current.closed) {
                     pendingTabRef.current.location.assign(url);
                 } else {
