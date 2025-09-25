@@ -731,15 +731,7 @@ const PreviewInvoice = ({ messageText, chatId, selectedChatData, invoiceData, co
 
                             handlePreviewInvoiceModal(true);         // your existing modal open
 
-                            // Pre-open ONE blank tab under the user gesture (PC & mobile safe)
-                            const tab = window.open('about:blank', '_blank', 'noopener,noreferrer');
-                            if (tab) {
-                                try { tab.opener = null; } catch { }
-                                pendingTabRef.current = tab;
-                            }
-
-                            // Start the async upload-or-open logic
-                            setKickoffUpload(true);
+                            
                         }}
                         variant="default" className="gap-2 bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100"
                     >
