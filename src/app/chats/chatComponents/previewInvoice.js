@@ -5,7 +5,7 @@ import { FileText, Image as ImageIcon, Download, } from "lucide-react";
 import { QRCodeSVG } from 'qrcode.react';
 import { httpsCallable } from 'firebase/functions';
 import { firestore, functions } from '../../../../firebase/clientApp';
-import { getDoc } from 'firebase/firestore';
+import { getDoc, doc } from 'firebase/firestore';
 // import { captureRef } from 'react-native-view-shot';
 // import QRCode from 'react-native-qrcode-svg';
 
