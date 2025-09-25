@@ -585,7 +585,7 @@ const PreviewInvoice = ({ messageText, chatId, selectedChatData, invoiceData, co
     async function uploadInvoicePDFAndOpen() {
         if (uploadInFlightRef.current) return;
         uploadInFlightRef.current = true;
-        
+
         let preOpenedWin = null;
         if (typeof window !== 'undefined') {
             try {
@@ -616,12 +616,11 @@ const PreviewInvoice = ({ messageText, chatId, selectedChatData, invoiceData, co
             // ===== IF: URL exists -> open and return =====
             if (existingUrl) {
                 if (typeof window !== 'undefined') {
-                    window.open(existingUrl, '_blank', 'noopener,noreferrer');
+                    navigatePreopenedTab(existingUrl, preOpenedWin);
                 } else {
                     console.log('Existing invoice URL:', existingUrl);
                 }
 
-                // ALWAYS close the preview before returning
                 handlePreviewInvoiceModal(false);
                 uploadInFlightRef.current = false;
                 return { url: existingUrl, path: null };
