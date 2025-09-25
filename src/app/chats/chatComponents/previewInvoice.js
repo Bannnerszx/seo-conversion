@@ -705,15 +705,39 @@ const PreviewInvoice = ({ messageText, chatId, selectedChatData, invoiceData, co
 
                 <>
                     <Button
-                        onClick={(e) => {
+                        onClick={async (e) => {
                             e.preventDefault();
                             e.stopPropagation();
 
-                            handlePreviewInvoiceModal(true);         // your existing modal open
+                            handlePreviewInvoiceModal(true);
 
+                            if (screenWidth < mobileViewBreakpoint) {
+                                // ----- MOBILE PATH: pre-open a tab, then assign URL -----
+                                const tab = window.open('about:blank', '_blank', 'noopener,noreferrer');
+                                if (tab) {
+                                    try { tab.opener = null; } catch { }
+                                    pendingTabRef.current = tab;
+                                }
 
+                                const result = await uploadInvoicePDFAndOpen(); // returns { url }
+                                const url = result?.url;
+
+                                if (url && pendingTabRef.current && !pendingTabRef.current.closed) {
+                                    pendingTabRef.current.location.assign(url);
+                                } else if (url) {
+                                    // fallback if tab missing
+                                    const a = document.createElement('a');
+                                    a.href = url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+                                    document.body.appendChild(a); a.click(); a.remove();
+                                } else if (pendingTabRef.current && !pendingTabRef.current.closed) {
+                                    pendingTabRef.current.close();
+                                }
+
+                                pendingTabRef.current = null;
+                            } 
                         }}
-                        variant="default" className="gap-2 bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100"
+                        variant="default"
+                        className="gap-2 bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100"
                     >
                         <FileText className="h-3 w-3 mr-1" />
                         {selectedChatData?.invoiceNumber && selectedChatData?.stepIndicator.value > 2 ? `Invoice No. ${selectedChatData?.invoiceNumber}` : 'Preview Invoice'}
