@@ -370,7 +370,6 @@ const PreviewInvoice = ({ messageText, chatId, selectedChatData, invoiceData, co
         if (isNaN(baseValueNumber)) {
             return 'Invalid base value';
         }
-
         const numberFormatOptions = {
             useGrouping: true,
             minimumFractionDigits: 0,
