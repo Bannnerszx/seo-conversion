@@ -696,6 +696,8 @@ const PreviewInvoice = ({ messageText, chatId, selectedChatData, invoiceData, co
     }
 
 
+    const pendingTabRef = useRef(null);
+
 
 
 
@@ -734,7 +736,7 @@ const PreviewInvoice = ({ messageText, chatId, selectedChatData, invoiceData, co
                                 }
 
                                 pendingTabRef.current = null;
-                            } 
+                            }
                         }}
                         variant="default"
                         className="gap-2 bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100"
