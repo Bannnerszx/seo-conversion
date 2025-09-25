@@ -558,11 +558,41 @@ const PreviewInvoice = ({ messageText, chatId, selectedChatData, invoiceData, co
 
     const uploadInFlightRef = useRef(false);
 
-
+    function navigatePreopenedTab(url, preOpenedWin) {
+        try {
+            if (preOpenedWin && !preOpenedWin.closed) {
+                // Most reliable on iOS Safari
+                preOpenedWin.location.href = url;
+                return true;
+            }
+        } catch { }
+        // Fallback for blockers: programmatic anchor click
+        try {
+            const a = document.createElement('a');
+            a.href = url;
+            a.target = '_blank';
+            a.rel = 'noopener,noreferrer';
+            // If you want to force download instead, add: a.download = '';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            return true;
+        } catch { }
+        // Final fallback: at least expose the URL (toast/alert/log)
+        console.log('Open this URL manually:', url);
+        return false;
+    }
     async function uploadInvoicePDFAndOpen() {
         if (uploadInFlightRef.current) return;
         uploadInFlightRef.current = true;
-
+        
+        let preOpenedWin = null;
+        if (typeof window !== 'undefined') {
+            try {
+                // about:blank avoids popup blockers more reliably on iOS
+                preOpenedWin = window.open('about:blank', '_blank', 'noopener,noreferrer');
+            } catch { }
+        }
         try {
             const invoiceNo =
                 selectedChatData?.invoiceNumber || 'proforma';
@@ -696,8 +726,6 @@ const PreviewInvoice = ({ messageText, chatId, selectedChatData, invoiceData, co
     }
 
 
-    const pendingTabRef = useRef(null);
-
 
 
 
@@ -707,59 +735,15 @@ const PreviewInvoice = ({ messageText, chatId, selectedChatData, invoiceData, co
 
                 <>
                     <Button
-                        onClick={async (e) => {
+                        onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
 
-                            handlePreviewInvoiceModal(true);
+                            handlePreviewInvoiceModal(true);         // your existing modal open
 
-                            if (screenWidth < mobileViewBreakpoint) {
-                                // OPEN a real tab synchronously (iOS-safe)
-                                const tab = window.open('', '_blank'); // <-- no features string here on purpose
-                                if (tab) {
-                                    try {
-                                        // Optional: lightweight loader so the tab isn't blank
-                                        tab.document.title = 'Loading invoice…';
-                                        tab.document.body.innerHTML = '<p style="font:14px system-ui;margin:16px">Loading invoice…</p>';
-                                    } catch { }
-                                    pendingTabRef.current = tab;
-                                }
 
-                                // Do the async work (this function must RETURN the URL; do NOT window.open inside it)
-                                const result = await uploadInvoicePDFAndOpen();
-                                const url = result?.url;
-
-                                if (url && pendingTabRef.current && !pendingTabRef.current.closed) {
-                                    try {
-                                        // Use replace() so back button doesn’t land on the placeholder
-                                        pendingTabRef.current.location.replace(url);
-                                    } catch {
-                                        // Fallback: anchor click
-                                        const a = document.createElement('a');
-                                        a.href = url; a.target = '_blank'; a.rel = 'noopener';
-                                        document.body.appendChild(a); a.click(); a.remove();
-                                    }
-                                } else if (url) {
-                                    // If tab handle was lost, still try opening via anchor
-                                    const a = document.createElement('a');
-                                    a.href = url; a.target = '_blank'; a.rel = 'noopener';
-                                    document.body.appendChild(a); a.click(); a.remove();
-                                } else if (pendingTabRef.current && !pendingTabRef.current.closed) {
-                                    // No URL (error/early return) -> close the placeholder tab
-                                    pendingTabRef.current.close();
-                                }
-
-                                pendingTabRef.current = null;
-                                return;
-                            }
-
-                            // DESKTOP path (unchanged): run then open
-                            const result = await uploadInvoicePDFAndOpen();
-                            const url = result?.url;
-                            if (url) window.open(url, '_blank', 'noopener,noreferrer');
                         }}
-                        variant="default"
-                        className="gap-2 bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100"
+                        variant="default" className="gap-2 bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100"
                     >
                         <FileText className="h-3 w-3 mr-1" />
                         {selectedChatData?.invoiceNumber && selectedChatData?.stepIndicator.value > 2 ? `Invoice No. ${selectedChatData?.invoiceNumber}` : 'Preview Invoice'}
