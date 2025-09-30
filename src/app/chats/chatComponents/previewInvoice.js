@@ -619,7 +619,7 @@ const PreviewInvoice = ({ messageText, chatId, selectedChatData, invoiceData, co
 
             const [{ jsPDF }, html2canvas] = await Promise.all([
                 import('jspdf').then(m => ({ jsPDF: m.jsPDF || m.default })),
-                import('html2canvas').them(m => m.default || m)
+                import('html2canvas').then(m => m.default || m)
             ]);
 
             const canvas = await html2canvas(el, {
