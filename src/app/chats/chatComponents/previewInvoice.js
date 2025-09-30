@@ -11,13 +11,21 @@ import { getDoc, doc } from 'firebase/firestore';
 
 import Loader from '@/app/components/Loader';
 import Modal from '@/app/components/Modal';
+import { url } from 'inspector';
+import path from 'path';
 
-async function blobToBase64(blob) {
-    const ab = await blob.arrayBuffer();
-    let binary = '';
-    const bytes = new Uint8Array(ab);
-    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-    return btoa(binary)
+function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+
+        reader.onerror = reject;
+        reader.onload = () => {
+            const base64String = reader.result.toString().split(',')[1];
+            resolve(base64String);
+        };
+
+        reader.readAsDataURL(blob)
+    })
 }
 
 const PreviewInvoice = ({ messageText, chatId, selectedChatData, invoiceData, context, userEmail }) => {
@@ -586,144 +594,110 @@ const PreviewInvoice = ({ messageText, chatId, selectedChatData, invoiceData, co
         if (uploadInFlightRef.current) return;
         uploadInFlightRef.current = true;
 
-        let preOpenedWin = null;
-        if (typeof window !== 'undefined') {
-            try {
-                // about:blank avoids popup blockers more reliably on iOS
-                preOpenedWin = window.open('about:blank', '_blank', 'noopener,noreferrer');
-            } catch { }
-        }
         try {
-            const invoiceNo =
-                selectedChatData?.invoiceNumber || 'proforma';
+            const invoiceNo = selectedChatData?.invoiceNo || 'proforma';
+            const isProforma = (selectedChatData?.stepIndicator?.value ?? 0) < 3 || /proforma/i.test(String(invoiceNo));
 
-            const isProforma =
-                (selectedChatData?.stepIndicator?.value ?? 0) < 3 ||
-                /proforma/i.test(String(invoiceNo));
-
-            // 1) Check Firestore for existing link
             const snap = await getDoc(doc(firestore, 'chats', chatId));
             const data = snap.exists() ? snap.data() : null;
-            const linkArray = isProforma
-                ? data?.invoiceLink?.proformaInvoice
-                : data?.invoiceLink?.origInvoice;
+            const linkArray = isProforma ?
+                data?.invoiceLink?.proformaInvoice :
+                data?.invoiceLink?.origInvoice;
+            const existingUrl = Array.isArray(linkArray) && linkArray.length ? linkArray[linkArray.length - 1] : null;
 
-            const existingUrl =
-                Array.isArray(linkArray) && linkArray.length
-                    ? linkArray[linkArray.length - 1]
-                    : null;
-
-            // ===== IF: URL exists -> open and return =====
             if (existingUrl) {
                 if (typeof window !== 'undefined') {
-                    navigatePreopenedTab(existingUrl, preOpenedWin);
+                    window.open(existingUrl, '_blank', 'noopener,noreferrer');
                 } else {
-                    console.log('Existing invoice URL:', existingUrl);
+                    console.log('Existing invouice URL:', existingUrl)
                 }
-
-                handlePreviewInvoiceModal(false);
-                uploadInFlightRef.current = false;
-                return { url: existingUrl, path: null };
+                return { url: existingUrl, path: null }
             }
-            // ===== ELSE: no URL -> generate, upload, open, return =====
-            else {
-                const el = invoiceRef?.current;
-                if (!el) {
-                    console.error('No element to capture (open the preview first).');
-                    handlePreviewInvoiceModal(false);   // close before returning
-                    uploadInFlightRef.current = false;
-                    return;
-                }
-
-                const [{ jsPDF }, html2canvas] = await Promise.all([
-                    import('jspdf').then(m => ({ jsPDF: m.jsPDF || m.default })),
-                    import('html2canvas').then(m => m.default || m),
-                ]);
-
-                const canvas = await html2canvas(el, {
-                    scale: 1,
-                    useCORS: true,          // correct casing
-                    allowTaint: false,
-                    backgroundColor: '#fff',
-                    windowWidth: el.scrollWidth,
-                    windowHeight: el.scrollHeight,
-                });
-
-                const imageData = canvas.toDataURL('image/jpeg', 0.9);
-                const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-
-                const pageWidth = pdf.internal.pageSize.getWidth();
-                const pageHeight = pdf.internal.pageSize.getHeight();
-                const imgProps = pdf.getImageProperties(imageData);
-                const ratio = imgProps.height / imgProps.width;
-                const imgWidth = pageWidth;
-                const imgHeight = imgWidth * ratio;
-
-                let y = 0;
-                while (y < imgHeight) {
-                    if (y > 0) pdf.addPage();
-                    pdf.addImage(
-                        imageData,
-                        'JPEG',
-                        0,
-                        -y * (pageHeight / imgHeight),
-                        imgWidth,
-                        imgHeight,
-                        undefined,
-                        'FAST'
-                    );
-                    y += pageHeight;
-                }
-
-                const rawFilename =
-                    (selectedChatData?.stepIndicator?.value ?? 0) < 3
-                        ? `Proforma Invoice (${invoiceData?.carData?.carName} [${invoiceData?.carData?.referenceNumber}]) (A4 Paper Size).pdf`
-                        : `Invoice No. ${invoiceNo} (A4 Paper Size).pdf`;
-                const filename = String(rawFilename).replace(/[^\w\s.\-\[\]\(\)]/g, '_');
-
-                // Blob -> base64
-                const pdfBlob = pdf.output('blob');
-                const ab = await pdfBlob.arrayBuffer();
-                let s = ''; const b = new Uint8Array(ab);
-                for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
-                const base64Pdf = btoa(s);
-
-                // Upload via callable
-                const callUpload = httpsCallable(functions, 'uploadInvoicePdf');
-                const res = await callUpload({
-                    chatId,
-                    invoiceNumber: invoiceNo,
-                    filename,
-                    base64Pdf,
-                    userEmail,
-                });
-
-                if (!res?.data?.success && !res?.data?.ok) {
-                    throw new Error(res?.data?.error || 'Upload failed');
-                }
-
-                const url = res.data.downloadURL || res.data.url;
-
-                if (typeof window !== 'undefined') {
-                    window.open(url, '_blank', 'noopener,noreferrer');
-                } else {
-                    console.log('New invoice URL:', url);
-                }
-
-                // ALWAYS close the preview before returning
-                handlePreviewInvoiceModal(false);
-                uploadInFlightRef.current = false;
-                return { url, path: res.data.path };
+            const el = invoiceRef?.current;
+            if (!el) {
+                console.error('No element to capture (open the preview first).');
+                return;
             }
+
+            const [{ jsPDF }, html2canvas] = await Promise.all([
+                import('jspdf').then(m => ({ jsPDF: m.jsPDF || m.default })),
+                import('html2canvas').them(m => m.default || m)
+            ]);
+
+            const canvas = await html2canvas(el, {
+                scale: 2,
+                useCORS: true,
+                allowTaint: false,
+                backgroundColor: '#ffffff',
+                windowWidth: el.scrollWidth,
+                windowHeight: el.scrollHeight
+            });
+            const imageData = canvas.toDataURL('image/jpg', 0.92);
+            const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            const imgProps = pdf.getImageProperties(imageData);
+            const ratio = imgProps.height / imgProps.width;
+            const imgWidth = pageWidth;
+            const imgHeight = imgWidth * ratio;
+
+            let heightLeft = imgHeight;
+            let position = 0;
+            pdf.addImage(imageData, 'JPEG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
+            heightLeft -= pageHeight;
+
+            while (heightLeft > 0) {
+                position -= pageHeight;
+                pdf.addPage();
+                pdf.addImage(imageData, 'JPEG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
+                heightLeft -= pageHeight
+            }
+
+            const rawFilename = isProforma
+                ? `Proforma Invoice (${invoiceData?.carData?.carName} [${invoiceData?.carData?.referenceNumber}]).pdf`
+                : `Invoice No. ${invoiceNo}.pdf`;
+
+            const filename = String(rawFilename).replace(/[^\w\s.\-\[\]()]/g, '_');
+
+            const pdfBlob = pdf.output('blob');
+            const base64Pdf = await blobToBase64(pdfBlob);
+
+            const callUpload = httpsCallable(functions, 'uploadInvoicePdf');
+            const res = await callUpload({
+                chatId,
+                invoiceNumber: invoiceNo,
+                filename,
+                base64Pdf,
+                userEmail
+            });
+
+            const resultData = res.data;
+            if (!resultData?.success && !resultData?.ok) {
+                throw new Error(resultData?.error || 'Upload failed.');
+            }
+
+            const url = resultData.downloadURL || resultData.url;
+
+            if (typeof window !== 'undefined') {
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('target', '_blank');
+                link.setAttribute('rel', 'noopener noreferrer');
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } else {
+                console.log('New invoice URL:', url)
+            }
+            return { url, path: resultData.path }
         } catch (err) {
-            console.error('uploadInvoicePDFAndOpen failed:', err);
+            console.error('uploadInvoicePDFAndOpen failed', err)
         } finally {
-            // Safety: if we threw before early returns above, ensure flags/UI are reset
             uploadInFlightRef.current = false;
-            handlePreviewInvoiceModal(false);
+            handlePreviewInvoiceModal(false)
         }
     }
-
 
 
 

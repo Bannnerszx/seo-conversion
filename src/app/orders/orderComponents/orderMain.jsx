@@ -3,7 +3,7 @@ import { firestore } from "../../../../firebase/clientApp"
 import { doc, query, collection, where, orderBy, limit, onSnapshot, startAfter, getDocs, updateDoc } from "firebase/firestore"
 import { useState, useEffect } from "react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import OrderCard from "./oderCard"
+
 import Sidebar from "./sidebar"
 import { SideMenu } from "./sideMenu";
 import Link from "next/link"
@@ -18,6 +18,8 @@ export function subscribeToChatList(userEmail, callback) {
 
   const constraints = [
     where("participants.customer", "==", userEmail),
+    where('stepIndicator.value', '>=', 3),
+    orderBy("stepIndicator.value", "asc"),
     orderBy("lastMessageDate", "desc"),
     limit(12),
   ];

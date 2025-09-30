@@ -17,7 +17,7 @@ const LIVE_LIMIT = 20;
 const PAGE_SIZE = 10;
 const C = new Map();
 const TTL = 5 * 60 * 1000;
-let lastCursor = null;
+let lastCursor = null; // will hold a DocumentSnapshot for pagination
 
 const invoiceCache = new Map();
 
@@ -854,7 +854,7 @@ async function fetchInvoice(invoiceNumber) {
         if (invSnap.exists()) {
             const invoiceData = invSnap.data();
             const formattDate = formatDueDate(invoiceData?.bankInformations?.dueDate);
-            result = { invoiceData, formattedDate };
+            result = { invoiceData, formattDate };
         }
     } catch { }
 
@@ -904,9 +904,12 @@ async function loadMoreData(userEmail, callback) {
         const nextQuery = query(
             collection(firestore, 'chats'),
             where('participants.customer', '==', userEmail),
+            // Use `in` so we can avoid ordering by stepIndicator while still filtering
+            where('stepIndicator.value', 'in', [3, 4, 5, 6, 7]),
             orderBy("lastMessageDate", "desc"),
             orderBy(documentId(), "desc"),
-            startAfter(lastCursor.lmd || "", lastCursor.id),
+            // use the last document snapshot as the cursor
+            startAfter(lastCursor),
             qlimit(PAGE_SIZE)
         );
         const snap = await getDocs(nextQuery);
@@ -915,8 +918,8 @@ async function loadMoreData(userEmail, callback) {
         moreChats = await hydrateMissingInvoice(moreChats);
 
         if (snap.docs.length > 0) {
-            const last = snap.docs[snap.docs.length - 1];
-            lastCursor = { lmd: String(last.get("lastMessageDate") || ''), id: last.id }
+            // store the DocumentSnapshot for the last doc so we can use it as a cursor
+            lastCursor = snap.docs[snap.docs.length - 1];
         }
         const noMore = snap.docs.length < PAGE_SIZE;
         callback(moreChats, noMore)
@@ -937,10 +940,18 @@ export default function Component({ prefetchedData = [], currency, userEmail }) 
     useEffect(() => {
         if (prefetchedData.length > 0) {
             const oldest = prefetchedData[prefetchedData.length - 1];
-            lastCursor = {
-                lmd: String(oldest.lastMessageDate ?? oldest.lastMessageDateStr ?? ""),
-                id: oldest.id
-            }
+            // fetch the document snapshot for the last prefetched item so we can use it as a cursor
+            (async () => {
+                try {
+                    const docRef = doc(firestore, 'chats', oldest.id);
+                    const ds = await getDoc(docRef);
+                    if (ds.exists()) lastCursor = ds;
+                } catch (e) {
+                    // fallback: leave lastCursor as null
+                    console.error('Failed to fetch last doc snapshot for pagination', e);
+                    lastCursor = null;
+                }
+            })();
         } else {
             lastCursor = null
         }
@@ -958,6 +969,7 @@ export default function Component({ prefetchedData = [], currency, userEmail }) 
         return query(
             collection(firestore, 'chats'),
             where('participants.customer', '==', userEmail),
+            where('stepIndicator.value', 'in', [3,4,5,6,7]),
             orderBy('lastMessageDate', "desc"),
             orderBy(documentId(), "desc"),
             qlimit(LIVE_LIMIT)
@@ -986,8 +998,10 @@ export default function Component({ prefetchedData = [], currency, userEmail }) 
 
                 const merged = [...liveCarry, ...older].filter(Boolean).sort(sortChats);
 
-                const tail = merged[merged.length - 1];
-                if (tail) lastCursor = { lmd: tail.lastMessageDateStr, id: tail.id };
+                // update lastCursor to the last document snapshot from this live snapshot
+                if (snap.docs && snap.docs.length > 0) {
+                    lastCursor = snap.docs[snap.docs.length - 1];
+                }
 
                 return merged;
             });
@@ -997,8 +1011,9 @@ export default function Component({ prefetchedData = [], currency, userEmail }) 
                 const map = new Map(prev.map((x) => [x.id, x]));
                 live.forEach((c) => map.set(c.id, { ...map.get(c.id), ...c }));
                 const merged = Array.from(map.values()).sort(sortChats);
-                const tail = merged[merged.length - 1];
-                if (tail) lastCursor = { lmd: tail.lastMessageDateStr, id: tail.id };
+                if (snap.docs && snap.docs.length > 0) {
+                    lastCursor = snap.docs[snap.docs.length - 1];
+                }
                 return merged;
             });
         });
@@ -1019,7 +1034,7 @@ export default function Component({ prefetchedData = [], currency, userEmail }) 
                 ].sort(sortChats);
 
                 const tail = merged[merged.length - 1];
-                if (tail) lastCursor = { lmd: tail.lastMessageDateStr, id: tail.id };
+                // lastCursor is updated inside loadMoreData (using the real DocumentSnapshot)
 
                 return merged;
             });
