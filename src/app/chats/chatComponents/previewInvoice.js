@@ -11,8 +11,6 @@ import { getDoc, doc } from 'firebase/firestore';
 
 import Loader from '@/app/components/Loader';
 import Modal from '@/app/components/Modal';
-import { url } from 'inspector';
-import path from 'path';
 
 function blobToBase64(blob) {
     return new Promise((resolve, reject) => {
