@@ -598,9 +598,12 @@ const PreviewInvoice = ({ messageText, chatId, selectedChatData, invoiceData, co
 
             const snap = await getDoc(doc(firestore, 'chats', chatId));
             const data = snap.exists() ? snap.data() : null;
-            const linkArray = isProforma ?
-                data?.invoiceLink?.proformaInvoice :
-                data?.invoiceLink?.origInvoice;
+     
+            const linkArray = isProforma
+                ? data['invoiceLink.proformaInvoice']
+                : data['invoiceLink.origInvoice'];
+
+
             const existingUrl = Array.isArray(linkArray) && linkArray.length ? linkArray[linkArray.length - 1] : null;
 
             if (existingUrl) {
