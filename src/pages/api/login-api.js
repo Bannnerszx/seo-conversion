@@ -41,7 +41,7 @@ export default async function handler(req, res) {
     const expiresIn = 14 * 24 * 60 * 60 * 1000;
     const sessionCookie = await admin.auth().createSessionCookie(token, { expiresIn });
 
-    const OLD_NAMES_ENV = process.env.OLD_SESSION_COOKIES_NAMES || "";
+    const OLD_NAMES_ENV = process.env.OLD_SESSION_COOKIE_NAMES || "";
     const COOKIE_NAME = process.env.SESSION_COOKIE_NAME;
 
     const oldNames = OLD_NAMES_ENV
