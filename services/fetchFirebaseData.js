@@ -1,6 +1,8 @@
 import { db } from "@/lib/firebaseAdmin";
 import { getDb } from "@/lib/mongodbClient";
+import { FieldPath } from "firebase-admin/firestore";
 import { unstable_cache as cache } from "next/cache";
+import { comment } from "postcss";
 const dbMong = await getDb()
 const vehicleColl = dbMong.collection("VehicleProducts");
 
@@ -241,7 +243,92 @@ export const fetchNewVehicle = cache(
   ['new-vehicles'], // 1. Unique cache key
   { revalidate: 60 } // 2. Options object with revalidate time
 );
+const toFirstName = (full) => {
+  const s = (full ?? "").trim();
+  if (!s) return "";
+  const first = s.split(/\s+/u)[0]; // first token only
+  // Capitalize first letter, lower-case the rest (Unicode-friendly)
+  return first.charAt(0).toLocaleUpperCase() + first.slice(1).toLocaleLowerCase();
+};
 
+export const fetchTestimonies = cache(
+  async () => {
+    const q = db
+      .collection("Testimonies")
+      .where("visible", "==", true)
+      .where("carData.carName", ">=", "")
+      .where("carData.carName", "<=", "\uf8ff")
+      .where("consignee.name", ">=", "")
+      .where("consignee.name", "<=", "\uf8ff")
+      .where("experienceRating", ">=", 0)
+      .where("productRating", ">=", 0)
+      .select(
+        new FieldPath("carData", "carName"),
+        new FieldPath("carData", "images"), // include nested images
+        "experienceRating",
+        "productRating",
+        "imageUrls",
+        "images",
+        new FieldPath("consignee", "name"),
+        "comment",
+        "visible"
+      );
+
+    const snap = await q.get();
+    if (snap.empty) return [];
+
+    const pickFirstImage = (d) => {
+      const arr = [
+        ...(Array.isArray(d?.carData?.images) ? d.carData.images : []),
+        ...(Array.isArray(d?.images) ? d.images : []),
+        ...(Array.isArray(d?.imageUrls) ? d.imageUrls : []),
+      ];
+      const first = arr.find((x) => typeof x === "string" && x.trim() !== "");
+      return first || null;
+    };
+
+    const rows = snap.docs
+      .map((doc) => {
+        const d = doc.data() || {};
+
+        const hasCarName =
+          typeof d?.carData?.carName === "string" && d.carData.carName.trim() !== "";
+        const hasConsigneeName =
+          typeof d?.consignee?.name === "string" && d.consignee.name.trim() !== "";
+        const hasExp = typeof d?.experienceRating === "number";
+        const hasProd = typeof d?.productRating === "number";
+        const hasComment = typeof d?.comment === "string" && d.comment.trim() !== "";
+        const firstImage = pickFirstImage(d);
+
+        if (!(hasCarName && hasConsigneeName && hasExp && hasProd && hasComment && firstImage)) {
+          return null;
+        }
+
+        // average the two ratings, clamp 1..5
+        const avg = Math.round((d.experienceRating + d.productRating) / 2);
+        const rating = Math.max(1, Math.min(5, avg || 0));
+
+        return {
+          productImage: firstImage || "/placeholder.jpg",
+          rating,
+          quote: d.comment,
+          author: d.consignee.name,
+        };
+      })
+      .filter(Boolean);
+
+    // add 1-based id for UI
+    return rows.map((r, i) => ({
+      id: i + 1,
+      productImage: r.productImage,
+      rating: r.rating,
+      quote: r.quote,
+      author: toFirstName(r.author),
+    }));
+  },
+  ["testimonies"], // cache key
+  { revalidate: 60, tags: ["testimonies"] }
+);
 
 // /services/fetch.js
 // services/fetchFirebaseData.js

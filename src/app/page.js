@@ -8,13 +8,14 @@ import SearchByType from './homeComponents/SearchByType';
 import SearchQuery from './homeComponents/SearchQuery';
 import { getMakeCounts } from './actions/actions';
 import ClientWrapper from './homeComponents/ClientWrapper';
-import { fetchCarMakes, fetchNewVehicle, fetchCarBodytype, fetchVehicleProductsByPage, fetchCurrency } from '../../services/fetchFirebaseData';
+import { fetchCarMakes, fetchNewVehicle, fetchCarBodytype, fetchVehicleProductsByPage, fetchCurrency, fetchTestimonies } from '../../services/fetchFirebaseData';
 import { SignupBanner } from './components/SignUpBanner';
 import RecommendedSection from './homeComponents/RecommendedSection';
 import MobileSignupBanner from './homeComponents/mobileSignUpBanner';
-
 import DesktopSignUpBanner from './homeComponents/desktopSignUpBanner';
 import ZambiaBranchSection from './homeComponents/ZambiaBranchSection';
+import { m } from 'framer-motion';
+import TestimonialsSection from './homeComponents/TestimonialsSection';
 // generateMetadata is only for SEO metadata
 export async function generateMetadata() {
 
@@ -45,7 +46,14 @@ export async function generateMetadata() {
   };
 }
 
+
+
+
 export default async function Home() {
+
+
+
+
   const brand = [
     {
       id: '1', name: 'TOYOTA', logo:
@@ -253,7 +261,8 @@ export default async function Home() {
 
   // build { TOYOTA: 42, NISSAN: 17, … }
   const makeCounts = Object.fromEntries(entries);
-
+  const testimonies = await fetchTestimonies();
+ 
   const { products, totalCount } = await fetchVehicleProductsByPage({
     searchKeywords: null,
     carMakes: null,
@@ -344,6 +353,11 @@ export default async function Home() {
       <ClientWrapper id="by-types">
         <div id="by-types" className="relative z-40">
           <SearchByType />
+        </div>
+      </ClientWrapper>
+      <ClientWrapper id="testimonials">
+        <div id="testimonials" className="relative z-40">
+          <TestimonialsSection testimonials={testimonies} />
         </div>
       </ClientWrapper>
 

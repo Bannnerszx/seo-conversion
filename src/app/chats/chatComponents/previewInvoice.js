@@ -1,14 +1,33 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Text, View, ScrollView,  Image } from "react-native-web";
+import { Text, View, ScrollView, Image } from "react-native-web";
 import { Button } from "@/components/ui/button";
 import { FileText, Image as ImageIcon, Download, } from "lucide-react";
 import { QRCodeSVG } from 'qrcode.react';
+import { httpsCallable } from 'firebase/functions';
+import { firestore, functions } from '../../../../firebase/clientApp';
+import { getDoc, doc } from 'firebase/firestore';
 // import { captureRef } from 'react-native-view-shot';
 // import QRCode from 'react-native-qrcode-svg';
 
 import Loader from '@/app/components/Loader';
 import Modal from '@/app/components/Modal';
-const PreviewInvoice = ({ messageText, activeChatId, selectedChatData, invoiceData, context }) => {
+
+function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+
+        reader.onerror = reject;
+        reader.onload = () => {
+            const base64String = reader.result.toString().split(',')[1];
+            resolve(base64String);
+        };
+
+        reader.readAsDataURL(blob)
+    })
+}
+
+
+const PreviewInvoice = ({ messageText, chatId, selectedChatData, invoiceData, context, userEmail }) => {
     let formattedIssuingDate;
     let formattedDueDate;
     const mobileViewBreakpoint = 768;
@@ -358,7 +377,6 @@ const PreviewInvoice = ({ messageText, activeChatId, selectedChatData, invoiceDa
         if (isNaN(baseValueNumber)) {
             return 'Invalid base value';
         }
-
         const numberFormatOptions = {
             useGrouping: true,
             minimumFractionDigits: 0,
@@ -545,13 +563,189 @@ const PreviewInvoice = ({ messageText, activeChatId, selectedChatData, invoiceDa
         }
     }, [capturedImageUri, context]);
 
+    const uploadInFlightRef = useRef(false);
+
+    // async function uploadInvoicePDFAndOpen() {
+    //     if (uploadInFlightRef.current) return;
+    //     uploadInFlightRef.current = true;
+
+    //     try {
+    //         const invoiceNo = selectedChatData?.invoiceNo || 'proforma';
+    //         const isProforma = (selectedChatData?.stepIndicator?.value ?? 0) < 3 || /proforma/i.test(String(invoiceNo));
+
+    //         const snap = await getDoc(doc(firestore, 'chats', chatId));
+    //         const data = snap.exists() ? snap.data() : null;
+
+    //         const linkArray = isProforma
+    //             ? data['invoiceLink.proformaInvoice']
+    //             : data['invoiceLink.origInvoice'];
+
+
+    //         const existingUrl = Array.isArray(linkArray) && linkArray.length ? linkArray[linkArray.length - 1] : null;
+
+    //         if (existingUrl) {
+    //             if (typeof window !== 'undefined') {
+    //                 window.open(existingUrl, '_blank', 'noopener,noreferrer');
+    //             } else {
+    //                 console.log('Existing invouice URL:', existingUrl)
+    //             }
+    //             return { url: existingUrl, path: null }
+    //         }
+    //         const el = invoiceRef?.current;
+    //         if (!el) {
+    //             console.error('No element to capture (open the preview first).');
+    //             return;
+    //         }
+
+    //         const [{ jsPDF }, html2canvas] = await Promise.all([
+    //             import('jspdf').then(m => ({ jsPDF: m.jsPDF || m.default })),
+    //             import('html2canvas').then(m => m.default || m)
+    //         ]);
+
+    //         const canvas = await html2canvas(el, {
+    //             scale: 2,
+    //             useCORS: true,
+    //             allowTaint: false,
+    //             backgroundColor: '#ffffff',
+    //             windowWidth: el.scrollWidth,
+    //             windowHeight: el.scrollHeight
+    //         });
+    //         const imageData = canvas.toDataURL('image/jpg', 0.92);
+    //         const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+    //         const pageWidth = pdf.internal.pageSize.getWidth();
+    //         const pageHeight = pdf.internal.pageSize.getHeight();
+    //         const imgProps = pdf.getImageProperties(imageData);
+    //         const ratio = imgProps.height / imgProps.width;
+    //         const imgWidth = pageWidth;
+    //         const imgHeight = imgWidth * ratio;
+
+    //         let heightLeft = imgHeight;
+    //         let position = 0;
+    //         pdf.addImage(imageData, 'JPEG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
+    //         heightLeft -= pageHeight;
+
+    //         while (heightLeft > 0) {
+    //             position -= pageHeight;
+    //             pdf.addPage();
+    //             pdf.addImage(imageData, 'JPEG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
+    //             heightLeft -= pageHeight
+    //         }
+
+    //         const rawFilename = isProforma
+    //             ? `Proforma Invoice (${invoiceData?.carData?.carName} [${invoiceData?.carData?.referenceNumber}]).pdf`
+    //             : `Invoice No. ${invoiceNo}.pdf`;
+
+    //         const filename = String(rawFilename).replace(/[^\w\s.\-\[\]()]/g, '_');
+
+    //         const pdfBlob = pdf.output('blob');
+    //         const base64Pdf = await blobToBase64(pdfBlob);
+
+    //         const callUpload = httpsCallable(functions, 'uploadInvoicePdf');
+    //         const res = await callUpload({
+    //             chatId,
+    //             invoiceNumber: invoiceNo,
+    //             filename,
+    //             base64Pdf,
+    //             userEmail
+    //         });
+
+    //         const resultData = res.data;
+    //         if (!resultData?.success && !resultData?.ok) {
+    //             throw new Error(resultData?.error || 'Upload failed.');
+    //         }
+
+    //         const url = resultData.downloadURL || resultData.url;
+
+    //         if (typeof window !== 'undefined') {
+    //             const link = document.createElement('a');
+    //             link.href = url;
+    //             link.setAttribute('target', '_blank');
+    //             link.setAttribute('rel', 'noopener noreferrer');
+    //             document.body.appendChild(link);
+    //             link.click();
+    //             document.body.removeChild(link);
+    //         } else {
+    //             console.log('New invoice URL:', url)
+    //         }
+    //         return { url, path: resultData.path }
+    //     } catch (err) {
+    //         console.error('uploadInvoicePDFAndOpen failed', err)
+    //     } finally {
+    //         uploadInFlightRef.current = false;
+    //         handlePreviewInvoiceModal(false)
+    //     }
+    // }
+
+    async function uploadInvoicePDFAndOpen() {
+        if (uploadInFlightRef.current) {
+            console.log('Upload already in progress.');
+            return;
+        }
+        uploadInFlightRef.current = true;
+        try {
+            const invoiceNo = selectedChatData?.invoiceNo || 'proforma';
+            const isProforma = (selectedChatData?.stepIndicator?.value ?? 0) < 3 || /proforma/i.test(String(invoiceNo));
+            const snap = await getDoc(doc(firestore, 'chats', chatId));
+            const data = snap.exists() ? snap.data() : null;
+            const linkArray = isProforma
+                ? data['invoiceLink.proformaInvoice']
+                : data['invoiceLink.origInvoice'];
+            const existingUrl = Array.isArray(linkArray) && linkArray.length ? linkArray[linkArray.length - 1] : null;
+
+            let finalUrl = existingUrl;
+
+            if (!finalUrl) {
+                console.log("No existing URL found. Calling server to generate PDF...");
+
+                const payload = {
+                    chatId,
+                    userEmail,
+                    isProforma,
+                    invoiceData,
+                    selectedChatData
+                }
+
+                const generatePdf = httpsCallable(functions, 'generateInvoicePdf');
+                const result = await generatePdf(payload);
+
+                if (!result.data.success || !result.data.downloadURL) {
+                    throw new Error(result.data.message || 'Server failed to return a download URL.');
+                }
+                finalUrl = result.data.downloadURL;
+                console.log("Server successfully generated PDF. URL:", finalUrl);
+            } else {
+                console.log("Existing URL found. Opening directly:", finalUrl);
+            }
+
+            if (typeof window !== 'undefined' && finalUrl) {
+                window.open(finalUrl, '_blank', 'noopener noreferrer');
+            }
+        } catch (err) {
+            console.error('Failed to get invoice PDF:', err);
+        } finally {
+            uploadInFlightRef.current = false;
+            handlePreviewInvoiceModal(false);
+        }
+    }
+
+  
+
+    
     return (
         <>
             <> {invoiceData &&
 
                 <>
                     <Button
-                        onClick={() => { handlePreviewInvoiceModal(true); }}
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+
+                            handlePreviewInvoiceModal(true);         // your existing modal open
+
+
+                        }}
                         variant="default" className="gap-2 bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100"
                     >
                         <FileText className="h-3 w-3 mr-1" />
@@ -629,7 +823,7 @@ const PreviewInvoice = ({ messageText, activeChatId, selectedChatData, invoiceDa
                                         alignItems: 'center', // Center horizontally
                                     }}>
                                         {capturedImageUri ? (
-                                            (screenWidth < mobileViewBreakpoint ? handleCaptureAndCreatePDF() :
+                                            (screenWidth < mobileViewBreakpoint ? uploadInvoicePDFAndOpen() :
                                                 <Image
                                                     key={imagePreviewKey}
                                                     source={{ uri: capturedImageUri.toString() }}
