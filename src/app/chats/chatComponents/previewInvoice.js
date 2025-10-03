@@ -6,6 +6,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { httpsCallable } from 'firebase/functions';
 import { firestore, functions } from '../../../../firebase/clientApp';
 import { getDoc, doc } from 'firebase/firestore';
+import { toast } from 'sonner';
 // import { captureRef } from 'react-native-view-shot';
 // import QRCode from 'react-native-qrcode-svg';
 
@@ -678,60 +679,63 @@ const PreviewInvoice = ({ messageText, chatId, selectedChatData, invoiceData, co
     // }
 
     async function uploadInvoicePDFAndOpen() {
-        if (uploadInFlightRef.current) {
-            console.log('Upload already in progress.');
-            return;
-        }
-        uploadInFlightRef.current = true;
-        try {
-            const invoiceNo = selectedChatData?.invoiceNo || 'proforma';
-            const isProforma = (selectedChatData?.stepIndicator?.value ?? 0) < 3 || /proforma/i.test(String(invoiceNo));
-            const snap = await getDoc(doc(firestore, 'chats', chatId));
-            const data = snap.exists() ? snap.data() : null;
-            const linkArray = isProforma
-                ? data['invoiceLink.proformaInvoice']
-                : data['invoiceLink.origInvoice'];
-            const existingUrl = Array.isArray(linkArray) && linkArray.length ? linkArray[linkArray.length - 1] : null;
 
-            let finalUrl = existingUrl;
+        toast.error("Invoice on mobile not ready yet—please ask your salesperson to upload it.", { duration: 8000 });
+        handlePreviewInvoiceModal(false)
+        // if (uploadInFlightRef.current) {
+        //     console.log('Upload already in progress.');
+        //     return;
+        // }
+        // uploadInFlightRef.current = true;
+        // try {
+        //     const invoiceNo = selectedChatData?.invoiceNo || 'proforma';
+        //     const isProforma = (selectedChatData?.stepIndicator?.value ?? 0) < 3 || /proforma/i.test(String(invoiceNo));
+        //     const snap = await getDoc(doc(firestore, 'chats', chatId));
+        //     const data = snap.exists() ? snap.data() : null;
+        //     const linkArray = isProforma
+        //         ? data['invoiceLink.proformaInvoice']
+        //         : data['invoiceLink.origInvoice'];
+        //     const existingUrl = Array.isArray(linkArray) && linkArray.length ? linkArray[linkArray.length - 1] : null;
 
-            if (!finalUrl) {
-                console.log("No existing URL found. Calling server to generate PDF...");
+        //     let finalUrl = existingUrl;
 
-                const payload = {
-                    chatId,
-                    userEmail,
-                    isProforma,
-                    invoiceData,
-                    selectedChatData
-                }
+        //     if (!finalUrl) {
+        //         console.log("No existing URL found. Calling server to generate PDF...");
 
-                const generatePdf = httpsCallable(functions, 'generateInvoicePdf');
-                const result = await generatePdf(payload);
+        //         const payload = {
+        //             chatId,
+        //             userEmail,
+        //             isProforma,
+        //             invoiceData,
+        //             selectedChatData
+        //         }
 
-                if (!result.data.success || !result.data.downloadURL) {
-                    throw new Error(result.data.message || 'Server failed to return a download URL.');
-                }
-                finalUrl = result.data.downloadURL;
-                console.log("Server successfully generated PDF. URL:", finalUrl);
-            } else {
-                console.log("Existing URL found. Opening directly:", finalUrl);
-            }
+        //         const generatePdf = httpsCallable(functions, 'generateInvoicePdf');
+        //         const result = await generatePdf(payload);
 
-            if (typeof window !== 'undefined' && finalUrl) {
-                window.open(finalUrl, '_blank', 'noopener noreferrer');
-            }
-        } catch (err) {
-            console.error('Failed to get invoice PDF:', err);
-        } finally {
-            uploadInFlightRef.current = false;
-            handlePreviewInvoiceModal(false);
-        }
+        //         if (!result.data.success || !result.data.downloadURL) {
+        //             throw new Error(result.data.message || 'Server failed to return a download URL.');
+        //         }
+        //         finalUrl = result.data.downloadURL;
+        //         console.log("Server successfully generated PDF. URL:", finalUrl);
+        //     } else {
+        //         console.log("Existing URL found. Opening directly:", finalUrl);
+        //     }
+
+        //     if (typeof window !== 'undefined' && finalUrl) {
+        //         window.open(finalUrl, '_blank', 'noopener noreferrer');
+        //     }
+        // } catch (err) {
+        //     console.error('Failed to get invoice PDF:', err);
+        // } finally {
+        //     uploadInFlightRef.current = false;
+        //     handlePreviewInvoiceModal(false);
+        // }
     }
 
-  
 
-    
+
+
     return (
         <>
             <> {invoiceData &&

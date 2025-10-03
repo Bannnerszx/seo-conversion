@@ -123,7 +123,6 @@ export default async function ChatPage() {
 
   // 1️⃣1️⃣ Fetch prefetched data for /chats route
   const prefetchedData = await fetchPrefetchedData(userEmail);
-
   // Validate chat ownership
 
 
