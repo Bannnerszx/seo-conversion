@@ -21,22 +21,13 @@ export const config = {
   ],
 }
 
-// ───────────────────────────────────────────────────────
-// 🔧 Versioned “hard reset” settings
-//    Bump NEXT_PUBLIC_APP_VERSION on every deploy.
-//    COOKIE_DOMAIN should be set in prod (e.g. "www.realmotor.jp").
-// ───────────────────────────────────────────────────────
-const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION || 'dev'
-const VERSION_COOKIE = 'app_ver'
-const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN || undefined // omit on localhost
-const IS_PROD = process.env.NODE_ENV === 'production';
-
 export async function middleware(request) {
   const { nextUrl: url, cookies } = request
-  const { origin, pathname, hostname } = url
+  const { origin, pathname } = url
   const ORINAL_URL = process.env.NEXT_PUBLIC_APP_URL
   const OLD_NAMES_ENV = process.env.OLD_SESSION_COOKIE_NAMES || ""
   const OLD_NAMES = OLD_NAMES_ENV.split(",").map((s) => s.trim()).filter(Boolean)
+
   const COOKIE_NAME = process.env.SESSION_COOKIE_NAME
 
   // ──────────────
@@ -47,27 +38,6 @@ export async function middleware(request) {
     const resp = NextResponse.next()
     resp.cookies.delete(OLD_NAMES, { path: "/" })
     return resp
-  }
-
-  // ──────────────
-  // 0.5️⃣  NEW: One-shot hard reset on version change
-  //         Sends Clear-Site-Data once, then sets app_ver cookie.
-  //         We do this ONLY on top-level page navigations.
-  // ──────────────
-  const isDocument = request.headers.get('sec-fetch-dest') === 'document'
-  if (IS_PROD && isDocument) {
-    const seenVersion = cookies.get(VERSION_COOKIE)?.value;
-    if (seenVersion !== APP_VERSION) {
-      const res = NextResponse.next();
-      res.headers.set('Clear-Site-Data', '"cache", "cookies", "storage"');
-      const shouldSetDomain =
-        COOKIE_DOMAIN && url.hostname !== 'localhost' && url.hostname !== '127.0.0.1';
-      res.cookies.set(VERSION_COOKIE, APP_VERSION, {
-        path: '/', httpOnly: false, sameSite: 'lax', secure: true, maxAge: 60 * 60 * 24 * 365,
-        ...(shouldSetDomain ? { domain: COOKIE_DOMAIN } : {}),
-      });
-      return res;
-    }
   }
 
   // ───────────────────────────────────────────────────────

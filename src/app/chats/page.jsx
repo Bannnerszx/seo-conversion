@@ -111,7 +111,7 @@ export default async function ChatPage() {
   // 8️⃣ Fetch shared data
   const currency = (await fetchCurrency()) || []
   const countryList = await getCountries()
- 
+
   // 9️⃣ Check if the user exists and has no missing fields
   const { exists, missingFields } = await checkUserExist(userEmail)
   if (!exists || (missingFields && missingFields.length > 0)) {
@@ -130,7 +130,13 @@ export default async function ChatPage() {
   // 1️⃣2️⃣ Render the Chat page
   return (
     <>
-      <Toaster />
+      <Toaster
+        position="top-right"
+        offset={16}
+        mobileOffset={10}
+        richColors
+        closeButton
+      />
       <ChatPageCSR
         accountData={accountData}
         userEmail={userEmail}

@@ -171,12 +171,12 @@ export default function TestimonialsSection({ testimonials = [], autoPlayInterva
     if (baseCount === 0) return null
 
     return (
-        <div className="relative w-full bg-white py-6 md:py-12">
+        <div className="relative w-full bg-white py-2 md:py-6">
             <div className="text-center mb-6 md:mb-10 px-4">
-                <Quote className="h-10 w-10 md:h-12 md:w-12 text-blue-600 mx-auto mb-3" />
-                <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900">
+                <Quote className="h-8 w-8 md:h-12 md:w-12 text-blue-600 mx-auto mb-3" />
+                <h3 className="text-xl md:text-2xl lg:text-4xl font-bold text-gray-900">
                     Customer Reviews
-                </h2>
+                </h3>
             </div>
 
             <div
@@ -217,14 +217,17 @@ export default function TestimonialsSection({ testimonials = [], autoPlayInterva
                 <div className="flex gap-4 md:gap-6 py-4 md:py-8">
                     {loopData.map((t, i) => (
                         <div
-                            key={`${t.id ?? i}-${i}`} // stable enough for cloned sets
+                            key={`${t.id ?? i}-${i}`}
                             ref={(el) => (itemRefs.current[i] = el)}
-                            className="shrink-0 snap-center px-1 transition-transform duration-300"
+                            className={cn(
+                                "shrink-0 snap-center px-1 transition-transform duration-300",
+                                i === activeIdx ? "scale-100" : "scale-95",
+                                // NEW: fixed heights
+                                "h-[280px] md:h-[320px] lg:h-[340px]"
+                            )}
                             style={{
-                                // visible density; middle remains centered via measurement
-                                width:
-                                    cardsToShow === 1 ? "85vw" : cardsToShow === 2 ? "50vw" : "33.333vw",
-                                maxWidth: 460,
+                                width: cardsToShow === 1 ? "70vw" : cardsToShow === 2 ? "42vw" : "28vw",
+                                maxWidth: 360,
                             }}
                         >
                             <TestimonialCard
@@ -270,41 +273,47 @@ export default function TestimonialsSection({ testimonials = [], autoPlayInterva
 }
 
 function TestimonialCard({ testimonial, isActive, draggable }) {
-    return (
-        <Card className={`bg-white shadow-lg overflow-hidden h-full ${isActive ? "ring-2 ring-[#0000ff]" : ""}`}>
-            <div className="p-6 md:p-8 space-y-4 md:space-y-6 flex flex-col items-center text-center h-full">
-                <div className="relative h-24 w-24 md:h-32 md:w-32 rounded-full overflow-hidden border-4 border-blue-600">
-                    <Image
-                        src={testimonial.productImage || "/placeholder.svg"}
-                        alt={testimonial.author ?? "Customer"}
-                        fill
-                        className="object-cover"
-                        sizes="128px"
-                        priority={false}
-                        draggable={draggable ?? false}
-                    />
-                </div>
+  return (
+    <Card className={`bg-white shadow-lg overflow-hidden h-full ${isActive ? "ring-2 ring-[#0000ff]" : ""}`}>
+      <div className="p-4 md:p-6 space-y-3 md:space-y-4 flex flex-col items-center text-center h-full">
+        {/* Smaller avatar */}
+        <div className="relative h-16 w-16 md:h-20 md:w-20 rounded-full overflow-hidden border-2 border-blue-600">
+          <Image
+            src={testimonial.productImage || "/placeholder.svg"}
+            alt={testimonial.author ?? "Customer"}
+            fill
+            className="object-cover"
+            sizes="80px"
+            priority={false}
+            draggable={draggable ?? false}
+          />
+        </div>
 
+        {/* Quote: smaller text + max height */}
+        <blockquote className="text-gray-700 text-sm md:text-base leading-relaxed flex-grow max-h-20 md:max-h-24 overflow-hidden">
+          “{testimonial.quote}”
+        </blockquote>
 
-                <blockquote className="text-gray-700 text-base md:text-lg leading-relaxed flex-grow">
-                    “{testimonial.quote}”
-                </blockquote>
-                <div className="flex gap-1">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                        <Star
-                            key={i}
-                            className={cn(
-                                "h-5 w-5",
-                                i < testimonial.rating ? "fill-yellow-400 text-yellow-400" : "fill-muted text-muted",
-                            )}
-                        />
-                    ))}
-                </div>
-                <div className="pt-4 border-t border-cyan-100 w-full">
-                    <p className="font-bold text-lg md:text-xl text-gray-900">{testimonial.author}</p>
-                    <p className="text-xs md:text-sm text-gray-500 uppercase tracking-wider mt-1">Frequent Buyer</p>
-                </div>
-            </div>
-        </Card>
-    )
+        {/* Stars: smaller */}
+        <div className="flex gap-1">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Star
+              key={i}
+              className={cn(
+                "h-4 w-4",
+                i < testimonial.rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
+              )}
+            />
+          ))}
+        </div>
+
+        {/* Footer: tighter */}
+        <div className="pt-2 border-t border-cyan-100 w-full">
+          <p className="font-bold text-sm md:text-base text-gray-900">{testimonial.author}</p>
+          <p className="text-[10px] md:text-xs text-gray-500 uppercase tracking-wider mt-0.5">Frequent Buyer</p>
+        </div>
+      </div>
+    </Card>
+  )
 }
+

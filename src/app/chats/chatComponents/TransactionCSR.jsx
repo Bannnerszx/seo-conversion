@@ -19,33 +19,41 @@ import ChatMessage from "./messageLinks"
 import WarningDialog from "./warningDialog"
 import ProductReview from "./ProductReview"
 import TransactionCSRLoader from "./TransactionCSRLoader"
+import { useBootData } from "./useBootDataTransactionCSR"
+import { toast } from "sonner"
 // import { AssistiveTouch } from "./AssistiveTouch"
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
 
 export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, accountData, isMobileView, isDetailView, handleBackToList, bookingData, countryList, currency, dueDate, handleLoadMore, invoiceData, userEmail, contact, messages, onSendMessage, isLoading, chatId, chatMessages }) {
+    const {
+        ipInfo,
+        getFreshTime,
+        getFreshIP,
+        formatTokyoLocal,
+        ready: bootReady,
+    } = useBootData();
 
     const [newMessage, setNewMessage] = useState("");
-    const sendMessage = httpsCallable(functions, 'sendMessage');
-    const updateCustomerFiles = httpsCallable(functions, 'updateCustomerFiles');
-    const scrollAreaRef = useRef(null)
+    const sendMessage = httpsCallable(functions, "sendMessage");
+    const updateCustomerFiles = httpsCallable(functions, "updateCustomerFiles");
+    const scrollAreaRef = useRef(null);
     const endOfMessagesRef = useRef(null);
     const startOfMessagesRef = useRef(null);
     const fileInputRef = useRef(null);
     const [attachedFile, setAttachedFile] = useState(null);
-    const [loadingSent, setLoadingSent] = useState(false)
-    const [warningOpen, setWarningOpen] = useState(false)
-    const [warningMessage, setWarningMessage] = useState("")
+    const [loadingSent, setLoadingSent] = useState(false);
+    const [warningOpen, setWarningOpen] = useState(false);
+    const [warningMessage, setWarningMessage] = useState("");
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const navigatedToPaymentRef = useRef(false);
 
-    //Get the notification error
     const handleFileUpload = (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
         if (file.size > MAX_FILE_SIZE) {
             const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
-            setWarningMessage(
-                `File size (${sizeMB} MB) exceeds the ${MAX_FILE_SIZE / (1024 * 1024)} MB limit.`
-            );
+            setWarningMessage(`File size (${sizeMB} MB) exceeds the ${MAX_FILE_SIZE / (1024 * 1024)} MB limit.`);
             setWarningOpen(true);
             if (fileInputRef.current) fileInputRef.current.value = "";
             return;
@@ -53,230 +61,216 @@ export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, ac
 
         const reader = new FileReader();
         reader.onload = () => {
-            // reader.result is "data:<mime>;base64,<data>"
             const base64 = reader.result.split(",")[1];
-            setAttachedFile({
-                name: file.name,
-                type: file.type,
-                data: base64,
-            });
+            setAttachedFile({ name: file.name, type: file.type, data: base64 });
         };
         reader.readAsDataURL(file);
     };
 
     const handleDialogOpenChange = useCallback((open) => {
         if (!open) {
-            // clear everything
-            if (fileInputRef.current) fileInputRef.current.value = ""
-            setAttachedFile(null)
-            setWarningMessage("")
-            setWarningOpen(false)
+            if (fileInputRef.current) fileInputRef.current.value = "";
+            setAttachedFile(null);
+            setWarningMessage("");
+            setWarningOpen(false);
         } else {
-            setWarningOpen(true)
+            setWarningOpen(true);
         }
-    }, [])
-    const [ipInfo, setIpInfo] = useState(null);
-    const [tokyoTime, setTokyoTime] = useState(null);
-    const [showPaymentModal, setShowPaymentModal] = useState(false)
-    const navigatedToPaymentRef = useRef(false)
-
-    // Initial load on mount
-    useEffect(() => {
-        let mounted = true;
-        Promise.all([
-            fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo").then(r => r.json()),
-            fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time").then(r => r.json()),
-        ])
-            .then(([ip, time]) => {
-                if (!mounted) return;
-                setIpInfo(ip ?? null);
-                setTokyoTime(time ?? null);
-            })
-            .catch(err => {
-                if (!mounted) return;
-                console.error("Preload fetch failed", err);
-            });
-        return () => { mounted = false; };
     }, []);
 
-
-    function formatTokyoLocal(ymdHmsMsStr) {
-        if (!ymdHmsMsStr) return '';
-        const [datePart, timePart = ''] = ymdHmsMsStr.trim().split(' ');
-        const [hh = '00', mm = '00', secMs = '00'] = timePart.split(':');
-        const ss = (secMs.split('.')[0] || '00');
-        return `${datePart} at ${hh}:${mm}:${ss}`;
-    }
-
-    // Only compute when value exists
-
-
-    // Subscribe to chat doc for payment events and show modal when appropriate (detail view only)
-    // Persist confirmation to Firestore (confirmedPayment) so it survives cookie/LS clears.
+    // ===== Subscribe to payment modal trigger (unchanged; can optionally gate on bootReady)
     useEffect(() => {
-        // if we’re not looking at a detail view for a specific chat, keep modal hidden
         if (!chatId || !isDetailView) {
             setShowPaymentModal(false);
             return;
         }
-
         const unsubscribe = subscribeToChatDoc(chatId, (chatData) => {
             if (!chatData) {
                 setShowPaymentModal(false);
                 return;
             }
-
             const rawStep = chatData?.stepIndicator?.value ?? chatData?.tracker ?? null;
             const tracker = rawStep == null ? null : Number(rawStep);
-
-            // Only consider showing while tracker === 4
             if (tracker === 4 && !Number.isNaN(tracker)) {
                 try {
                     const alreadyConfirmed = chatData?.confirmedPayment === true;
-                    const isCancelled = chatData?.isCancelled === true; // only true if explicitly true
-
-                    // Show when: tracker is 4, not confirmed, and not cancelled (or missing)
+                    const isCancelled = chatData?.isCancelled === true;
                     setShowPaymentModal(!alreadyConfirmed && !isCancelled);
                 } catch (err) {
                     console.error("Failed to handle payment event:", err);
-                    // be safe: hide on error
                     setShowPaymentModal(false);
                 }
             } else {
-                // tracker moved away from 4 (or invalid) → hide
                 setShowPaymentModal(false);
             }
         });
-
         return () => unsubscribe();
     }, [chatId, isDetailView]);
 
 
-    const handleSendMessage = async (e) => {
-        if (loadingSent || isLoading || (!newMessage.trim() && !attachedFile)) {
-            return;
-        }
-        setLoadingSent(true);
-        e.preventDefault();
+    // ===== Always fresh time on send; IP comes from boot (cached ok)
 
-        if (!newMessage.trim() && !attachedFile) return;
+    const handleSendMessage = async (e) => {
+        if (loadingSent || isLoading || (!newMessage.trim() && !attachedFile)) return;
+        e.preventDefault();
+        setLoadingSent(true);
+
+        const hasText = !!newMessage.trim();
+        const hasFile = !!attachedFile;
+
+        const codeOf = (errOrObj) =>
+            typeof errOrObj?.code === "string" && errOrObj.code.startsWith("functions/")
+                ? errOrObj.code.slice("functions/".length)
+                : (errOrObj?.code || "");
+
+        const friendlyError = (errOrObj, fallback = "Something went wrong. Please try again.") => {
+            const code = codeOf(errOrObj);
+            if (code === "permission-denied" && errOrObj?.details?.allowedExtensions) {
+                return `This file type isn’t allowed. Please upload: ${errOrObj.details.allowedExtensions.join(", ")}`;
+            }
+            switch (code) {
+                case "unauthenticated": return "Please sign in and try again.";
+                case "invalid-argument": return "Some required information is missing or invalid. Please recheck and try again.";
+                case "permission-denied": return errOrObj?.message || "You don’t have permission to do that.";
+                case "resource-exhausted": return "Upload limit reached. Try a smaller file or wait a bit.";
+                case "aborted":
+                case "cancelled": return "The request was interrupted. Please try again.";
+                case "deadline-exceeded": return "The server took too long to respond. Please try again.";
+                case "internal": return errOrObj?.details?.cause ? `Server error: ${errOrObj.details.cause}` : "We hit a server error. Please try again.";
+                default: return errOrObj?.message || fallback;
+            }
+        };
 
         try {
-            let currentIpInfo = ipInfo;
-            let currentTokyoTime = tokyoTime;
-
-            // Try to fetch fresh data with a timeout, but don't block if it fails
-            try {
-                const fetchPromise = Promise.all([
-                    fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo").then(r => r.json()),
-                    fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time").then(r => r.json()),
-                ]);
-
-                // Add a timeout to prevent hanging
-                const timeoutPromise = new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Timeout')), 5000)
-                );
-
-                const [freshIp, freshTime] = await Promise.race([fetchPromise, timeoutPromise]);
-                currentIpInfo = freshIp;
-                currentTokyoTime = freshTime;
-
-                // Update state with fresh data for next time
-                setIpInfo(freshIp);
-                setTokyoTime(freshTime);
-            } catch (fetchError) {
-                console.warn("Failed to fetch fresh data, using cached values:", fetchError);
-                // Continue with cached values
+            // 1) fresh time required
+            const freshTime = await getFreshTime(3500);
+            if (!freshTime) {
+                if (hasFile) toast.error("Couldn’t reach the time server. Please try again.", { duration: 12000 });
+                setLoadingSent(false); // stop spinner; DO NOT dismiss any toast (none yet)
+                return;
             }
 
-            // If we still don't have any data (even cached), we need to handle this
-            if (!currentIpInfo || !currentTokyoTime) {
-                throw new Error("No IP info or time data available");
+            // 2) best-effort IP
+            const ipData = ipInfo || await getFreshIP(2500);
+            const formattedTime = formatTokyoLocal(freshTime?.datetime);
+
+            // ============ FILE PATH (file-only or file+text) — use toasts ============
+            if (hasFile) {
+                const tId = toast.loading("Uploading file…"); // we'll REPLACE this toast, not dismiss it
+                try {
+                    const res = await updateCustomerFiles({
+                        chatId,
+                        selectedFile: attachedFile,
+                        userEmail,
+                        messageValue: hasText ? newMessage.trim() : "File attached.",
+                        ...(ipData && { ipInfo: ipData }),
+                        formattedTime,
+                    });
+
+                    const data = res?.data;
+                    if (!data?.success) {
+                        const serverErr = {
+                            code: data?.code || data?.errorCode,
+                            message: data?.message || data?.errorMessage,
+                            details: data?.details,
+                        };
+                        // replace loading toast with ERROR and leave it visible (no dismiss)
+                        toast.error(friendlyError(serverErr, "Upload failed."), { id: tId, duration: 12000 });
+                        setLoadingSent(false); // stop spinner AFTER showing error
+                        return;
+                    }
+
+                    // replace loading toast with SUCCESS
+                    toast.success("File uploaded successfully.", { id: tId, duration: 3000 });
+
+                    // optional: also send text (no toasts for text-only per your rule)
+                    if (hasText) {
+                        try {
+                            await sendMessage({
+                                chatId,
+                                newMessage: newMessage.trim(),
+                                userEmail,
+                                formattedTime,
+                                ...(ipData?.ip && {
+                                    ip: ipData.ip,
+                                    ipCountry: ipData.country_name,
+                                    ipCountryCode: ipData.country_code,
+                                }),
+                            });
+                        } catch (err) {
+                            // show a new error toast (not the loading one) and keep it on screen
+                            toast.error(friendlyError(err, "Message failed after upload."), { duration: 12000 });
+                            setLoadingSent(false);
+                            return;
+                        }
+                    }
+
+                } catch (err) {
+                    // replace loading toast with ERROR; do NOT dismiss it
+                    toast.error(friendlyError(err, "Upload failed."), { id: tId, duration: 12000 });
+                    setLoadingSent(false);
+                    return;
+                }
+
+                // ============ TEXT-ONLY PATH — no toasts ============
+            } else if (hasText) {
+                try {
+                    await sendMessage({
+                        chatId,
+                        newMessage: newMessage.trim(),
+                        userEmail,
+                        formattedTime,
+                        ...(ipData?.ip && {
+                            ip: ipData.ip,
+                            ipCountry: ipData.country_name,
+                            ipCountryCode: ipData.country_code,
+                        }),
+                    });
+                } catch (err) {
+                    console.error("Text-only send failed:", err);
+                    setLoadingSent(false); // stop spinner immediately on error
+                    return;
+                }
             }
 
-            // Format the time
-            const formattedTime = formatTokyoLocal(currentTokyoTime?.datetime);
-            // Extract IP info details
-            const ip = currentIpInfo.ip;
-            const ipCountry = currentIpInfo.country_name;
-            const ipCountryCode = currentIpInfo.country_code;
-
-            // Rest of your existing logic...
-
-            if (attachedFile) {
-                const fileData = {
-                    chatId,
-                    selectedFile: attachedFile,
-                    userEmail,
-                    messageValue: newMessage.trim() ? newMessage : "File attached.",
-                    ipInfo: currentIpInfo,
-                    formattedTime: formattedTime
-                }
-
-                const result = await updateCustomerFiles(fileData);
-                console.log("Function returned successfully [file upload function]:", result);
-
-                if (!result) {
-                    throw new Error("Failed to send message via function API");
-                }
-            } else if (newMessage.trim()) {
-                const bodyData = {
-                    chatId,
-                    newMessage,
-                    userEmail,
-                    formattedTime,
-                    ip,
-                    ipCountry,
-                    ipCountryCode,
-                };
-
-                const result = await sendMessage(bodyData);
-                console.log("Function returned successfully:", result);
-
-                if (!result) {
-                    throw new Error("Failed to send message via function API");
-                }
-            }
-
+            // success cleanup
             setNewMessage("");
             setAttachedFile(null);
-            setLoadingSent(false);
-        } catch (error) {
-            console.error("Error sending message:", error);
-            setLoadingSent(false);
+            setLoadingSent(false); // stop spinner on success
+
+        } catch (outer) {
+            // unexpected outer error
+            if (hasFile) toast.error("Action failed. Please try again.", { duration: 12000 });
+            console.error(outer);
+            setLoadingSent(false); // make sure spinner stops
         }
     };
+    const resetFilePicker = (opts = { keepState: false }) => {
+        // always clear the native input so selecting the same file fires onChange
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        // optionally keep React state (useful when just opening the picker)
+        if (!opts.keepState) setAttachedFile(null);
+    };
 
-    // Scroll to bottom when messages change
+    // ===== Scroll behaviors (unchanged)
     useEffect(() => {
         if (!chatId || !isDetailView) {
             console.warn("chatId or isDetailView is not set. Messages cannot be fetched or scrolled.");
             return;
         }
-
-        // Scroll to bottom when messages change
         if (endOfMessagesRef.current) {
             endOfMessagesRef.current.scrollIntoView({ behavior: "smooth" });
         }
     }, [chatMessages, isDetailView]);
 
-    // const invoiceData = '';
-
-    // const baseFinalPrice = (basePrice) + (parseFloat(carData?.dimensionCubicMeters) * parseFloat(profitMap));
-    // const finalPrice = ((baseFinalPrice + (inspectionToggle ? inspectionPrice || 300 : 0)));
     const renderTextWithLinks = (text) => {
-        // Regular expression to match URLs
         const urlRegex = /(https?:\/\/[^\s]+)/g;
-
         if (!text) return null;
-
         const parts = text.split(urlRegex);
         const matches = text.match(urlRegex) || [];
-
         return (
             <>
                 {parts.map((part, index) => {
-                    // If this part is a URL, render it as a link
                     if (matches.includes(part)) {
                         return (
                             <Link
@@ -290,16 +284,15 @@ export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, ac
                             </Link>
                         );
                     }
-                    // Otherwise, render it as regular text
                     return <span key={index}>{part}</span>;
                 })}
             </>
         );
     };
+
     const [lastChatId, setLastChatId] = useState(chatId);
     const [shouldScroll, setShouldScroll] = useState(false);
 
-    // Detect chat change
     useEffect(() => {
         if (chatId !== lastChatId) {
             setShouldScroll(true);
@@ -307,18 +300,16 @@ export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, ac
         }
     }, [chatId, lastChatId]);
 
-    // Handle scrolling only when messages are ready AND we need to scroll
     useEffect(() => {
         if (shouldScroll && chatMessages.length > 0 && endOfMessagesRef.current) {
-            endOfMessagesRef.current.scrollIntoView({ behavior: 'smooth' });
+            endOfMessagesRef.current.scrollIntoView({ behavior: "smooth" });
             setShouldScroll(false);
         }
-
     }, [chatMessages, shouldScroll]);
 
+    // ===== Pricing (unchanged)
     const { stockStatus, reservedTo } = vehicleStatus[contact?.carData?.stockID] || {};
-    const isReservedOrSold = (stockStatus === "Reserved" || stockStatus === "Sold") && reservedTo !== userEmail
-
+    const isReservedOrSold = (stockStatus === "Reserved" || stockStatus === "Sold") && reservedTo !== userEmail;
 
     const selectedCurrencyCode = contact?.selectedCurrencyExchange;
     const currencies = [
@@ -330,25 +321,22 @@ export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, ac
         { code: "GBP", symbol: "GBP£", value: contact?.currency.usdToGbp },
         { code: "ZAR", symbol: "R", value: contact?.currency.usdToZar },
     ];
-    // 3) find the matching currency (fallback to USD if nothing matches)
-    const currencyInside =
-        currencies.find((c) => c.code === selectedCurrencyCode)
-        || currencies[0];
+    const currencyInside = currencies.find((c) => c.code === selectedCurrencyCode) || currencies[0];
 
-    // 4) do your price math with currency.value
     const basePrice =
-        parseFloat(contact?.carData?.fobPrice)
-        * parseFloat(contact?.currency.jpyToUsd);
+        parseFloat(contact?.carData?.fobPrice) *
+        parseFloat(contact?.currency.jpyToUsd);
 
-    const baseFinalPrice = invoiceData?.paymentDetails.totalAmount ? parseFloat(invoiceData?.paymentDetails.totalAmount) - (contact?.inspection ? 300 : 0) :
-        basePrice
-        + parseFloat(contact?.carData?.dimensionCubicMeters)
-        * parseFloat(contact?.freightPrice);
+    const baseFinalPrice = invoiceData?.paymentDetails.totalAmount
+        ? parseFloat(invoiceData?.paymentDetails.totalAmount) - (contact?.inspection ? 300 : 0)
+        : basePrice + parseFloat(contact?.carData?.dimensionCubicMeters) * parseFloat(contact?.freightPrice);
 
     const inspectionSurcharge = contact?.inspection === true ? 300 * currencyInside.value : 0;
-    const insuranceSurcharge = contact?.insurance === true ? 50 * currencyInside.value : 0
+    const insuranceSurcharge = contact?.insurance === true ? 50 * currencyInside.value : 0;
     const finalPrice = (baseFinalPrice * currencyInside.value + inspectionSurcharge + insuranceSurcharge);
 
+    // ===== Example UI gates
+    const disableSend = !bootReady || loadingSent || isLoading;
     return (
         isLoadingTransaction ? <TransactionCSRLoader /> : (
             <div className="flex flex-col h-full">
@@ -575,7 +563,7 @@ export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, ac
                                                 </p>
                                                 <div className={`mt-2 flex justify-${message.sender === userEmail ? "end" : "start"}`}>
 
-                                                  <PreviewInvoice userEmail={userEmail} chatId={chatId} accountData={accountData} selectedChatData={contact} invoiceData={invoiceData} />
+                                                    <PreviewInvoice userEmail={userEmail} chatId={chatId} accountData={accountData} selectedChatData={contact} invoiceData={invoiceData} />
                                                 </div>
                                             </>
 
@@ -699,13 +687,14 @@ export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, ac
                     </div>
                 </ScrollArea>
                 {/* <AssistiveTouch /> */}
-                <ChatInput accountData={accountData} loadingSent={loadingSent} setAttachedFile={setAttachedFile} fileInputRef={fileInputRef} attachedFile={attachedFile} handleFileUpload={handleFileUpload} userEmail={userEmail} chatId={chatId} newMessage={newMessage} setNewMessage={setNewMessage} handleSendMessage={handleSendMessage} isLoading={isLoading} />
+                <ChatInput resetFilePicker={resetFilePicker} accountData={accountData} loadingSent={loadingSent} setAttachedFile={setAttachedFile} fileInputRef={fileInputRef} attachedFile={attachedFile} handleFileUpload={handleFileUpload} userEmail={userEmail} chatId={chatId} newMessage={newMessage} setNewMessage={setNewMessage} handleSendMessage={handleSendMessage} isLoading={isLoading} />
             </div>
         )
 
 
     )
 }
+
 
 export function ChatInput({
     newMessage,
@@ -717,7 +706,8 @@ export function ChatInput({
     fileInputRef,
     setAttachedFile,
     loadingSent,
-    accountData
+    accountData,
+    resetFilePicker
 }) {
 
 
@@ -783,7 +773,18 @@ export function ChatInput({
                     }}
                 />
                 {/* File upload button */}
-                <Button type="button" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isLoading}>
+                <Button
+                    type="button"
+                    size="icon"
+                    onClick={() => {
+                        resetFilePicker({ keepState: true });   // clear input only
+                        fileInputRef.current?.click();          // open picker
+                    }}
+                    disabled={isLoading || loadingSent}
+                    aria-label="Attach file"
+                    title="Attach file"
+                >
+
                     <Paperclip className="h-4 w-4" />
                 </Button>
                 {/* Send button */}
