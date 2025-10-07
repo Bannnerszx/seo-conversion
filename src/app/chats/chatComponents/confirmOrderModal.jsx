@@ -1,7 +1,7 @@
 "use client"
 import { functions } from "../../../../firebase/clientApp"
 import { httpsCallable } from "firebase/functions"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, use } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { CheckCircle, AlertTriangle, X, Copy } from "lucide-react"
@@ -13,7 +13,7 @@ import { runTransaction, doc, increment } from "firebase/firestore"
 import { submitJackallClient, submitUserData } from "@/app/actions/actions";
 import { FloatingAlertPortal } from "./floatingAlert"
 
-export default function OrderButton({ ipInfo, tokyoTime, accountData, isOrderMounted, setIsOrderMounted, userEmail, chatId, selectedChatData, countryList, invoiceData }) {
+export default function OrderButton({ handlePreviewInvoiceModal, context, setIsHidden, ipInfo, tokyoTime, accountData, isOrderMounted, setIsOrderMounted, userEmail, chatId, selectedChatData, countryList, invoiceData }) {
     const [ordered, setOrdered] = useState(false)
     const [showAlert, setShowAlert] = useState(false);
     const [isLoading, setIsLoading] = useState(false)
@@ -256,84 +256,73 @@ export default function OrderButton({ ipInfo, tokyoTime, accountData, isOrderMou
     // const result = await setOrderItem(chatId, selectedChatData, userEmail)
     const navigatedToOrderedRef = useRef(false)
 
-    const handleOrder = async () => {
-        setIsLoading(true);
-        setOrdered(true);
-        setIsOrderMounted(true);
+    // performOrder contains the original order workflow but doesn't touch modal visibility.
+    const performOrder = async () => {
+        // ---- STEP 1 Format date ----
+        const momentDate = moment(tokyoTime?.datetime, "YYYY/MM/DD HH:mm:ss.SSS");
+        const formattedSalesDate = momentDate.format('YYYY/MM/DD');
+
+        //3) allocate/retrieve salesInfoId and reserve item
+        const { data } = await setOrderItemFunction({
+            chatId,
+            userEmail,
+            ipInfo,
+            tokyoTime,
+            invoiceNumber: selectedChatData?.invoiceNumber,
+            stockID: selectedChatData?.carData?.stockID
+        });
+        if (!data.success) {
+            throw new Error("The order could not be confirmed by the server.")
+        }
+
+        //----STEP 2: Proceed with other operations ONLY after successful reservation ----
+        const { resultingId, wasNew } = await processJackallSalesInfo(chatId);
+        await submitJackallClient({
+            userEmail,
+            newClientId: accountData?.client_id,
+            firstName: accountData?.textFirst,
+            lastName: accountData?.textLast,
+            zip: accountData?.textZip,
+            street: accountData?.textStreet,
+            city: accountData?.city,
+            phoneNumber: accountData?.textPhoneNumber,
+            countryName: accountData?.country,
+            note: ''
+        })
+        const salesData = prepareSalesData(resultingId, formattedSalesDate, selectedChatData, accountData);
+        if (wasNew) {
+            await uploadJackallSalesInfoData([salesData]);
+        } else {
+            console.log("SalesInfo upload skipped; salesInfoId was already present.")
+        }
+
+        // --- STEP 3: Final cleanup ---
+        await deleteFromTcvBoth();
+
+        return true
+    }
+
+    // Called from the modal confirm button. Keeps the modal open while processing,
+    // disables the confirm button, then navigates to /chats/ordered/:chatId on success.
+    const handleConfirm = async () => {
+        setIsLoading(true)
         try {
-            // ---- STEP 1 Format date ----
-            const momentDate = moment(tokyoTime?.datetime, "YYYY/MM/DD HH:mm:ss.SSS");
-            const formattedSalesDate = momentDate.format('YYYY/MM/DD');
-
-            //3) allocate/retrieve salesInfoId
-            const { data } = await setOrderItemFunction({
-                chatId,
-                userEmail,
-                ipInfo,
-                tokyoTime,
-                invoiceNumber: selectedChatData?.invoiceNumber,
-                stockID: selectedChatData?.carData?.stockID
-            });
-            if (!data.success) {
-
-                throw new Error("The order could not be confirmed by the server.")
-            };
-            console.log('Item reserved successfully in Firestore. Proceeding...');
-
-            //----STEP 2: Proceed with other operations ONLY after successful reservation ----
-            const { resultingId, wasNew } = await processJackallSalesInfo(chatId);
-            await submitJackallClient({
-                userEmail,
-                newClientId: accountData?.client_id,
-                firstName: accountData?.textFirst,
-                lastName: accountData?.textLast,
-                zip: accountData?.textZip,
-                street: accountData?.textStreet,
-                city: accountData?.city,
-                phoneNumber: accountData?.textPhoneNumber,
-                countryName: accountData?.country,
-                note: ''
-            })
-            const salesData = prepareSalesData(resultingId, formattedSalesDate, selectedChatData, accountData);
-            if (wasNew) {
-                await uploadJackallSalesInfoData([salesData]);
-
-            } else {
-                console.log("SalesInfo upload skipped; salesInfoId was already present.")
+            await performOrder()
+            setOrdered(true)
+            // close modal then navigate to the visible ordered path so middleware can rewrite if needed
+            setIsOrderMounted(false)
+            handlePreviewInvoiceModal(false)
+            if (typeof window !== 'undefined' && !navigatedToOrderedRef.current) {
+                const targetPath = `/chats/ordered/${chatId}`
+                navigatedToOrderedRef.current = true
+                window.location.assign(targetPath)
             }
-
-            // --- STEP 3: Final cleanup ---
-            await deleteFromTcvBoth();
-
-            // --- STEP 4: Update UI and navigate on FULL success ---
-            console.log("Full order process complete!");
-            setOrdered(true);
-            setIsOrderMounted(true);
-            // Perform a one-time navigation to /chats/ordered/:chatId to show ordered page
-            try {
-                if (typeof window !== 'undefined' && !navigatedToOrderedRef.current) {
-                    const targetPath = `/chats/ordered/${chatId}`
-                    const currentPath = window.location.pathname || ''
-                    if (!currentPath.startsWith(targetPath)) {
-                        navigatedToOrderedRef.current = true
-                        // use location.assign to force a full navigation and let middleware show ordered URL
-                        window.location.assign(targetPath)
-                    } else {
-                        navigatedToOrderedRef.current = true
-                    }
-                }
-            } catch (navErr) {
-                console.error('Navigation to ordered failed:', navErr)
-            }
-
         } catch (error) {
-            console.log("Order process failed:", error.message);
-            setShowAlert(true);
-            setIsLoading(false);
-            setOrdered(false);
-            setIsOrderMounted(false);
+            console.log("Order process failed:", error?.message || error)
+            setShowAlert(true)
         } finally {
             setIsLoading(false)
+            // leave modal state to parent - parent may close it or navigation may occur
         }
     }
 
@@ -377,21 +366,45 @@ export default function OrderButton({ ipInfo, tokyoTime, accountData, isOrderMou
     const inspectionSurcharge = selectedChatData?.inspection ? 300 * currency.value : 0;
     const insuranceSurcharge = selectedChatData?.insurance ? 50 * currency.value : 0
     const finalPrice = (baseFinalPrice * currency.value + inspectionSurcharge + insuranceSurcharge);
+
     return (
         <>
 
-            <Button id="rmj_order_confirm" size="sm" onClick={handleOrder} className="ml-2 font-medium bg-red-500 hover:bg-red-600 text-white">
-                Order Now
+            <Button
+                id="rmj_order_confirm"
+                size={context === 'invoice' ? 'default' : 'sm'}
+                onClick={() => {
+                    setOrdered(false)
+                    setIsOrderMounted(true)
+                    setIsHidden(true)
+                }}
+                className={
+                    context === 'invoice'
+                        ? "ml-2 font-medium bg-red-600 hover:bg-red-700 text-white transition-colors duration-200"
+                        : "ml-2 font-medium bg-red-500 hover:bg-red-600 text-white"
+                }
+            >
+                {context === 'invoice' ? (
+                    <span className="flex items-center gap-2">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Order Now
+                    </span>
+                ) : (
+                    'Order Now'
+                )}
             </Button>
             <FloatingAlertPortal
                 show={showAlert}
                 onClose={() => setShowAlert(false)}
                 duration={5000} // 5 seconds
             />
-            {ordered && (
-                <Modal context={'order'} showModal={isOrderMounted} setShowModal={() => setIsOrderMounted(true)}>
+            {isOrderMounted && (
+                // For the 'order' context the Modal defaults to non-closable; only confirm will close it
+                <Modal context={'order'} showModal={isOrderMounted} setShowModal={setIsOrderMounted}>
                     {isLoading === false ? (
-                        <Card className="w-full max-w-lg border-4 border-red-500 shadow-2xl max-h-[95vh] overflow-y-auto">
+                        <Card className="w-full max-w-lg border-4 border-red-500 shadow-2xl max-h-[95vh] overflow-y-auto bg-blac">
                             <CardContent className="p-0">
                                 {/* Header */}
                                 <div className="bg-gradient-to-r from-red-500 to-red-600 text-white p-3 sm:p-4 flex items-center justify-between animate-pulse">
@@ -404,14 +417,7 @@ export default function OrderButton({ ipInfo, tokyoTime, accountData, isOrderMou
                                             <p className="text-red-100 text-xs sm:text-sm">Please read carefully before proceeding</p>
                                         </div>
                                     </div>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => setOrdered(false)}
-                                        className="text-white hover:bg-white/20 p-1 sm:p-2"
-                                    >
-                                        <X className="h-4 w-4" />
-                                    </Button>
+
                                 </div>
 
                                 {/* Content */}
@@ -467,8 +473,9 @@ export default function OrderButton({ ipInfo, tokyoTime, accountData, isOrderMou
                                     </div>
 
                                     {/* Action Button */}
-                                    <Button onClick={() => setIsOrderMounted(false)} className="w-full bg-green-600 hover:bg-green-700">
-                                        <CheckCircle className="mr-2 h-4 w-4" />I Understand - Proceed
+                                    <Button onClick={handleConfirm} disabled={isLoading} className="w-full bg-green-600 hover:bg-green-700">
+                                        <CheckCircle className="mr-2 h-4 w-4" />
+                                        {isLoading ? 'Processing...' : 'I Understand - Proceed'}
                                     </Button>
                                 </div>
                             </CardContent>

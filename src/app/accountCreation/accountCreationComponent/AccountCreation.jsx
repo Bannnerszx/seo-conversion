@@ -42,7 +42,7 @@ export default function AccounCreationCSR({ countryList, accountData, oldId, cur
                 // parse the incoming datetime string
                 // assume data.datetime is something like "2025-04-25T14:39:56.000Z"
                 const momentDate = moment(data?.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');
-                const formattedTime = momentDate.format('YYYY/MM/DD [at] HH:mm:ss');
+                const formattedTime = momentDate.format('YYYY/MM/DD [at] HH:mm:ss.SSS');
 
                 setTokyoTime(formattedTime)
             })

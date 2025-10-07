@@ -192,7 +192,7 @@ ${newMessage.trim()}
             }
 
             const formattedTime = moment(currentTokyoTime.datetime, "YYYY/MM/DD HH:mm:ss.SSS")
-                .format("YYYY/MM/DD [at] HH:mm:ss");
+                .format("YYYY/MM/DD [at] HH:mm:ss.SSS");
 
             // your core update call
             await updatePaymentNotifications({

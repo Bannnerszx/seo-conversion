@@ -270,7 +270,7 @@ export async function setOrderItem(chatId, selectedChatData, userEmail) {
 
         // Format the time using moment
         const momentDate = moment(tokyoTime?.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');
-        const formattedTime = momentDate.format('YYYY/MM/DD [at] HH:mm:ss');
+        const formattedTime = momentDate.format('YYYY/MM/DD [at] HH:mm:ss.SSS');
 
         // console.log(formattedTime, ipInfo);
 
@@ -521,7 +521,7 @@ export async function docDelivery(form1Data, chatId, userEmail) {
 
     // Format the received Tokyo time using moment.js
     const momentDate = moment(tokyoTime?.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');
-    const formattedTime = momentDate.format('YYYY/MM/DD [at] HH:mm:ss');
+    const formattedTime = momentDate.format('YYYY/MM/DD [at] HH:mm:ss.SSS');
 
     // Combine the form data passed from the client with the server-side fetched data.
 

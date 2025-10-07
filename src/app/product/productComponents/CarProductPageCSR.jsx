@@ -151,7 +151,7 @@ async function handleCreateConversation(
         // 4) Fetch IP info + Tokyo time in parallel
 
         const m = moment(tokyoTimeData.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');
-        const formattedTime = m.format('YYYY/MM/DD [at] HH:mm:ss');
+        const formattedTime = m.format('YYYY/MM/DD [at] HH:mm:ss.SSS');
         const docId = m.format('YYYY-MM');
         const dayField = m.format('DD');
 

@@ -1,8 +1,10 @@
 "use client"
+
 import { useState, useEffect } from "react"
 import { XCircle, Clock, Receipt, ShoppingCart, Car, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+
 import OrderButton from "./confirmOrderModal"
 import PaymentSlip from "./paymentSlip"
 
@@ -21,7 +23,10 @@ export function AnnouncementBar({
   const [ipInfo, setIpInfo] = useState(null)
   const [tokyoTime, setTokyoTime] = useState(null)
   const [preloadError, setPreloadError] = useState(null)
-
+  const [isHidden, setIsHidden] = useState(false)
+  const handlePreviewInvoiceModal = () => {
+    console.log('hello')
+  }
   // --- preload helpers (with retry) ---
   const refetchPreloads = async () => {
     setPreloadError(null)
@@ -192,6 +197,8 @@ export function AnnouncementBar({
           isOrderMounted={isOrderMounted}
           setIsOrderMounted={setIsOrderMounted}
           invoiceData={invoiceData}
+          setIsHidden={setIsHidden}
+          handlePreviewInvoiceModal={handlePreviewInvoiceModal}
         />
       )
     }
