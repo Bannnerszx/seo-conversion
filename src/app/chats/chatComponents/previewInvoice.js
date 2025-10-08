@@ -7,6 +7,7 @@ import { httpsCallable } from 'firebase/functions';
 import { firestore, functions } from '../../../../firebase/clientApp';
 import { usePathname } from 'next/navigation';
 import { doc, getDoc, runTransaction } from 'firebase/firestore';
+import { toast } from 'sonner';
 // import { captureRef } from 'react-native-view-shot';
 // import QRCode from 'react-native-qrcode-svg';
 
@@ -867,49 +868,35 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
         window.location.assign(url);
         return false;
     }
-
+    const generateInvoicePdf = httpsCallable(functions, 'generateInvoicePdf');
     async function uploadInvoicePDFAndOpen() {
         if (uploadInFlightRef.current) return;
         uploadInFlightRef.current = true;
 
-        // ✅ Pre-open a blank tab while we still have the user gesture
+        // Pre-open to avoid popup blockers
         const preTab = window.open('about:blank', '_blank', 'noopener');
-
-        // Optional: show a friendly “Generating…” placeholder so the blank tab isn’t scary
-        if (preTab && !preTab.closed) {
-            preTab.document.write('<!doctype html><title>Generating…</title><p style="font:16px system-ui">Generating your invoice…</p>');
-            preTab.document.close();
-        }
 
         try {
             const isProforma = (selectedChatData?.stepIndicator?.value ?? 0) < 3;
 
-            const call = httpsCallable(functions, 'generateInvoicePdf');
-            const res = await call({
-                chatId,
-                userEmail,
-                isProforma,
-                invoiceData,
-                selectedChatData,
+            const res = await generateInvoicePdf({
+                chatId, userEmail, isProforma, invoiceData, selectedChatData
             });
 
             const url = res?.data?.downloadURL;
             if (!url) throw new Error('No URL returned');
 
-            // If you’re using **versioned filenames**, no cache-buster needed.
-            // If you’re still overwriting same path, uncomment next line:
-            // const url = baseUrl + (baseUrl.includes('?') ? '&' : '?') + 'r=' + Date.now();
-            handlePreviewInvoiceModal(false);
-            openUrlSafely(url, preTab);
+            if (preTab && !preTab.closed) preTab.location = url;
+            else window.location.assign(url);
         } catch (e) {
-            console.error('Invoice open failed:', e);
-            // If the pre-opened tab exists, show the error there too
+            const msg = (e && (e.message || e.code)) || 'Failed to generate invoice';
+            console.error('Callable error:', { code: e?.code, message: e?.message, details: e?.details });
             if (preTab && !preTab.closed) {
                 preTab.document.open();
-                preTab.document.write(`<p style="font:16px system-ui;color:#b00">Failed to generate invoice: ${e?.message || 'Unknown error'}</p>`);
+                preTab.document.write(`<p style="font:16px system-ui;color:#b00">${msg}</p>`);
                 preTab.document.close();
             }
-            toast?.error?.(e?.message || 'Failed to generate invoice');
+            toast?.error?.(msg);
         } finally {
             uploadInFlightRef.current = false;
             handlePreviewInvoiceModal(false);
