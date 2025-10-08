@@ -847,16 +847,42 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
     //     form.submit();
     //     form.remove();
     // }
+    function openUrlSafely(url, preTab) {
+        try {
+            if (preTab && !preTab.closed) {
+                preTab.location = url;              // preferred: reuse the user-initiated tab
+                return true;
+            }
+            // Fallback 1: anchor click (often works when window.open is blocked)
+            const a = document.createElement('a');
+            a.href = url;
+            a.target = '_blank';
+            a.rel = 'noopener';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            return true;
+        } catch (_) { }
+        // Fallback 2: same-tab navigation
+        window.location.assign(url);
+        return false;
+    }
 
     async function uploadInvoicePDFAndOpen() {
         if (uploadInFlightRef.current) return;
         uploadInFlightRef.current = true;
 
+        // ✅ Pre-open a blank tab while we still have the user gesture
+        const preTab = window.open('about:blank', '_blank', 'noopener');
+
+        // Optional: show a friendly “Generating…” placeholder so the blank tab isn’t scary
+        if (preTab && !preTab.closed) {
+            preTab.document.write('<!doctype html><title>Generating…</title><p style="font:16px system-ui">Generating your invoice…</p>');
+            preTab.document.close();
+        }
+
         try {
             const isProforma = (selectedChatData?.stepIndicator?.value ?? 0) < 3;
-
-            // PRE-OPEN a tab to avoid popup blockers on mobile
-            const preTab = window.open('about:blank', '_blank', 'noopener,noreferrer');
 
             const call = httpsCallable(functions, 'generateInvoicePdf');
             const res = await call({
@@ -867,24 +893,29 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
                 selectedChatData,
             });
 
-            const url = res?.data?.downloadURL; // unique, tokenless, public
+            const url = res?.data?.downloadURL;
             if (!url) throw new Error('No URL returned');
 
-            // No cache-buster needed—filename is unique per render
-            if (preTab) {
-                preTab.location = url;     // use the pre-opened tab
-            } else {
-                // Fallback if popup was blocked
-                window.location.assign(url);
-            }
+            // If you’re using **versioned filenames**, no cache-buster needed.
+            // If you’re still overwriting same path, uncomment next line:
+            // const url = baseUrl + (baseUrl.includes('?') ? '&' : '?') + 'r=' + Date.now();
+            handlePreviewInvoiceModal(false);
+            openUrlSafely(url, preTab);
         } catch (e) {
             console.error('Invoice open failed:', e);
+            // If the pre-opened tab exists, show the error there too
+            if (preTab && !preTab.closed) {
+                preTab.document.open();
+                preTab.document.write(`<p style="font:16px system-ui;color:#b00">Failed to generate invoice: ${e?.message || 'Unknown error'}</p>`);
+                preTab.document.close();
+            }
             toast?.error?.(e?.message || 'Failed to generate invoice');
         } finally {
             uploadInFlightRef.current = false;
             handlePreviewInvoiceModal(false);
         }
     }
+
 
 
 
