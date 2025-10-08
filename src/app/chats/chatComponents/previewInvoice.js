@@ -849,24 +849,25 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
     //     form.remove();
     // }
 
+
+
     const preMsg = `
-  <!doctype html>
-  <title>Generating…</title>
-  <style>body{font:16px system-ui;margin:16px}</style>
-  Generating your invoice… please wait.
+<!doctype html>
+<title>Generating…</title>
+<style>body{font:16px system-ui;margin:16px}</style>
+Generating your invoice… please wait.
 `;
 
-    function isMobileLike() {
-        const ua = navigator.userAgent || "";
-        const uaMobile = /iPhone|iPad|iPod|Android|Mobile/i.test(ua);
-        const iPadDesktopMode = /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
-        const vw = Math.min(window.innerWidth, window.innerHeight);
-        const smallViewport = vw <= 768;
-        const coarse = window.matchMedia?.("(pointer: coarse)")?.matches ?? false;
-        const hasTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
-        return uaMobile || iPadDesktopMode || (smallViewport && (coarse || hasTouch));
+    function openPreparingTab() {
+        const tab = window.open("about:blank", "_blank", "noopener"); // sync with user gesture
+        try {
+            if (tab && !tab.closed) {
+                tab.document.write(preMsg);
+                tab.document.close();
+            }
+        } catch { }
+        return tab;
     }
-
 
     async function uploadInvoicePDFAndOpen(preTab) {
         if (uploadInFlightRef.current) return;
@@ -880,33 +881,34 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
             const url = res?.data?.downloadURL;
             if (!url) throw new Error("No URL returned");
 
-            const viewerUrl = `/invoice-viewer?u=${encodeURIComponent(url)}&t=${Date.now()}`;
+            // your viewer route (recommended for iOS)
+            const viewerUrl = `${location.origin}/invoice-viewer?u=${encodeURIComponent(url)}&t=${Date.now()}`;
 
-            // Prefer the pre-opened tab if it exists; otherwise fallbacks:
+            // Prefer navigating the pre-opened tab (works on iOS/Android if the tab was created synchronously)
             if (preTab && !preTab.closed) {
                 try {
+                    // Most reliable: set location
                     preTab.location = viewerUrl;
+
+                    // If some in-app browsers ignore location changes, force via meta refresh:
+                    // preTab.document.open();
+                    // preTab.document.write(`<meta http-equiv="refresh" content="0;url='${viewerUrl}'">`);
+                    // preTab.document.close();
                     return;
                 } catch {
-                    // fall through to open below
+                    // fall through to anchor fallback
                 }
             }
 
-            if (isMobileLike()) {
-                // Mobile: same tab (reliable)
-                window.location.assign(viewerUrl);
-            } else {
-                // Desktop: try direct new tab via anchor (in case popup was blocked)
-                const a = document.createElement("a");
-                a.href = viewerUrl;
-                a.target = "_blank";
-                a.rel = "noopener";
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-            }
+            // Fallback if preTab missing/blocked
+            const a = document.createElement("a");
+            a.href = viewerUrl;
+            a.target = "_blank";
+            a.rel = "noopener";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
         } catch (e) {
-            // If we had a preTab, show the error there so it’s not blank
             try {
                 if (preTab && !preTab.closed) {
                     preTab.document.open();
@@ -924,30 +926,21 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
         }
     }
 
-    // 🔹 Button click: open the tab FIRST (synchronously), then run async
+
     const onPreviewClick = () => {
-        const mobile = isMobileLike();
+        const isSmall =
+            (window.matchMedia?.("(max-width: 768px)")?.matches) ||
+            (window.innerWidth <= 768);
 
-        // Always show your preview modal if you want
-        handlePreviewInvoiceModal(true);
-
-        let preTab = null;
-        if (mobile) {
-            // DESKTOP: open controllable tab now (synchronously)
-            preTab = window.open("about:blank", "_blank", "noopener");
-            try {
-                if (preTab && !preTab.closed) {
-                    preTab.document.write(preMsg);
-                    preTab.document.close();
-                }
-            } catch { preTab = null; }
+        if (isSmall) {
+            const preTab = openPreparingTab();
+            // handlePreviewInvoiceModal(true); // optional
+            uploadInvoicePDFAndOpen(preTab);
+        } else {
+            handlePreviewInvoiceModal(true); // optional
+            // desktop path here if needed
         }
-
-        // Kick off the work; it will navigate preTab (desktop) or same-tab (mobile)
-
     };
-
-
 
     return (
         <>
@@ -1042,20 +1035,18 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
                                             alignItems: 'center', // Center horizontally
                                         }}>
                                             {capturedImageUri ? (
-                                                (screenWidth < mobileViewBreakpoint ? uploadInvoicePDFAndOpen() :
-                                                    <Image
-                                                        key={imagePreviewKey}
-                                                        source={{ uri: capturedImageUri.toString() }}
-                                                        style={{
-                                                            marginTop: 5,
-                                                            width: screenWidth < mobileViewBreakpoint ? 377 : 595,
-                                                            height: screenWidth < mobileViewBreakpoint ? 541 : 842,
-                                                            resizeMode: 'stretch',
-                                                            borderWidth: 1,
-                                                            borderColor: '#DADDE1',
-                                                        }}
-                                                    />
-                                                )
+                                                <Image
+                                                    key={imagePreviewKey}
+                                                    source={{ uri: capturedImageUri.toString() }}
+                                                    style={{
+                                                        marginTop: 5,
+                                                        width: screenWidth < mobileViewBreakpoint ? 377 : 595,
+                                                        height: screenWidth < mobileViewBreakpoint ? 541 : 842,
+                                                        resizeMode: 'stretch',
+                                                        borderWidth: 1,
+                                                        borderColor: '#DADDE1',
+                                                    }}
+                                                />
                                             ) : (
                                                 <Loader />
                                             )}
