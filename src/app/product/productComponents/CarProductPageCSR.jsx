@@ -36,7 +36,7 @@ const Dropdown = ({ placeholder, options, value, onChange, className = '' }) => 
     }, []);
 
     if (!isHydrated) {
-        // Render a basic placeholder or nothing during SSR
+        // Render a basic placeholder or nothing during S
         return (
             <div className={`relative inline-block w-full ${className}`}>
                 <select
