@@ -6,7 +6,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { httpsCallable } from 'firebase/functions';
 import { firestore, functions } from '../../../../firebase/clientApp';
 import { usePathname } from 'next/navigation';
-import { doc, getDoc , runTransaction} from 'firebase/firestore';
+import { doc, getDoc, runTransaction } from 'firebase/firestore';
 // import { captureRef } from 'react-native-view-shot';
 // import QRCode from 'react-native-qrcode-svg';
 
@@ -26,7 +26,7 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
     const [isHidden, setIsHidden] = useState(false);
 
 
-   
+
 
 
     let formattedIssuingDate;
@@ -102,7 +102,7 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
             setCapturedImageUri('');
         }
     };
- //order button inside invoice
+    //order button inside invoice
     const [isOrderMounted, setIsOrderMounted] = useState(false)
 
     const stockID = selectedChatData?.carData?.stockID
@@ -631,7 +631,7 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
         const chatId = parts[3]; // 0:"",1:"chats",2:"ordered",3:"{chatId}"
         if (!chatId) return;
 
-     
+
         (async () => {
             try {
                 const ref = doc(firestore, 'chats', chatId);
@@ -848,36 +848,44 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
     //     form.remove();
     // }
 
-  async function uploadInvoicePDFAndOpen() {
-  if (uploadInFlightRef.current) return;
-  uploadInFlightRef.current = true;
+    async function uploadInvoicePDFAndOpen() {
+        if (uploadInFlightRef.current) return;
+        uploadInFlightRef.current = true;
 
-  try {
-    const isProforma = (selectedChatData?.stepIndicator?.value ?? 0) < 3;
+        try {
+            const isProforma = (selectedChatData?.stepIndicator?.value ?? 0) < 3;
 
-    const call = httpsCallable(functions, 'generateInvoicePdf');
-    const res = await call({
-      chatId,
-      userEmail,
-      isProforma,
-      invoiceData,
-      selectedChatData,
-    });
+            // PRE-OPEN a tab to avoid popup blockers on mobile
+            const preTab = window.open('about:blank', '_blank', 'noopener,noreferrer');
 
-    const url = res?.data?.downloadURL;
-    if (!url) throw new Error('No URL returned');
+            const call = httpsCallable(functions, 'generateInvoicePdf');
+            const res = await call({
+                chatId,
+                userEmail,
+                isProforma,
+                invoiceData,
+                selectedChatData,
+            });
 
-    // add a cache-buster just in case any intermediary caches ignore no-store
-    const finalUrl = url + (url.includes('?') ? '&' : '?') + 'r=' + Date.now();
-    window.open(finalUrl, '_blank', 'noopener,noreferrer');
-  } catch (e) {
-    console.error('Invoice open failed:', e);
-    toast?.error?.(e?.message || 'Failed to generate invoice');
-  } finally {
-    uploadInFlightRef.current = false;
-    handlePreviewInvoiceModal(false);
-  }
-}
+            const url = res?.data?.downloadURL; // unique, tokenless, public
+            if (!url) throw new Error('No URL returned');
+
+            // No cache-buster needed—filename is unique per render
+            if (preTab) {
+                preTab.location = url;     // use the pre-opened tab
+            } else {
+                // Fallback if popup was blocked
+                window.location.assign(url);
+            }
+        } catch (e) {
+            console.error('Invoice open failed:', e);
+            toast?.error?.(e?.message || 'Failed to generate invoice');
+        } finally {
+            uploadInFlightRef.current = false;
+            handlePreviewInvoiceModal(false);
+        }
+    }
+
 
 
     return (
@@ -954,7 +962,7 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
                                             </View>
                                         )
                                 )}
-                                
+
                                 {!isHidden && (
                                     <ScrollView
                                         keyboardShouldPersistTaps="always"
