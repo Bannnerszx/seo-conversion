@@ -851,29 +851,85 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
 
 
 
-  async function uploadInvoicePDFAndOpen() {
-  if (uploadInFlightRef.current) return;
-  uploadInFlightRef.current = true;
+    async function uploadInvoicePDFAndOpen() {
+        if (uploadInFlightRef.current) return;
+        uploadInFlightRef.current = true;
 
-  try {
-    const isProforma = (selectedChatData?.stepIndicator?.value ?? 0) < 3;
-    const res = await httpsCallable(functions, "generateInvoicePdf")({
-      chatId, userEmail, isProforma, invoiceData, selectedChatData,
-    });
+        // Try to open a new tab immediately (desktop-friendly).
+        // If a browser blocks it (common on mobile/in-app), we’ll fallback below.
+        let preTab = window.open('about:blank', '_blank', 'noopener');
+        try {
+            if (preTab && !preTab.closed) {
+                preTab.document.write(
+                    '<!doctype html><title>Generating…</title>' +
+                    '<p style="font:16px system-ui;margin:16px">Generating your invoice…</p>'
+                );
+                preTab.document.close();
+            }
+        } catch { }
 
-    const url = res?.data?.downloadURL;
-    if (!url) throw new Error("No URL returned");
+        try {
+            const isProforma = (selectedChatData?.stepIndicator?.value ?? 0) < 3;
+            const res = await httpsCallable(functions, "generateInvoicePdf")({
+                chatId, userEmail, isProforma, invoiceData, selectedChatData,
+            });
 
-    const viewerUrl = `/invoice-viewer?u=${encodeURIComponent(url)}&t=${Date.now()}`;
-    window.location.assign(viewerUrl); // same tab = mobile-safe
-  } catch (e) {
-    console.error(e);
-    toast?.error?.(e?.message || "Failed to generate invoice");
-  } finally {
-    uploadInFlightRef.current = false;
-    handlePreviewInvoiceModal(false);
-  }
-}
+            const url = res?.data?.downloadURL;
+            if (!url) throw new Error("No URL returned");
+
+            const viewerUrl = `/invoice-viewer?u=${encodeURIComponent(url)}&t=${Date.now()}`;
+
+            // Prefer using the pre-opened tab so the original page stays put.
+            if (preTab && !preTab.closed) {
+                try {
+                    preTab.location = viewerUrl;
+                } catch {
+                    // If we somehow can't navigate it, fall back below.
+                    preTab = null;
+                }
+            }
+
+            if (!preTab || preTab.closed) {
+                // Popup likely blocked — decide by device:
+                const isMobile =
+                    /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent) ||
+                    ((Math.min(window.innerWidth, window.innerHeight) <= 820) &&
+                        (window.matchMedia?.("(pointer: coarse)")?.matches || "ontouchstart" in window));
+
+                if (isMobile) {
+                    // Mobile: same-tab to avoid blockers
+                    window.location.assign(viewerUrl);
+                } else {
+                    // Desktop fallback: synthetic anchor to open a new tab
+                    const a = document.createElement('a');
+                    a.href = viewerUrl;
+                    a.target = '_blank';
+                    a.rel = 'noopener';
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                }
+            }
+        } catch (e) {
+            // If we had a preTab, show the error there so the new tab isn't blank.
+            try {
+                if (preTab && !preTab.closed) {
+                    preTab.document.open();
+                    preTab.document.write(
+                        `<p style="font:16px system-ui;color:#b00;margin:16px">Failed to generate invoice: ${e?.message || 'Unknown error'}</p>`
+                    );
+                    preTab.document.close();
+                }
+            } catch { }
+            console.error(e);
+            toast?.error?.(e?.message || "Failed to generate invoice");
+        } finally {
+            uploadInFlightRef.current = false;
+            preTab = null; // don't reuse on next click
+            handlePreviewInvoiceModal(false);
+        }
+    }
+
 
 
 
