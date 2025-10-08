@@ -849,6 +849,7 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
     //     form.remove();
     // }
 
+    // helpers ----------------------------------------------------
     const preMsg = `
   <!doctype html>
   <title>Generating…</title>
@@ -867,11 +868,11 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
         return uaMobile || iPadDesktopMode || (smallViewport && (coarse || hasTouch));
     }
 
+    // optional: if popup blocked on mobile, show a manual link instead of navigating current tab
+    const [pendingViewerUrl, setPendingViewerUrl] = React.useState(null);
 
+    // main worker ------------------------------------------------
     async function uploadInvoicePDFAndOpen(preTab) {
-        if (uploadInFlightRef.current) return;
-        uploadInFlightRef.current = true;
-
         try {
             const isProforma = (selectedChatData?.stepIndicator?.value ?? 0) < 3;
             const call = httpsCallable(functions, "generateInvoicePdf");
@@ -882,31 +883,21 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
 
             const viewerUrl = `/invoice-viewer?u=${encodeURIComponent(url)}&t=${Date.now()}`;
 
-            // Prefer the pre-opened tab if it exists; otherwise fallbacks:
+            // MOBILE: use the pre-opened tab only, NEVER the original tab
             if (preTab && !preTab.closed) {
                 try {
-                    preTab.location = viewerUrl;
+                    preTab.location = viewerUrl; // navigate the new tab
                     return;
                 } catch {
-                    // fall through to open below
+                    // if something prevents navigation, fall through to manual link
                 }
             }
 
-            if (isMobileLike()) {
-                // Mobile: same tab (reliable)
-                window.location.assign(viewerUrl);
-            } else {
-                // Desktop: try direct new tab via anchor (in case popup was blocked)
-                const a = document.createElement("a");
-                a.href = viewerUrl;
-                a.target = "_blank";
-                a.rel = "noopener";
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-            }
+            // If we get here on mobile, popup was blocked: show manual link (still don't touch original tab)
+            setPendingViewerUrl(viewerUrl);
+
         } catch (e) {
-            // If we had a preTab, show the error there so it’s not blank
+            // If mobile tab exists, show the error IN THAT TAB (original stays intact)
             try {
                 if (preTab && !preTab.closed) {
                     preTab.document.open();
@@ -919,34 +910,34 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
             console.error(e);
             toast?.error?.(e?.message || "Failed to generate invoice");
         } finally {
-            uploadInFlightRef.current = false;
-            handlePreviewInvoiceModal(false);
+            handlePreviewInvoiceModal(false); // close when work is done (or keep open if you prefer)
         }
     }
 
-    // 🔹 Button click: open the tab FIRST (synchronously), then run async
+    // button click ----------------------------------------------
     const onPreviewClick = () => {
-        const mobile = isMobileLike();
-
-        // Always show your preview modal if you want
-        handlePreviewInvoiceModal(true);
-
-        let preTab = null;
-        if (mobile) {
-            // DESKTOP: open controllable tab now (synchronously)
-            preTab = window.open("about:blank", "_blank", "noopener");
-            try {
-                if (preTab && !preTab.closed) {
-                    preTab.document.write(preMsg);
-                    preTab.document.close();
-                }
-            } catch { preTab = null; }
-            uploadInvoicePDFAndOpen();
+        if (!isMobileLike()) {
+            // ✅ PC/Desktop: ONLY open the modal. No new tab.
+            handlePreviewInvoiceModal(true);
+            return;
         }
 
-        // Kick off the work; it will navigate preTab (desktop) or same-tab (mobile)
+        // 📱 Mobile: open a new tab immediately (so original page is untouched)
+        let preTab = window.open("about:blank", "_blank", "noopener");
+        try {
+            if (preTab && !preTab.closed) {
+                preTab.document.write(preMsg);
+                preTab.document.close();
+            }
+        } catch { preTab = null; }
 
+        // Optionally show the modal on mobile too (purely UX, not required)
+        handlePreviewInvoiceModal(true);
+
+        // Kick off async; it will navigate the new tab (or show manual link)
+        uploadInvoicePDFAndOpen(preTab);
     };
+
 
 
 
