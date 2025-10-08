@@ -849,49 +849,32 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
     //     form.remove();
     // }
 
-    function isMobileLike() {
-        const ua = navigator.userAgent || "";
-        const uaMobile = /iPhone|iPad|iPod|Android|Mobile/i.test(ua);
-        const iPadDesktopMode = /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
-        const vw = Math.min(window.innerWidth, window.innerHeight);
-        const smallViewport = vw <= 820;
-        const coarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches ?? false;
-        const hasTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
-        return uaMobile || iPadDesktopMode || (smallViewport && (coarsePointer || hasTouch));
-    }
 
-    async function uploadInvoicePDFAndOpen() {
-        if (uploadInFlightRef.current) return;
-        uploadInFlightRef.current = true;
 
-        try {
-            const isProforma = (selectedChatData?.stepIndicator?.value ?? 0) < 3;
+  async function uploadInvoicePDFAndOpen() {
+  if (uploadInFlightRef.current) return;
+  uploadInFlightRef.current = true;
 
-            const res = await httpsCallable(functions, "generateInvoicePdf")({
-                chatId, userEmail, isProforma, invoiceData, selectedChatData,
-            });
+  try {
+    const isProforma = (selectedChatData?.stepIndicator?.value ?? 0) < 3;
+    const res = await httpsCallable(functions, "generateInvoicePdf")({
+      chatId, userEmail, isProforma, invoiceData, selectedChatData,
+    });
 
-            const url = res?.data?.downloadURL;
-            if (!url) throw new Error("No URL returned");
+    const url = res?.data?.downloadURL;
+    if (!url) throw new Error("No URL returned");
 
-            const viewerUrl = `/invoice-viewer?u=${encodeURIComponent(url)}&t=${Date.now()}`;
+    const viewerUrl = `/invoice-viewer?u=${encodeURIComponent(url)}&t=${Date.now()}`;
+    window.location.assign(viewerUrl); // same tab = mobile-safe
+  } catch (e) {
+    console.error(e);
+    toast?.error?.(e?.message || "Failed to generate invoice");
+  } finally {
+    uploadInFlightRef.current = false;
+    handlePreviewInvoiceModal(false);
+  }
+}
 
-            if (isMobileLike()) {
-                // ✅ Mobile/tablet: SAME TAB (won’t be blocked)
-                window.location.assign(viewerUrl);
-            } else {
-                // 🖥️ Desktop: try new tab; if blocked, fall back to same-tab
-                const tab = window.open(viewerUrl, "_blank", "noopener");
-                if (!tab) window.location.assign(viewerUrl);
-            }
-        } catch (e) {
-            console.error(e);
-            toast?.error?.(e?.message || "Failed to generate invoice");
-        } finally {
-            uploadInFlightRef.current = false;
-            handlePreviewInvoiceModal(false);
-        }
-    }
 
 
 
