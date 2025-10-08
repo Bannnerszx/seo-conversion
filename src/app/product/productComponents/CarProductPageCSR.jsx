@@ -274,6 +274,7 @@ const getFileExtension = (url) => {
 export default function CarProductPageCSR({ carData, countryArray, currency, useAuth, resultsIsFavorited, }) {
     const addChat = httpsCallable(functions, 'addChat')
 
+    const [agreed, setAgreed] = useState(false);
 
     const router = useRouter();
     const [insuranceToggle, setInsuranceToggle] = useState(false)
@@ -543,7 +544,8 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
             )
         ) ||
         carData?.stockStatus?.startsWith("Sold") ||
-        carData?.stockStatus?.startsWith("Reserved") || carData?.stockStatus === "Hidden";
+        carData?.stockStatus?.startsWith("Reserved") || carData?.stockStatus === "Hidden"
+        || !agreed;
     const src =
         Array.isArray(images) && images?.length > 0 && images[currentImageIndex]
             ? images[currentImageIndex]
@@ -958,9 +960,34 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
                                 <div className="space-y-4 p-4">
                                     <Textarea placeholder="Write your message here" className="min-h-[120px]" ref={textareaRef} />
                                     <div className="flex items-start space-x-2">
-                                        <Checkbox id="terms" />
+                                        <Checkbox
+                                            id="terms"
+                                            checked={agreed}
+                                            onCheckedChange={(val) => setAgreed(val)}
+                                        />
                                         <Label htmlFor="terms" className="text-sm pt-0.5">
-                                            I agree to Privacy Policy and Terms of Agreement
+                                            I agree to{" "}
+                                            <a
+                                                href="/privacy-policy"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="underline underline-offset-2 hover:no-underline focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                                onClick={(e) => e.stopPropagation()}
+                                                onMouseDown={(e) => e.preventDefault()}
+                                            >
+                                                Privacy Policy
+                                            </a>{" "}
+                                            and{" "}
+                                            <a
+                                                href="/terms-of-use"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="underline underline-offset-2 hover:no-underline focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                                onClick={(e) => e.stopPropagation()}
+                                                onMouseDown={(e) => e.preventDefault()}
+                                            >
+                                                Terms of Agreement
+                                            </a>
                                         </Label>
                                     </div>
                                     <Button
