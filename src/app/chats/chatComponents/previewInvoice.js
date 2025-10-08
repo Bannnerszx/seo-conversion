@@ -848,69 +848,23 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
     //     form.submit();
     //     form.remove();
     // }
-    const [pendingInvoiceUrl, setPendingInvoiceUrl] = useState(null);
 
-    function openUrlInNewTabOrPrompt(url, preTab) {
-        // 1) Prefer the pre-opened tab
-        if (preTab && !preTab.closed) {
-            try { preTab.location = url; return true; } catch (_) { }
-        }
-
-        // 2) Try synthetic anchor click (still often treated as user gesture)
-        try {
-            const a = document.createElement('a');
-            a.href = url;
-            a.target = '_blank';
-            a.rel = 'noopener';
-            // Make it part of the DOM briefly for stricter browsers
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            return true;
-        } catch (_) { }
-
-        // 3) Do NOT navigate the current page.
-        //    Instead, show a button/link the user can tap to open manually.
-        setPendingInvoiceUrl(url);
-        return false;
-    }
- 
     async function uploadInvoicePDFAndOpen() {
         if (uploadInFlightRef.current) return;
         uploadInFlightRef.current = true;
-
-        // Pre-open tab synchronously
-        let preTab = window.open('about:blank', '_blank', 'noopener,noreferrer');
-        try {
-            if (preTab && !preTab.closed) {
-                preTab.document.write('<!doctype html><title>Generating…</title><p style="font:16px system-ui">Generating your invoice…</p>');
-                preTab.document.close();
-            }
-        } catch { }
-
         try {
             const isProforma = (selectedChatData?.stepIndicator?.value ?? 0) < 3;
-            const call = httpsCallable(functions, 'generateInvoicePdf');
-            const res = await call({ chatId, userEmail, isProforma, invoiceData, selectedChatData });
-
+            const res = await httpsCallable(functions, "generateInvoicePdf")({
+                chatId, userEmail, isProforma, invoiceData, selectedChatData,
+            });
             const url = res?.data?.downloadURL;
-            if (!url) throw new Error('No URL returned');
-
-            openUrlInNewTabOrPrompt(url, preTab);
+            if (!url) throw new Error("No URL returned");
+            window.location.assign(`/invoice-viewer?u=${encodeURIComponent(url)}`);
         } catch (e) {
-            // Optional: show the error inside the preTab if it exists
-            try {
-                if (preTab && !preTab.closed) {
-                    preTab.document.open();
-                    preTab.document.write(`<p style="font:16px system-ui;color:#b00">Failed: ${e?.message || 'Unknown error'}</p>`);
-                    preTab.document.close();
-                }
-            } catch { }
             console.error(e);
-            toast?.error?.(e?.message || 'Failed to generate invoice');
+            toast?.error?.(e?.message || "Failed to generate invoice");
         } finally {
             uploadInFlightRef.current = false;
-            preTab = null;
             handlePreviewInvoiceModal(false);
         }
     }
