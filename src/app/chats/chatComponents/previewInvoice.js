@@ -848,57 +848,69 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
     //     form.submit();
     //     form.remove();
     // }
-    function openUrlSafely(url, preTab) {
+    const [pendingInvoiceUrl, setPendingInvoiceUrl] = useState(null);
+
+    function openUrlInNewTabOrPrompt(url, preTab) {
+        // 1) Prefer the pre-opened tab
+        if (preTab && !preTab.closed) {
+            try { preTab.location = url; return true; } catch (_) { }
+        }
+
+        // 2) Try synthetic anchor click (still often treated as user gesture)
         try {
-            if (preTab && !preTab.closed) {
-                preTab.location = url;              // preferred: reuse the user-initiated tab
-                return true;
-            }
-            // Fallback 1: anchor click (often works when window.open is blocked)
             const a = document.createElement('a');
             a.href = url;
             a.target = '_blank';
             a.rel = 'noopener';
+            // Make it part of the DOM briefly for stricter browsers
             document.body.appendChild(a);
             a.click();
             a.remove();
             return true;
         } catch (_) { }
-        // Fallback 2: same-tab navigation
-        window.location.assign(url);
+
+        // 3) Do NOT navigate the current page.
+        //    Instead, show a button/link the user can tap to open manually.
+        setPendingInvoiceUrl(url);
         return false;
     }
-    const generateInvoicePdf = httpsCallable(functions, 'generateInvoicePdf');
+ 
     async function uploadInvoicePDFAndOpen() {
         if (uploadInFlightRef.current) return;
         uploadInFlightRef.current = true;
 
-        // Pre-open to avoid popup blockers
-        const preTab = window.open('about:blank', '_blank', 'noopener');
+        // Pre-open tab synchronously
+        let preTab = window.open('about:blank', '_blank', 'noopener,noreferrer');
+        try {
+            if (preTab && !preTab.closed) {
+                preTab.document.write('<!doctype html><title>Generating…</title><p style="font:16px system-ui">Generating your invoice…</p>');
+                preTab.document.close();
+            }
+        } catch { }
 
         try {
             const isProforma = (selectedChatData?.stepIndicator?.value ?? 0) < 3;
-
-            const res = await generateInvoicePdf({
-                chatId, userEmail, isProforma, invoiceData, selectedChatData
-            });
+            const call = httpsCallable(functions, 'generateInvoicePdf');
+            const res = await call({ chatId, userEmail, isProforma, invoiceData, selectedChatData });
 
             const url = res?.data?.downloadURL;
             if (!url) throw new Error('No URL returned');
 
-            if (preTab && !preTab.closed) preTab.location = url;
-            else window.location.assign(url);
+            openUrlInNewTabOrPrompt(url, preTab);
         } catch (e) {
-            const msg = (e && (e.message || e.code)) || 'Failed to generate invoice';
-            console.error('Callable error:', { code: e?.code, message: e?.message, details: e?.details });
-            if (preTab && !preTab.closed) {
-                preTab.document.open();
-                preTab.document.write(`<p style="font:16px system-ui;color:#b00">${msg}</p>`);
-                preTab.document.close();
-            }
-            toast?.error?.(msg);
+            // Optional: show the error inside the preTab if it exists
+            try {
+                if (preTab && !preTab.closed) {
+                    preTab.document.open();
+                    preTab.document.write(`<p style="font:16px system-ui;color:#b00">Failed: ${e?.message || 'Unknown error'}</p>`);
+                    preTab.document.close();
+                }
+            } catch { }
+            console.error(e);
+            toast?.error?.(e?.message || 'Failed to generate invoice');
         } finally {
             uploadInFlightRef.current = false;
+            preTab = null;
             handlePreviewInvoiceModal(false);
         }
     }
