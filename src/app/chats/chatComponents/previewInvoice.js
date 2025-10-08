@@ -849,94 +849,104 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
     //     form.remove();
     // }
 
-    async function uploadInvoicePDFAndOpen() {
+    const preMsg = `
+  <!doctype html>
+  <title>Generating…</title>
+  <style>body{font:16px system-ui;margin:16px}</style>
+  Generating your invoice… please wait.
+`;
+
+    function isMobileLike() {
+        const ua = navigator.userAgent || "";
+        const uaMobile = /iPhone|iPad|iPod|Android|Mobile/i.test(ua);
+        const iPadDesktopMode = /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
+        const vw = Math.min(window.innerWidth, window.innerHeight);
+        const smallViewport = vw <= 768;
+        const coarse = window.matchMedia?.("(pointer: coarse)")?.matches ?? false;
+        const hasTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+        return uaMobile || iPadDesktopMode || (smallViewport && (coarse || hasTouch));
+    }
+
+
+    async function uploadInvoicePDFAndOpen(preTab) {
         if (uploadInFlightRef.current) return;
         uploadInFlightRef.current = true;
 
-        // Detect if mobile before any async operations
-        const isMobile =
-            /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent) ||
-            ((Math.min(window.innerWidth, window.innerHeight) <= 820) &&
-                (window.matchMedia?.("(pointer: coarse)")?.matches || "ontouchstart" in window));
-
-        // On mobile, don't try to pre-open a tab at all - it causes issues
-        let preTab = null;
-        if (!isMobile) {
-            preTab = window.open('about:blank', '_blank', 'noopener');
-            try {
-                if (preTab && !preTab.closed) {
-                    preTab.document.write(
-                        '<!doctype html><title>Generating…</title>' +
-                        '<p style="font:16px system-ui;margin:16px">Generating your invoice…</p>'
-                    );
-                    preTab.document.close();
-                }
-            } catch {
-                preTab = null;
-            }
-        }
-
         try {
             const isProforma = (selectedChatData?.stepIndicator?.value ?? 0) < 3;
-            const res = await httpsCallable(functions, "generateInvoicePdf")({
-                chatId, userEmail, isProforma, invoiceData, selectedChatData,
-            });
+            const call = httpsCallable(functions, "generateInvoicePdf");
+            const res = await call({ chatId, userEmail, isProforma, invoiceData, selectedChatData });
 
             const url = res?.data?.downloadURL;
             if (!url) throw new Error("No URL returned");
 
             const viewerUrl = `/invoice-viewer?u=${encodeURIComponent(url)}&t=${Date.now()}`;
 
-            if (isMobile) {
-                // Mobile: Always use same-tab navigation for reliability
-                window.location.assign(viewerUrl);
-            } else {
-                // Desktop: Use pre-opened tab or fallback
-                if (preTab && !preTab.closed) {
-                    try {
-                        preTab.location.href = viewerUrl;
-                    } catch {
-                        // If navigation fails, try anchor fallback
-                        preTab.close();
-                        preTab = null;
-                    }
-                }
-
-                if (!preTab || preTab.closed) {
-                    // Desktop fallback: synthetic anchor
-                    const a = document.createElement('a');
-                    a.href = viewerUrl;
-                    a.target = '_blank';
-                    a.rel = 'noopener noreferrer';
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                }
-            }
-        } catch (e) {
-            // Show error in pre-opened tab if exists (desktop only)
+            // Prefer the pre-opened tab if it exists; otherwise fallbacks:
             if (preTab && !preTab.closed) {
                 try {
-                    preTab.document.open();
-                    preTab.document.write(
-                        `<!doctype html><title>Error</title>` +
-                        `<p style="font:16px system-ui;color:#b00;margin:16px">Failed to generate invoice: ${e?.message || 'Unknown error'}</p>`
-                    );
-                    preTab.document.close();
-                } catch { }
+                    preTab.location = viewerUrl;
+                    return;
+                } catch {
+                    // fall through to open below
+                }
             }
 
+            if (isMobileLike()) {
+                // Mobile: same tab (reliable)
+                window.location.assign(viewerUrl);
+            } else {
+                // Desktop: try direct new tab via anchor (in case popup was blocked)
+                const a = document.createElement("a");
+                a.href = viewerUrl;
+                a.target = "_blank";
+                a.rel = "noopener";
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            }
+        } catch (e) {
+            // If we had a preTab, show the error there so it’s not blank
+            try {
+                if (preTab && !preTab.closed) {
+                    preTab.document.open();
+                    preTab.document.write(
+                        `<p style="font:16px system-ui;color:#b00;margin:16px">Failed to generate invoice: ${e?.message || "Unknown error"}</p>`
+                    );
+                    preTab.document.close();
+                }
+            } catch { }
             console.error(e);
             toast?.error?.(e?.message || "Failed to generate invoice");
         } finally {
             uploadInFlightRef.current = false;
-            preTab = null;
             handlePreviewInvoiceModal(false);
         }
     }
 
+    // 🔹 Button click: open the tab FIRST (synchronously), then run async
+    const onPreviewClick = () => {
+        const mobile = isMobileLike();
 
+        // Always show your preview modal if you want
+        handlePreviewInvoiceModal(true);
 
+        let preTab = null;
+        if (mobile) {
+            // DESKTOP: open controllable tab now (synchronously)
+            preTab = window.open("about:blank", "_blank", "noopener");
+            try {
+                if (preTab && !preTab.closed) {
+                    preTab.document.write(preMsg);
+                    preTab.document.close();
+                }
+            } catch { preTab = null; }
+            uploadInvoicePDFAndOpen();
+        }
+
+        // Kick off the work; it will navigate preTab (desktop) or same-tab (mobile)
+
+    };
 
 
 
@@ -946,8 +956,9 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
 
                 <>
                     <Button
-                        onClick={() => { handlePreviewInvoiceModal(true); }}
-                        variant="default" className="gap-2 bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100"
+                        onClick={onPreviewClick}
+                        variant="default"
+                        className="gap-2 bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100"
                     >
                         <FileText className="h-3 w-3 mr-1" />
                         {selectedChatData?.invoiceNumber && selectedChatData?.stepIndicator.value > 2 ? `Invoice No. ${selectedChatData?.invoiceNumber}` : 'Preview Invoice'}
