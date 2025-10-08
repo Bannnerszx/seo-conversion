@@ -849,24 +849,32 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
     //     form.remove();
     // }
 
-
-
     async function uploadInvoicePDFAndOpen() {
         if (uploadInFlightRef.current) return;
         uploadInFlightRef.current = true;
 
-        // Try to open a new tab immediately (desktop-friendly).
-        // If a browser blocks it (common on mobile/in-app), we’ll fallback below.
-        let preTab = window.open('about:blank', '_blank', 'noopener');
-        try {
-            if (preTab && !preTab.closed) {
-                preTab.document.write(
-                    '<!doctype html><title>Generating…</title>' +
-                    '<p style="font:16px system-ui;margin:16px">Generating your invoice…</p>'
-                );
-                preTab.document.close();
+        // Detect if mobile before any async operations
+        const isMobile =
+            /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent) ||
+            ((Math.min(window.innerWidth, window.innerHeight) <= 820) &&
+                (window.matchMedia?.("(pointer: coarse)")?.matches || "ontouchstart" in window));
+
+        // On mobile, don't try to pre-open a tab at all - it causes issues
+        let preTab = null;
+        if (!isMobile) {
+            preTab = window.open('about:blank', '_blank', 'noopener');
+            try {
+                if (preTab && !preTab.closed) {
+                    preTab.document.write(
+                        '<!doctype html><title>Generating…</title>' +
+                        '<p style="font:16px system-ui;margin:16px">Generating your invoice…</p>'
+                    );
+                    preTab.document.close();
+                }
+            } catch {
+                preTab = null;
             }
-        } catch { }
+        }
 
         try {
             const isProforma = (selectedChatData?.stepIndicator?.value ?? 0) < 3;
@@ -879,53 +887,50 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
 
             const viewerUrl = `/invoice-viewer?u=${encodeURIComponent(url)}&t=${Date.now()}`;
 
-            // Prefer using the pre-opened tab so the original page stays put.
-            if (preTab && !preTab.closed) {
-                try {
-                    preTab.location = viewerUrl;
-                } catch {
-                    // If we somehow can't navigate it, fall back below.
-                    preTab = null;
+            if (isMobile) {
+                // Mobile: Always use same-tab navigation for reliability
+                window.location.assign(viewerUrl);
+            } else {
+                // Desktop: Use pre-opened tab or fallback
+                if (preTab && !preTab.closed) {
+                    try {
+                        preTab.location.href = viewerUrl;
+                    } catch {
+                        // If navigation fails, try anchor fallback
+                        preTab.close();
+                        preTab = null;
+                    }
                 }
-            }
 
-            if (!preTab || preTab.closed) {
-                // Popup likely blocked — decide by device:
-                const isMobile =
-                    /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent) ||
-                    ((Math.min(window.innerWidth, window.innerHeight) <= 820) &&
-                        (window.matchMedia?.("(pointer: coarse)")?.matches || "ontouchstart" in window));
-
-                if (isMobile) {
-                    // Mobile: same-tab to avoid blockers
-                    window.location.assign(viewerUrl);
-                } else {
-                    // Desktop fallback: synthetic anchor to open a new tab
+                if (!preTab || preTab.closed) {
+                    // Desktop fallback: synthetic anchor
                     const a = document.createElement('a');
                     a.href = viewerUrl;
                     a.target = '_blank';
-                    a.rel = 'noopener';
+                    a.rel = 'noopener noreferrer';
                     document.body.appendChild(a);
                     a.click();
-                    a.remove();
+                    document.body.removeChild(a);
                 }
             }
         } catch (e) {
-            // If we had a preTab, show the error there so the new tab isn't blank.
-            try {
-                if (preTab && !preTab.closed) {
+            // Show error in pre-opened tab if exists (desktop only)
+            if (preTab && !preTab.closed) {
+                try {
                     preTab.document.open();
                     preTab.document.write(
+                        `<!doctype html><title>Error</title>` +
                         `<p style="font:16px system-ui;color:#b00;margin:16px">Failed to generate invoice: ${e?.message || 'Unknown error'}</p>`
                     );
                     preTab.document.close();
-                }
-            } catch { }
+                } catch { }
+            }
+
             console.error(e);
             toast?.error?.(e?.message || "Failed to generate invoice");
         } finally {
             uploadInFlightRef.current = false;
-            preTab = null; // don't reuse on next click
+            preTab = null;
             handlePreviewInvoiceModal(false);
         }
     }
