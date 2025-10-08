@@ -849,73 +849,50 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
     //     form.remove();
     // }
 
+    function isMobileLike() {
+        const ua = navigator.userAgent || "";
+        const uaMobile = /iPhone|iPad|iPod|Android|Mobile/i.test(ua);
+        const iPadDesktopMode = /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
+        const vw = Math.min(window.innerWidth, window.innerHeight);
+        const smallViewport = vw <= 820;
+        const coarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches ?? false;
+        const hasTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+        return uaMobile || iPadDesktopMode || (smallViewport && (coarsePointer || hasTouch));
+    }
+
     async function uploadInvoicePDFAndOpen() {
         if (uploadInFlightRef.current) return;
         uploadInFlightRef.current = true;
 
-        // 1) Pre-open a tab synchronously (prevents mobile/desktop popup blocking)
-        let preTab = window.open('about:blank', '_blank', 'noopener');
-        try {
-            if (preTab && !preTab.closed) {
-                preTab.document.write('<!doctype html><title>Generating…</title><p style="font:16px system-ui">Generating your invoice…</p>');
-                preTab.document.close();
-            }
-        } catch { /* ignore cross-origin quirks */ }
-
         try {
             const isProforma = (selectedChatData?.stepIndicator?.value ?? 0) < 3;
 
-            const res = await httpsCallable(functions, 'generateInvoicePdf')({
+            const res = await httpsCallable(functions, "generateInvoicePdf")({
                 chatId, userEmail, isProforma, invoiceData, selectedChatData,
             });
 
             const url = res?.data?.downloadURL;
-            if (!url) throw new Error('No URL returned');
+            if (!url) throw new Error("No URL returned");
 
-            // 2) Build the viewer URL (add tiny cache-buster so the page isn’t cached)
             const viewerUrl = `/invoice-viewer?u=${encodeURIComponent(url)}&t=${Date.now()}`;
 
-            // 3) Navigate the pre-opened tab to the viewer
-            if (preTab && !preTab.closed) {
-                try {
-                    preTab.location = viewerUrl;
-                } catch {
-                    // Fallback if navigation blocked: synthesize an anchor click
-                    const a = document.createElement('a');
-                    a.href = viewerUrl;
-                    a.target = '_blank';
-                    a.rel = 'noopener';
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
-                }
+            if (isMobileLike()) {
+                // ✅ Mobile/tablet: SAME TAB (won’t be blocked)
+                window.location.assign(viewerUrl);
             } else {
-                // Popup was blocked — graceful fallback that doesn't navigate away
-                const a = document.createElement('a');
-                a.href = viewerUrl;
-                a.target = '_blank';
-                a.rel = 'noopener';
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
+                // 🖥️ Desktop: try new tab; if blocked, fall back to same-tab
+                const tab = window.open(viewerUrl, "_blank", "noopener");
+                if (!tab) window.location.assign(viewerUrl);
             }
         } catch (e) {
-            // Show the error in the preTab if it exists
-            try {
-                if (preTab && !preTab.closed) {
-                    preTab.document.open();
-                    preTab.document.write(`<p style="font:16px system-ui;color:#b00">Failed: ${e?.message || 'Unknown error'}</p>`);
-                    preTab.document.close();
-                }
-            } catch { }
             console.error(e);
-            toast?.error?.(e?.message || 'Failed to generate invoice');
+            toast?.error?.(e?.message || "Failed to generate invoice");
         } finally {
             uploadInFlightRef.current = false;
-            preTab = null; // don't reuse on next click
             handlePreviewInvoiceModal(false);
         }
     }
+
 
 
 
