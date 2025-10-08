@@ -44,7 +44,7 @@ export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, ac
         if (file.size > MAX_FILE_SIZE) {
             const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
             setWarningMessage(
-                `File size (${sizeMB} MB) exceeds the ${MAX_FILE_SIZE / (1024 * 1024)} MB limit.`
+                `File size (${sizeMB} MB) exceeds the ${(MAX_FILE_SIZE / (1024 * 1024)).toFixed(1)} MB limit.\nTip: You can just take a screenshot and re-upload it instead.`
             );
             setWarningOpen(true);
             if (fileInputRef.current) fileInputRef.current.value = "";
