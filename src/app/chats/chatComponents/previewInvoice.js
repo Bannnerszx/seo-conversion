@@ -619,47 +619,7 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
             return `C$${Math.round(totalCad).toLocaleString('en-US', { useGrouping: true })}`;
         }
     }
-    //pathname for open invoice
-    const pathname = usePathname()
-    const openedOnce = useRef(false)
 
-    useEffect(() => {
-        if (openedOnce.current) return;
-        if (!pathname?.startsWith('/chats/ordered/')) return;
-
-        // extract {chatId} from /chats/ordered/{chatId}[...]
-        const parts = pathname.split('/');
-        const chatId = parts[3]; // 0:"",1:"chats",2:"ordered",3:"{chatId}"
-        if (!chatId) return;
-
-
-        (async () => {
-            try {
-                const ref = doc(firestore, 'chats', chatId);
-
-                const didOpen = await runTransaction(firestore, async (tx) => {
-                    const snap = await tx.get(ref);
-                    const already = snap.exists() && snap.data()?.firstOpened === true;
-                    if (already) return false; // don’t open modal
-
-                    tx.set(ref, { firstOpened: true }, { merge: true });
-                    return true; // we’re the first → open modal
-                });
-
-                if (didOpen) {
-                    handlePreviewInvoiceModal(true); // opens your modal once
-                }
-
-                openedOnce.current = true; // prevent re-running in this session
-            } catch (err) {
-                console.error('firstOpened check failed:', err);
-                // Fallback: still avoid looping forever
-                openedOnce.current = true;
-            }
-        })();
-    }, [pathname]);
-
-    //pathname for open invoice
 
     //     <Pressable
 
@@ -868,13 +828,13 @@ Generating your invoice… please wait.
         } catch { }
         return tab;
     }
-
+    const isProforma = (selectedChatData?.stepIndicator?.value ?? 0) < 3;
     async function uploadInvoicePDFAndOpen(preTab) {
         if (uploadInFlightRef.current) return;
         uploadInFlightRef.current = true;
 
         try {
-            const isProforma = (selectedChatData?.stepIndicator?.value ?? 0) < 3;
+
             const call = httpsCallable(functions, "generateInvoicePdf");
             const res = await call({ chatId, userEmail, isProforma, invoiceData, selectedChatData });
 
@@ -941,7 +901,58 @@ Generating your invoice… please wait.
             // desktop path here if needed
         }
     };
+    //pathname for open invoice
+    const pathname = usePathname()
+    const openedOnce = useRef(false)
 
+    useEffect(() => {
+        if (openedOnce.current) return;
+        if (!pathname?.startsWith("/chats/ordered/")) return;
+
+        // extract {chatId} from /chats/ordered/{chatId}[...]
+        const parts = pathname.split("/");
+        const chatIdFromPath = parts[3]; // 0:"",1:"chats",2:"ordered",3:"{chatId}"
+        // Wait until EVERY needed value exists before triggering preTab/upload
+        const ready =
+            !!chatIdFromPath &&
+            !!userEmail &&
+            typeof isProforma === "boolean" &&
+            !!invoiceData &&
+            !!selectedChatData;
+
+        if (!ready) return; // <-- don't run yet; values not ready
+
+        (async () => {
+            try {
+                const ref = doc(firestore, "chats", chatIdFromPath);
+
+                const didOpen = await runTransaction(firestore, async (tx) => {
+                    const snap = await tx.get(ref);
+                    const already = snap.exists() && snap.data()?.firstOpened === true;
+                    if (already) return false; // don’t open modal
+                    tx.set(ref, { firstOpened: true }, { merge: true });
+                    return true; // first opener → open modal
+                });
+
+                const isSmall =
+                    (window.matchMedia?.("(max-width: 768px)")?.matches) ||
+                    (window.innerWidth <= 768);
+
+                if (isSmall && didOpen) {
+                    onPreviewClick()
+                } else if (didOpen) {
+                    handlePreviewInvoiceModal(true); // not small && didOpen
+                }
+
+                openedOnce.current = true; // prevent re-running in this session
+            } catch (err) {
+                console.error("firstOpened check failed:", err);
+                openedOnce.current = true; // avoid loops on error
+            }
+        })();
+    }, [pathname, userEmail, isProforma, invoiceData, selectedChatData]);
+
+    //pathname for open invoice
     return (
         <>
             <> {invoiceData &&
