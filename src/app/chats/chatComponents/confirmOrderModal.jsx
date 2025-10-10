@@ -305,6 +305,11 @@ export default function OrderButton({ handlePreviewInvoiceModal, context, setIsH
     // Called from the modal confirm button. Keeps the modal open while processing,
     // disables the confirm button, then navigates to /chats/ordered/:chatId on success.
     const handleConfirm = async () => {
+        if (typeof window !== 'undefined' && !navigatedToOrderedRef.current) {
+            const targetPath = `/chats/ordered/${chatId}`
+            navigatedToOrderedRef.current = true
+            window.location.assign(targetPath)
+        }
         setIsLoading(true)
         try {
             await performOrder()
@@ -312,11 +317,7 @@ export default function OrderButton({ handlePreviewInvoiceModal, context, setIsH
             // close modal then navigate to the visible ordered path so middleware can rewrite if needed
             setIsOrderMounted(false)
             handlePreviewInvoiceModal(false)
-            if (typeof window !== 'undefined' && !navigatedToOrderedRef.current) {
-                const targetPath = `/chats/ordered/${chatId}`
-                navigatedToOrderedRef.current = true
-                window.location.assign(targetPath)
-            }
+
         } catch (error) {
             console.log("Order process failed:", error?.message || error)
             setShowAlert(true)

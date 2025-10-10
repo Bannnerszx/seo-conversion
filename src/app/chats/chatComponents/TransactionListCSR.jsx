@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { CreditCard, Heart, LogOut, MoreVertical, ShoppingBag, User, ChevronDown, MessageSquare } from "lucide-react"
+import UserIcon from "./userIcon"
 
 export function Ribbon({ stockStatus, className, children, userEmail, reservedTo }) {
   // Check if it's Reserved or Sold
@@ -188,15 +189,18 @@ export default function TransactionList({
 
         if (typeof raw === "string") {
           // Split date and time
-          let [datePart, timePart] = raw.split(" at ");
+          const parts = raw.split(" at ");
+          let datePart = parts[0] || "";
+          let timePart = parts[1] || "";
 
-          // If no “.” in the seconds, append “.000”
-          if (!timePart.includes(".")) {
+          // If timePart is present and has no fractional seconds, append ".000"
+          if (timePart && !timePart.includes(".")) {
             timePart += ".000";
           }
 
-          // Build an ISO-ish string and swap slashes for dashes
-          normalized = `${datePart} ${timePart}`.replace(/\//g, "-");
+          // Build an ISO-ish string and swap slashes for dashes. If timePart is
+          // missing, just use datePart (best-effort).
+          normalized = (timePart ? `${datePart} ${timePart}` : datePart).replace(/\//g, "-");
         } else {
           // Firestore timestamp
           const d = new Date(raw.seconds * 1000);
@@ -276,17 +280,23 @@ export default function TransactionList({
       ) : (
         <>
           <div className="p-4 border-b border-gray-200">
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center gap-4 w-full">
               <SideMenu isOpen={isOpen} setIsOpen={setIsOpen} />
+
               <DropdownMenu open={isOpenDropdown} onOpenChange={setIsOpenDropdown}>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center justify-between w-auto px-1 py-2 -mt-4">
+                  <Button
+                    variant="ghost"
+                    className="flex items-center gap-2 w-auto px-1 py-2 -mt-4"
+                  >
                     <h2 className="text-xl font-bold">Transactions</h2>
                     <ChevronDown
-                      className={`h-5 w-5 transition-transform duration-200 ${isOpenDropdown ? "rotate-180" : ""}`}
+                      className={`h-5 w-5 transition-transform duration-200 ${isOpenDropdown ? "rotate-180" : ""
+                        }`}
                     />
                   </Button>
                 </DropdownMenuTrigger>
+
                 <DropdownMenuContent align="start" className="w-48 z-[1000]">
                   <Link href="/profile">
                     <DropdownMenuItem>
@@ -319,8 +329,14 @@ export default function TransactionList({
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+
+              {/* Push this to the far right */}
+              <div className="ml-auto -mt-4 z-[100]">
+                <UserIcon email={userEmail} />
+              </div>
             </div>
-            <div className="relative">
+
+            <div className="relative z-2">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
               <Input
                 placeholder="Search makes, model ..."

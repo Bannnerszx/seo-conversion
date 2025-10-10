@@ -9,6 +9,7 @@ import { subscribeToChatDoc } from "./chatSubscriptions"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Paperclip, Send, X, Download, CheckCircle } from "lucide-react"
+import { toast } from 'sonner';
 import { Textarea } from "@/components/ui/textarea"
 import CarDetails from "./carDetails"
 import ActionButtonsChat from "./actionButtonsChat"
@@ -21,6 +22,72 @@ import ProductReview from "./ProductReview"
 import TransactionCSRLoader from "./TransactionCSRLoader"
 // import { AssistiveTouch } from "./AssistiveTouch"
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
+// Network helpers to improve reliability on slow (3G) networks
+const DEFAULT_NETWORK_TIMEOUT = 15000; // 15s per attempt
+const DEFAULT_NETWORK_RETRIES = 2; // number of retries after the first attempt
+
+function callWithTimeout(promise, ms) {
+    return Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), ms)),
+    ]);
+}
+
+async function retryableCall(fn, arg, options = {}) {
+    // allow automatic scaling for slow networks (3g/2g)
+    const connection = typeof navigator !== 'undefined' && navigator.connection ? navigator.connection : null;
+    const effective = connection && connection.effectiveType ? connection.effectiveType : null;
+
+    // defaults
+    let retries = options.retries ?? DEFAULT_NETWORK_RETRIES;
+    let timeout = options.timeout ?? DEFAULT_NETWORK_TIMEOUT;
+    const backoff = options.backoff ?? 1000;
+
+    if (effective) {
+        // increase timeouts and retries on slow connections
+        if (effective.includes('3g')) {
+            timeout = Math.max(timeout, 30000); // 30s
+            retries = Math.max(retries, 3);
+        } else if (effective.includes('2g') || effective.includes('slow-2g')) {
+            timeout = Math.max(timeout, 60000); // 60s
+            retries = Math.max(retries, 4);
+        }
+        // if downlink / rtt available we could further tune; keep simple for now
+    }
+    let attempt = 0;
+    while (true) {
+        try {
+            // fn is expected to be a callable (like an httpsCallable result) that returns a Promise
+            return await callWithTimeout(fn(arg), timeout);
+        } catch (err) {
+            attempt++;
+            if (attempt > retries) {
+                throw err;
+            }
+            // exponential backoff with tiny jitter
+            const delay = backoff * Math.pow(2, attempt - 1) + Math.round(Math.random() * 200);
+            await new Promise((res) => setTimeout(res, delay));
+        }
+    }
+}
+
+// Warm-up helper: safely repeat light-weight fetches to prime network connections
+async function warmUpNetwork() {
+    try {
+        const fetchJson = (url) => () => fetch(url).then(r => {
+            if (!r.ok) throw new Error('Network response was not ok');
+            return r.json();
+        });
+
+        // perform two quick fetches spaced out to avoid hammering but to warm DNS/TCP
+        await retryableCall(fetchJson("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo"), null).catch(() => {});
+        await new Promise((r) => setTimeout(r, 500));
+        await retryableCall(fetchJson("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time"), null).catch(() => {});
+    } catch (e) {
+        // don't escalate: warm-up is best-effort
+        // console.debug('Warm-up failed', e);
+    }
+}
 
 export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, accountData, isMobileView, isDetailView, handleBackToList, bookingData, countryList, currency, dueDate, handleLoadMore, invoiceData, userEmail, contact, messages, onSendMessage, isLoading, chatId, chatMessages }) {
 
@@ -35,6 +102,52 @@ export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, ac
     const [loadingSent, setLoadingSent] = useState(false)
     const [warningOpen, setWarningOpen] = useState(false)
     const [warningMessage, setWarningMessage] = useState("")
+    const [pendingSendPayload, setPendingSendPayload] = useState(null);
+    const autoRetryRef = useRef({ running: false, attempts: 0, maxAttempts: 4 });
+
+    // start an automatic retry loop for a pending payload
+    const startAutoRetry = (pending, options = {}) => {
+        const maxAttempts = options.maxAttempts ?? 4;
+        const baseDelay = options.baseDelay ?? 2000; // 2s
+        if (!pending) return;
+        setPendingSendPayload(pending);
+        if (autoRetryRef.current.running) return; // already running
+        autoRetryRef.current = { running: true, attempts: 0, maxAttempts };
+
+        toast("Network error — will retry automatically", { id: `retry-${Date.now()}` });
+
+        const attemptFn = async () => {
+            autoRetryRef.current.attempts += 1;
+            const attempt = autoRetryRef.current.attempts;
+            const delay = baseDelay * Math.pow(2, attempt - 1) + Math.round(Math.random() * 300);
+            toast(`Retry attempt ${attempt}/${maxAttempts}...`, { id: `retry-attempt-${Date.now()}` });
+            try {
+                if (pending.type === 'file') {
+                    await retryableCall(updateCustomerFiles, pending.payload, { retries: 1, timeout: 30000 });
+                } else {
+                    await retryableCall(sendMessage, pending.payload, { retries: 1, timeout: 20000 });
+                }
+                // success
+                toast.success('Message uploaded successfully');
+                setPendingSendPayload(null);
+                autoRetryRef.current.running = false;
+                return;
+            } catch (err) {
+                console.error('Auto-retry attempt failed:', err);
+                if (autoRetryRef.current.attempts >= maxAttempts) {
+                    // final user-facing guidance after all automatic retries fail
+                    toast.error('Automatic retries failed — please refresh the page to try again.');
+                    autoRetryRef.current.running = false;
+                    return;
+                }
+                // schedule next attempt
+                setTimeout(attemptFn, delay);
+            }
+        };
+
+        // first attempt scheduled immediately
+        setTimeout(attemptFn, 500);
+    };
 
     //Get the notification error
     const handleFileUpload = (e) => {
@@ -83,19 +196,27 @@ export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, ac
     // Initial load on mount
     useEffect(() => {
         let mounted = true;
-        Promise.all([
-            fetch("https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo").then(r => r.json()),
-            fetch("https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time").then(r => r.json()),
-        ])
-            .then(([ip, time]) => {
+        const fetchJson = (url) => () => fetch(url).then(r => {
+            if (!r.ok) throw new Error('Network response was not ok');
+            return r.json();
+        });
+
+        (async () => {
+            try {
+                const [ip, time] = await Promise.all([
+                    retryableCall(fetchJson("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo")),
+                    retryableCall(fetchJson("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time")),
+                ]);
                 if (!mounted) return;
                 setIpInfo(ip ?? null);
                 setTokyoTime(time ?? null);
-            })
-            .catch(err => {
+            } catch (err) {
                 if (!mounted) return;
                 console.error("Preload fetch failed", err);
-            });
+            }
+            // best-effort: warm up network afterwards so subsequent heavy requests are more likely to reuse connections
+            try { warmUpNetwork(); } catch (e) { }
+        })();
         return () => { mounted = false; };
     }, []);
 
@@ -171,17 +292,22 @@ export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, ac
 
             // Try to fetch fresh data with a timeout, but don't block if it fails
             try {
-                const fetchPromise = Promise.all([
-                    fetch("https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo").then(r => r.json()),
-                    fetch("https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time").then(r => r.json()),
+                // If the client reports a slow connection, try a warm up to prime TCP/DNS before heavy upload
+                const connection = typeof navigator !== 'undefined' && navigator.connection ? navigator.connection : null;
+                const effective = connection && connection.effectiveType ? connection.effectiveType : null;
+                if (effective && (effective.includes('3g') || effective.includes('2g'))) {
+                    // warm network quickly but don't block send for too long
+                    warmUpNetwork().catch(() => {});
+                }
+                const fetchJson = (url) => () => fetch(url).then(r => {
+                    if (!r.ok) throw new Error('Network response was not ok');
+                    return r.json();
+                });
+
+                const [freshIp, freshTime] = await Promise.all([
+                    retryableCall(fetchJson("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo")),
+                    retryableCall(fetchJson("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time")),
                 ]);
-
-                // Add a timeout to prevent hanging
-                const timeoutPromise = new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Timeout')), 5000)
-                );
-
-                const [freshIp, freshTime] = await Promise.race([fetchPromise, timeoutPromise]);
                 currentIpInfo = freshIp;
                 currentTokyoTime = freshTime;
 
@@ -217,11 +343,19 @@ export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, ac
                     formattedTime: formattedTime
                 }
 
-                const result = await updateCustomerFiles(fileData);
-                console.log("Function returned successfully [file upload function]:", result);
-
-                if (!result) {
-                    throw new Error("Failed to send message via function API");
+                // use retryableCall to reduce chance of transient network/firebase timeout errors
+                let result;
+                try {
+                    result = await retryableCall(updateCustomerFiles, fileData, { retries: 3, timeout: 20000, backoff: 1500 });
+                    console.log("Function returned successfully [file upload function]:", result);
+                    if (!result) {
+                        throw new Error("Failed to send message via function API");
+                    }
+                } catch (fnErr) {
+                    // store payload and start auto-retry
+                    const pending = { type: 'file', payload: fileData };
+                    startAutoRetry(pending, { maxAttempts: 5, baseDelay: 3000 });
+                    throw fnErr; // rethrow so outer catch handles loading state
                 }
             } else if (newMessage.trim()) {
                 const bodyData = {
@@ -234,22 +368,31 @@ export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, ac
                     ipCountryCode,
                 };
 
-                const result = await sendMessage(bodyData);
-                console.log("Function returned successfully:", result);
-
-                if (!result) {
-                    throw new Error("Failed to send message via function API");
+                try {
+                    const result = await retryableCall(sendMessage, bodyData, { retries: 2, timeout: 15000 });
+                    console.log("Function returned successfully:", result);
+                    if (!result) {
+                        throw new Error("Failed to send message via function API");
+                    }
+                } catch (fnErr) {
+                    const pending = { type: 'text', payload: bodyData };
+                    startAutoRetry(pending, { maxAttempts: 4, baseDelay: 2000 });
+                    throw fnErr;
                 }
             }
 
             setNewMessage("");
-            setAttachedFile(null);
+        setAttachedFile(null);
+        // clear the hidden file input so re-selecting the same file triggers onChange
+        if (fileInputRef && fileInputRef.current) fileInputRef.current.value = "";
             setLoadingSent(false);
         } catch (error) {
             console.error("Error sending message:", error);
             setLoadingSent(false);
         }
     };
+
+    // automatic retry is handled by startAutoRetry; no manual retry handler required
 
     // Scroll to bottom when messages change
     useEffect(() => {
@@ -459,6 +602,8 @@ export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, ac
                     description={warningMessage}
                     confirmText="OK"
                 />
+
+                {/* send failures will be retried automatically and surfaced via toasts */}
 
                 <div className="relative w-full">
 
@@ -757,8 +902,12 @@ export function ChatInput({
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => setAttachedFile(null)}
                         className="h-6 w-6 p-0"
+                        onClick={() => {
+                            setAttachedFile(null);
+                            // also clear the hidden file input so selecting the same file again fires onChange
+                            if (fileInputRef && fileInputRef.current) fileInputRef.current.value = "";
+                        }}
                     >
                         <X className="h-4 w-4" />
                     </Button>

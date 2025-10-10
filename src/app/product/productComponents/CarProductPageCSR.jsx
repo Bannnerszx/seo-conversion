@@ -5,7 +5,7 @@ import { functions } from "../../../../firebase/clientApp"
 import { httpsCallable } from 'firebase/functions'
 import { useState, useEffect, useCallback, useRef } from "react"
 import Image from "next/image"
-import { Download, Heart, ChevronLeft, ChevronRight, Loader2, UserPlus } from "lucide-react"
+import { Download, Heart, ChevronLeft, ChevronRight, Loader2, UserPlus, MapPin, Truck, DollarSign, DollarSignIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
@@ -36,7 +36,7 @@ const Dropdown = ({ placeholder, options, value, onChange, className = '' }) => 
     }, []);
 
     if (!isHydrated) {
-        // Render a basic placeholder or nothing during S
+        // Render a basic placeholder or nothing during SSR
         return (
             <div className={`relative inline-block w-full ${className}`}>
                 <select
@@ -151,7 +151,7 @@ async function handleCreateConversation(
         // 4) Fetch IP info + Tokyo time in parallel
 
         const m = moment(tokyoTimeData.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');
-        const formattedTime = m.format('YYYY/MM/DD [at] HH:mm:ss.SSS');
+        const formattedTime = m.format('YYYY/MM/DD [at] HH:mm:ss');
         const docId = m.format('YYYY-MM');
         const dayField = m.format('DD');
 
@@ -273,13 +273,11 @@ const getFileExtension = (url) => {
 
 export default function CarProductPageCSR({ carData, countryArray, currency, useAuth, resultsIsFavorited, }) {
     const addChat = httpsCallable(functions, 'addChat')
-
-    const [agreed, setAgreed] = useState(false);
-
+    const [doorToDoorEnabled, setDoorToDoorEnabled] = useState(false);
+    const [zones, setZones] = useState(null)
     const router = useRouter();
     const [insuranceToggle, setInsuranceToggle] = useState(false)
     const { user } = useAuth();
-
     const [shakeCountry, setShakeCountry] = useState(false);
     const [shakePort, setShakePort] = useState(false);
     const { setSelectedCurrency, selectedCurrency } = useCurrency();
@@ -544,8 +542,10 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
             )
         ) ||
         carData?.stockStatus?.startsWith("Sold") ||
-        carData?.stockStatus?.startsWith("Reserved") || carData?.stockStatus === "Hidden"
-        || !agreed;
+        carData?.stockStatus?.startsWith("Reserved") || carData?.stockStatus === "Hidden";
+
+
+
     const src =
         Array.isArray(images) && images?.length > 0 && images[currentImageIndex]
             ? images[currentImageIndex]
@@ -612,6 +612,35 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
         default:
             watermarkColorClass = "";
     }
+
+
+    useEffect(() => {
+        const fetchZones = async () => {
+
+            if (!selectedCountry) {
+                setZones({});
+                return;
+            }
+
+            // setIsDataLoading(true);
+            setDoorToDoorEnabled(false);
+
+            const callGetZones = httpsCallable(functions, 'getDeliveryZones');
+
+            try {
+                const result = await callGetZones({ countryName: selectedCountry });
+                const fetchedZones = result.data.zones;
+                setZones(fetchedZones || {});
+            } catch (err) {
+                console.error('Error calling getDeliveryZones function:', err);
+            }
+        };
+
+        fetchZones();
+    }, [dropdownValuesLocations]);
+
+
+
     return (
         <div className=" mx-auto px-4 py-8 z-[9999]">
             <FloatingAlertPortal
@@ -954,43 +983,62 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
                                             </div>
                                         </div>
                                     </div>
+
+                                    {selectedPort && (
+                                        <div className="mb-6 mx-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+                                            <div className="flex items-center space-x-3 mb-3">
+                                                <Truck className='h-5 w-5 text-green-600' />
+                                                <label className="text-sm font-medium text-green-800 cursor-pointer">
+                                                    Enable Door-to-Delivery
+                                                </label>
+                                                <Checkbox checked={doorToDoorEnabled} onCheckedChange={setDoorToDoorEnabled} />
+                                            </div>
+                                            {doorToDoorEnabled && (
+
+                                                <div className="space-y-2 oveflow-y-auto">
+                                                    <p className="text-xs font-medium text-green-700 flex items-center">
+                                                        <MapPin className="h-3 w-3" />
+                                                        Available delivery locations:
+                                                    </p>
+                                                    <div className="space-y-1 text-sm text-gray-700 max-h-36 overflow-y-auto">
+                                                        {Object.entries(zones).map(([name, price]) => (
+                                                            <div
+                                                                key={name}
+                                                                className={`flex items-center justify-between p-2 rounded text-xs cursor-pointer transition-colors ${'selected' === 'selected' ? "bg-green-100 border border-green-300 text-green-900" : "bg-white border border-gray-200 text-gray-700 hover:bg-green-50"}`}
+                                                            >
+                                                                <span className="font-medium">
+                                                                    {name}
+                                                                </span>
+                                                                <div className="flex items-center gap-1">
+                                                                    <DollarSignIcon className="h-3 w-3 text-green-600" />
+                                                                    <span className="font-bold text-green-600">{price}</span>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+
+                                                </div>
+
+                                            )}
+                                        </div>
+                                    )}
+
+
                                 </div>
+
+
 
                                 {/* Message & submit */}
                                 <div className="space-y-4 p-4">
                                     <Textarea placeholder="Write your message here" className="min-h-[120px]" ref={textareaRef} />
                                     <div className="flex items-start space-x-2">
-                                        <Checkbox
-                                            id="terms"
-                                            checked={agreed}
-                                            onCheckedChange={(val) => setAgreed(val)}
-                                        />
+                                        <Checkbox id="terms" />
                                         <Label htmlFor="terms" className="text-sm pt-0.5">
-                                            I agree to{" "}
-                                            <a
-                                                href="/privacy-policy"
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="underline underline-offset-2 hover:no-underline focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                                                onClick={(e) => e.stopPropagation()}
-                                                onMouseDown={(e) => e.preventDefault()}
-                                            >
-                                                Privacy Policy
-                                            </a>{" "}
-                                            and{" "}
-                                            <a
-                                                href="/terms-of-use"
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="underline underline-offset-2 hover:no-underline focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                                                onClick={(e) => e.stopPropagation()}
-                                                onMouseDown={(e) => e.preventDefault()}
-                                            >
-                                                Terms of Agreement
-                                            </a>
+                                            I agree to Privacy Policy and Terms of Agreement
                                         </Label>
                                     </div>
                                     <Button
+                                        id="rmj_inquiry_button"
                                         disabled={isButtonDisabled}
                                         onClick={() =>
                                             handleCreateConversation(

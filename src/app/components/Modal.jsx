@@ -16,27 +16,25 @@ const Modal = forwardRef(({ showModal, setShowModal, children, context, disableC
 
   return ReactDOM.createPortal(
     <>
-      {/* backdrop */}
+      {/* backdrop UNDER the modal */}
       <div
-        className="fixed inset-0 bg-black opacity-50 z-[9499]"
+        className="fixed inset-0 bg-black/50 z-[9520]"
         onClick={tryClose}
       />
 
-      {/* centering container */}
+      {/* modal container ABOVE the backdrop */}
       <div
-        className="fixed inset-0 flex items-center justify-center z-[9500]"
+        className="fixed inset-0 flex items-center justify-center z-[9530]"
         onClick={tryClose}
       >
         {(() => {
-          // pick one of four wrappers based on context
           switch (context) {
             case 'invoice':
-              // no className at all
               return (
                 <div
                   ref={ref}
-                  className="w-full bg-transparent max-w-[800px]  mx-auto"
-                  onClick={e => e.stopPropagation()}
+                  className="w-full bg-transparent max-w-[800px] mx-auto"
+                  onClick={(e) => e.stopPropagation()}
                 >
                   {children}
                 </div>
@@ -47,7 +45,18 @@ const Modal = forwardRef(({ showModal, setShowModal, children, context, disableC
                 <div
                   ref={ref}
                   className="w-full bg-white max-w-[500px] mx-auto"
-                  onClick={e => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {children}
+                </div>
+              );
+
+            case 'invoiceAmend':
+              return (
+                <div
+                  ref={ref}
+                  className="w-[min(700px,calc(100vw-2rem))] flex items-center justify-center"
+                  onClick={(e) => e.stopPropagation()}
                 >
                   {children}
                 </div>
@@ -58,9 +67,22 @@ const Modal = forwardRef(({ showModal, setShowModal, children, context, disableC
                 <div
                   ref={ref}
                   className="p-0 m-0 max-w-none w-screen h-screen"
-                  onClick={e => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
                 >
                   {children}
+                </div>
+              );
+
+            case 'payment':
+              return (
+                <div
+                  ref={ref}
+                  className="w-full max-w-[470px] h-full max-h-[550px] place-items-center p-4"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="w-full max-w-[470px]">
+                    {children}
+                  </div>
                 </div>
               );
 
@@ -69,7 +91,7 @@ const Modal = forwardRef(({ showModal, setShowModal, children, context, disableC
                 <div
                   ref={ref}
                   className="bg-white p-6 rounded shadow-lg max-w-[800px] w-full mx-auto transition-transform duration-300"
-                  onClick={e => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
                 >
                   {children}
                 </div>
@@ -80,6 +102,7 @@ const Modal = forwardRef(({ showModal, setShowModal, children, context, disableC
     </>,
     document.body
   );
+
 });
 
 Modal.displayName = 'Modal';

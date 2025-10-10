@@ -9,7 +9,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-
+import { useEffect, useState, useRef } from "react";
 const NAV_LINKS = [
   { href: "/stock", label: "Car Stock" },
   { href: "/howtobuy", label: "How to Buy" },
@@ -19,8 +19,17 @@ const NAV_LINKS = [
 ];
 
 export function SideMenu({ isOpen, setIsOpen }) {
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    const onResize = () => setIsDesktop(window.innerWidth >= 768);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  
   return (
-    <div className="fixed right-4 top-4 z-10">
+    <div className="fixed top-4 left-4 md:left-auto md:right-4 z-10">
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
         <SheetTrigger asChild>
           <button
@@ -30,7 +39,10 @@ export function SideMenu({ isOpen, setIsOpen }) {
             <Menu className="w-6 h-6 text-[#0000ff] group-hover:text-[#0036b1]" />
           </button>
         </SheetTrigger>
-        <SheetContent side="right" className="w-full max-w-[295px]">
+        <SheetContent
+          side={isDesktop ? "right" : "left"}
+          className="w-full max-w-[295px]"
+        >
           <SheetHeader>
             <SheetTitle className="sr-only">Menu</SheetTitle>
           </SheetHeader>
@@ -39,9 +51,8 @@ export function SideMenu({ isOpen, setIsOpen }) {
               <Link
                 key={link.href}
                 href={link.href}
-                className={`block py-3 text-base font-medium hover:bg-gray-100 px-4 rounded-md ${
-                  index === 0 ? "bg-gray-100" : ""
-                }`}
+                className={`block py-3 text-base font-medium hover:bg-gray-100 px-4 rounded-md ${index === 0 ? "bg-gray-100" : ""
+                  }`}
                 onClick={() => setIsOpen(false)}
               >
                 {link.label}
