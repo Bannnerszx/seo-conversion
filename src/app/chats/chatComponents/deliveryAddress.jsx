@@ -366,9 +366,20 @@ export default function DeliveryAddress({ accountData, countryList, setOrderModa
                     <div className="container mx-auto py-4 px-4 max-w-3xl pb-24">
                         <Card className="mb-6">
                             <CardHeader className="border-b pb-3 sticky top-0 bg-card z-10">
-                                <CardTitle className="text-center text-blue-600 text-lg sm:text-xl">
-                                    Document Delivery Information
-                                </CardTitle>
+                                <div className="relative flex items-center justify-center">
+                                    <CardTitle className="text-center text-blue-600 text-lg sm:text-xl">
+                                        Document Delivery Information
+                                    </CardTitle>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setAmendVisible(false)}
+                                        aria-label="Close"
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    >
+                                        <span className="block text-2xl leading-none">&times;</span>
+                                    </button>
+                                </div>
                             </CardHeader>
                             <CardContent className="pt-6">
                                 <h2 className="text-base sm:text-lg font-semibold mb-4">Customer Information</h2>

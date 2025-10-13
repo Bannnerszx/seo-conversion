@@ -372,9 +372,20 @@ export default function DocumentAddress({ accountData, countryList, setOrderModa
                     <div className="container mx-auto py-4 px-4 max-w-3xl pb-24">
                         <Card className="mb-6">
                             <CardHeader className="border-b pb-4 sticky top-0 bg-white z-10 rounded-t-lg">
-                                <CardTitle className="text-center text-blue-600 text-lg sm:text-xl">
-                                    Document Delivery Information
-                                </CardTitle>
+                                <div className="relative flex items-center justify-center">
+                                    <CardTitle className="text-center text-blue-600 text-lg sm:text-xl">
+                                        Document Delivery Information
+                                    </CardTitle>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setAmendVisible(false)}
+                                        aria-label="Close"
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    >
+                                        <span className="block text-2xl leading-none">&times;</span>
+                                    </button>
+                                </div>
                             </CardHeader>
                             <CardContent className="pt-6 space-y-6">
                                 <div>
@@ -620,7 +631,12 @@ export default function DocumentAddress({ accountData, countryList, setOrderModa
                         <div className="bg-white">
                             <div className="container mx-auto max-w-3xl px-4 py-4">
                                 <div className="grid grid-cols-2 gap-3">
-                                    <Button disabled={isSubmitting} variant="outline" className="h-11 font-medium bg-transparent">
+                                    <Button
+                                        disabled={isSubmitting}
+                                        variant="outline"
+                                        className="w-full h-11 bg-transparent"
+                                        onClick={() => setAmendVisible(false)}
+                                    >
                                         Cancel
                                     </Button>
                                     <Button
