@@ -228,9 +228,23 @@ h1 {
 }
 
 @supports (-webkit-touch-callout: none) {
+
   input,
   select,
   textarea {
     font-size: 16px !important;
   }
+}
+
+@media (pointer: coarse) and (hover: none) {
+
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+.ios-no-zoom :where(input, select, textarea) {
+  font-size: 16px !important;
 }
