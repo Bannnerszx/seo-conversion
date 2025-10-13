@@ -257,22 +257,26 @@ export default function OrderButton({ handlePreviewInvoiceModal, context, setIsH
     const navigatedToOrderedRef = useRef(false)
 
     // performOrder contains the original order workflow but doesn't touch modal visibility.
-    const performOrder = async () => {
+    // It can skip the reservation call when called with skipReservation=true so
+    // we can reserve quickly, navigate, and do the heavier work in background.
+    const performOrder = async (skipReservation = false) => {
         // ---- STEP 1 Format date ----
         const momentDate = moment(tokyoTime?.datetime, "YYYY/MM/DD HH:mm:ss.SSS");
         const formattedSalesDate = momentDate.format('YYYY/MM/DD');
 
-        //3) allocate/retrieve salesInfoId and reserve item
-        const { data } = await setOrderItemFunction({
-            chatId,
-            userEmail,
-            ipInfo,
-            tokyoTime,
-            invoiceNumber: selectedChatData?.invoiceNumber,
-            stockID: selectedChatData?.carData?.stockID
-        });
-        if (!data.success) {
-            throw new Error("The order could not be confirmed by the server.")
+        //3) Optionally reserve item (fast) — skipReservation true means caller already reserved
+        if (!skipReservation) {
+            const { data } = await setOrderItemFunction({
+                chatId,
+                userEmail,
+                ipInfo,
+                tokyoTime,
+                invoiceNumber: selectedChatData?.invoiceNumber,
+                stockID: selectedChatData?.carData?.stockID
+            });
+            if (!data.success) {
+                throw new Error("The order could not be confirmed by the server.")
+            }
         }
 
         //----STEP 2: Proceed with other operations ONLY after successful reservation ----
@@ -309,22 +313,45 @@ export default function OrderButton({ handlePreviewInvoiceModal, context, setIsH
         if (isLoading) return
         setIsLoading(true)
         try {
-            await performOrder()
+            // Reserve the order quickly so we can navigate immediately.
+            const { data } = await setOrderItemFunction({
+                chatId,
+                userEmail,
+                ipInfo,
+                tokyoTime,
+                invoiceNumber: selectedChatData?.invoiceNumber,
+                stockID: selectedChatData?.carData?.stockID
+            });
+            if (!data.success) {
+                throw new Error("The order could not be reserved by the server.")
+            }
+
+            // Mark UI state and close modal, then navigate fast
             setOrdered(true)
-            // close modal then navigate to the visible ordered path so middleware can rewrite if needed
             setIsOrderMounted(false)
             handlePreviewInvoiceModal(false)
 
-            // Navigate only after successful order and after closing modal
             if (typeof window !== 'undefined' && !navigatedToOrderedRef.current) {
                 const targetPath = `/chats/ordered/${chatId}`
                 navigatedToOrderedRef.current = true
-                // use location.assign to ensure a full navigation (same as previous behavior)
+                // navigate immediately so customer can view invoice
                 window.location.assign(targetPath)
             }
 
+            // Perform the remaining heavier post-order tasks in background.
+            // We call performOrder with skipReservation=true to avoid duplicating the reservation call.
+            performOrder(true).catch((err) => {
+                console.error('Background order continuation failed:', err)
+                // If we're still mounted, show an alert; otherwise errors are logged server-side
+                try {
+                    setShowAlert(true)
+                } catch (e) {
+                    // component may be unmounted after navigation; ignore
+                }
+            })
+
         } catch (error) {
-            console.log("Order process failed:", error?.message || error)
+            console.log("Order reservation failed:", error?.message || error)
             setShowAlert(true)
         } finally {
             setIsLoading(false)
