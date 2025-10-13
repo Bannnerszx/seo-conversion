@@ -305,11 +305,8 @@ export default function OrderButton({ handlePreviewInvoiceModal, context, setIsH
     // Called from the modal confirm button. Keeps the modal open while processing,
     // disables the confirm button, then navigates to /chats/ordered/:chatId on success.
     const handleConfirm = async () => {
-        if (typeof window !== 'undefined' && !navigatedToOrderedRef.current) {
-            const targetPath = `/chats/ordered/${chatId}`
-            navigatedToOrderedRef.current = true
-            window.location.assign(targetPath)
-        }
+        // Prevent double submission
+        if (isLoading) return
         setIsLoading(true)
         try {
             await performOrder()
@@ -317,6 +314,14 @@ export default function OrderButton({ handlePreviewInvoiceModal, context, setIsH
             // close modal then navigate to the visible ordered path so middleware can rewrite if needed
             setIsOrderMounted(false)
             handlePreviewInvoiceModal(false)
+
+            // Navigate only after successful order and after closing modal
+            if (typeof window !== 'undefined' && !navigatedToOrderedRef.current) {
+                const targetPath = `/chats/ordered/${chatId}`
+                navigatedToOrderedRef.current = true
+                // use location.assign to ensure a full navigation (same as previous behavior)
+                window.location.assign(targetPath)
+            }
 
         } catch (error) {
             console.log("Order process failed:", error?.message || error)
@@ -373,6 +378,7 @@ export default function OrderButton({ handlePreviewInvoiceModal, context, setIsH
 
             <Button
                 id="rmj_order_confirm"
+                type="button"
                 size={context === 'invoice' ? 'default' : 'sm'}
                 onClick={() => {
                     setOrdered(false)
@@ -442,7 +448,7 @@ export default function OrderButton({ handlePreviewInvoiceModal, context, setIsH
                                             <code className="flex-1 bg-white border rounded px-3 py-2 font-mono text-lg font-bold text-blue-600">
                                                 RMJ-{selectedChatData?.invoiceNumber}
                                             </code>
-                                            <Button onClick={copyInvoiceNumber} variant="outline" size="sm">
+                                            <Button type="button" onClick={copyInvoiceNumber} variant="outline" size="sm">
                                                 {copied ? <CheckCircle className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
                                             </Button>
                                         </div>
@@ -474,7 +480,7 @@ export default function OrderButton({ handlePreviewInvoiceModal, context, setIsH
                                     </div>
 
                                     {/* Action Button */}
-                                    <Button onClick={handleConfirm} disabled={isLoading} className="w-full bg-green-600 hover:bg-green-700">
+                                    <Button type="button" onClick={handleConfirm} disabled={isLoading} className="w-full bg-green-600 hover:bg-green-700">
                                         <CheckCircle className="mr-2 h-4 w-4" />
                                         {isLoading ? 'Processing...' : 'I Understand - Proceed'}
                                     </Button>

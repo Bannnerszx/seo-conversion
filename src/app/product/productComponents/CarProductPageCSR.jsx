@@ -151,7 +151,7 @@ async function handleCreateConversation(
         // 4) Fetch IP info + Tokyo time in parallel
 
         const m = moment(tokyoTimeData.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');
-        const formattedTime = m.format('YYYY/MM/DD [at] HH:mm:ss');
+        const formattedTime = m.format('YYYY/MM/DD [at] HH:mm:ss.SSS');
         const docId = m.format('YYYY-MM');
         const dayField = m.format('DD');
 
@@ -273,6 +273,7 @@ const getFileExtension = (url) => {
 
 export default function CarProductPageCSR({ carData, countryArray, currency, useAuth, resultsIsFavorited, }) {
     const addChat = httpsCallable(functions, 'addChat')
+    const [agreed, setAgreed] = useState(false)
     const [doorToDoorEnabled, setDoorToDoorEnabled] = useState(false);
     const [zones, setZones] = useState(null)
     const router = useRouter();
@@ -542,8 +543,8 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
             )
         ) ||
         carData?.stockStatus?.startsWith("Sold") ||
-        carData?.stockStatus?.startsWith("Reserved") || carData?.stockStatus === "Hidden";
-
+        carData?.stockStatus?.startsWith("Reserved") || carData?.stockStatus === "Hidden"
+        || !agreed;
 
 
     const src =
@@ -614,30 +615,30 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
     }
 
 
-    useEffect(() => {
-        const fetchZones = async () => {
+    // useEffect(() => {
+    //     const fetchZones = async () => {
 
-            if (!selectedCountry) {
-                setZones({});
-                return;
-            }
+    //         if (!selectedCountry) {
+    //             setZones({});
+    //             return;
+    //         }
 
-            // setIsDataLoading(true);
-            setDoorToDoorEnabled(false);
+    //         // setIsDataLoading(true);
+    //         setDoorToDoorEnabled(false);
 
-            const callGetZones = httpsCallable(functions, 'getDeliveryZones');
+    //         const callGetZones = httpsCallable(functions, 'getDeliveryZones');
 
-            try {
-                const result = await callGetZones({ countryName: selectedCountry });
-                const fetchedZones = result.data.zones;
-                setZones(fetchedZones || {});
-            } catch (err) {
-                console.error('Error calling getDeliveryZones function:', err);
-            }
-        };
+    //         try {
+    //             const result = await callGetZones({ countryName: selectedCountry });
+    //             const fetchedZones = result.data.zones;
+    //             setZones(fetchedZones || {});
+    //         } catch (err) {
+    //             console.error('Error calling getDeliveryZones function:', err);
+    //         }
+    //     };
 
-        fetchZones();
-    }, [dropdownValuesLocations]);
+    //     fetchZones();
+    // }, [dropdownValuesLocations]);
 
 
 
@@ -984,7 +985,7 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
                                         </div>
                                     </div>
 
-                                    {selectedPort && (
+                                    {/* {selectedPort && (
                                         <div className="mb-6 mx-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
                                             <div className="flex items-center space-x-3 mb-3">
                                                 <Truck className='h-5 w-5 text-green-600' />
@@ -1021,7 +1022,7 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
 
                                             )}
                                         </div>
-                                    )}
+                                    )} */}
 
 
                                 </div>
@@ -1032,9 +1033,36 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
                                 <div className="space-y-4 p-4">
                                     <Textarea placeholder="Write your message here" className="min-h-[120px]" ref={textareaRef} />
                                     <div className="flex items-start space-x-2">
-                                        <Checkbox id="terms" />
+                                        <Checkbox
+                                            id="terms"
+                                            checked={agreed}
+                                            onCheckedChange={(val) => setAgreed(val)}
+                                        />
+
                                         <Label htmlFor="terms" className="text-sm pt-0.5">
-                                            I agree to Privacy Policy and Terms of Agreement
+                                            I agree to{" "}
+                                            <a
+                                                href="/privacy-policy"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="underline underline-offset-2 hover:no-underline focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                                onClick={(e) => e.stopPropagation()}
+                                                onMouseDown={(e) => e.preventDefault()}
+                                            >
+                                                Privacy Policy
+                                            </a>{" "}
+                                            and{" "}
+                                            <a
+                                                href="/terms-of-use"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="underline underline-offset-2 hover:no-underline focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                                onClick={(e) => e.stopPropagation()}
+                                                onMouseDown={(e) => e.preventDefault()}
+                                            >
+                                                Terms of Agreement
+                                            </a>
+
                                         </Label>
                                     </div>
                                     <Button
