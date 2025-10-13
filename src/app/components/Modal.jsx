@@ -43,7 +43,7 @@ const Modal = forwardRef(({ showModal, setShowModal, children, context, disableC
               return (
                 <div
                   ref={ref}
-                  className="w-full bg-transparent max-w-[800px] mx-auto"
+                  className="w-full bg-white max-w-[800px] mx-auto"
                   onClick={(e) => e.stopPropagation()}
                 >
                   {children}
