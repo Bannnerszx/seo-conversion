@@ -4,7 +4,7 @@ import { functions } from "../../../../firebase/clientApp"
 import { useState, useRef, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { X, Calendar as CalendarIcon, Upload, RefreshCw, Paperclip } from "lucide-react"
+import { X, Calendar as CalendarIcon, Upload, RefreshCw, Paperclip, AlertCircle } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Calendar } from "@/components/ui/calendar"
@@ -55,6 +55,7 @@ export default function PaymentSlip({ context = 'payment', chatId, selectedChatD
     const [attachedFile, setAttachedFile] = useState(null);
     const [errors, setErrors] = useState({ name: false, date: false, file: false });
     const fileInputRef = useRef(null);
+    const [isDateOpen, setIsDateOpen] = useState(false);
     const [warningOpen, setWarningOpen] = useState(false)
     const [warningMessage, setWarningMessage] = useState("")
 
@@ -76,6 +77,12 @@ export default function PaymentSlip({ context = 'payment', chatId, selectedChatD
 
         setAttachedFile(file)
     }
+    // clear file error when user selects a file
+    useEffect(() => {
+        if (attachedFile && errors.file) {
+            setErrors((e) => ({ ...e, file: false }));
+        }
+    }, [attachedFile]);
     const handleDialogOpenChange = useCallback((open) => {
         if (!open) {
             // clear everything
@@ -87,9 +94,13 @@ export default function PaymentSlip({ context = 'payment', chatId, selectedChatD
             setWarningOpen(true)
         }
     }, [])
+    // set an error flag for a field and keep it until user corrects it
     const triggerError = (field) => {
         setErrors((e) => ({ ...e, [field]: true }));
-        setTimeout(() => setErrors((e) => ({ ...e, [field]: false })), 400);
+    };
+
+    const clearError = (field) => {
+        setErrors((e) => ({ ...e, [field]: false }));
     };
 
     function fetchWithTimeout(url, ms = 5000) {
@@ -184,20 +195,25 @@ export default function PaymentSlip({ context = 'payment', chatId, selectedChatD
 
         if (isSubmitting) return;
 
-        setErrors({ name: false, date: false, file: false });
+        // validate all fields and set errors together so UI updates predictably
+        const nextErrors = { name: false, date: false, file: false };
+        let hasError = false;
 
         if (!nameOfRemitter.trim()) {
-            triggerError("name");
-            return;
+            nextErrors.name = true;
+            hasError = true;
         }
         if (!date) {
-            triggerError("date");
-            return;
+            nextErrors.date = true;
+            hasError = true;
         }
         if (!attachedFile) {
-            triggerError("file");
-            return;
+            nextErrors.file = true;
+            hasError = true;
         }
+
+        setErrors(nextErrors);
+        if (hasError) return;
 
         setIsSubmitting(true);
         try {
@@ -258,9 +274,8 @@ ${newMessage.trim()}
             setPayment(false)
         } catch (err) {
             console.error(err);
-            triggerError("name");
-            triggerError("date");
-            triggerError("file");
+            // indicate there was a problem with submission; user should re-check fields
+            setErrors({ name: true, date: true, file: true });
         } finally {
             setIsSubmitting(false);
         }
@@ -325,7 +340,7 @@ ${newMessage.trim()}
                         </CardHeader>
 
                         <CardContent className="space-y-4">
-                            <Popover>
+                            <Popover open={isDateOpen} onOpenChange={setIsDateOpen}>
                                 <PopoverTrigger asChild>
                                     <Button
                                         variant="outline"
@@ -340,9 +355,12 @@ ${newMessage.trim()}
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0 z-[9999]" align="start">
-                                    <Calendar disabled={disableFutureDates} mode="single" selected={date} onSelect={setDate} initialFocus />
+                                    <Calendar disabled={disableFutureDates} mode="single" selected={date} onSelect={(d) => { setDate(d); if (errors.date) clearError('date'); setIsDateOpen(false); }} initialFocus />
                                 </PopoverContent>
                             </Popover>
+                            {errors.date && (
+                                <p className="text-sm text-red-600 mt-1">Please select wire date.</p>
+                            )}
 
                             <div>
                                 <Input
@@ -355,8 +373,11 @@ ${newMessage.trim()}
                                             : "border-gray-300"
                                     )}
                                     value={nameOfRemitter}
-                                    onChange={(e) => setNameOfRemitter(e.target.value)}
+                                    onChange={(e) => { setNameOfRemitter(e.target.value); if (errors.name) clearError('name'); }}
                                 />
+                                {errors.name && (
+                                    <p className="text-sm text-red-600 mt-1">Please enter remitter name.</p>
+                                )}
                             </div>
 
                             <div>
@@ -388,11 +409,32 @@ ${newMessage.trim()}
                                         </Button>
                                     </div>
                                 )}
-                                <Button className="bg-blue-600 hover:bg-blue-700 w-full" onClick={() => fileInputRef.current?.click()} disabled={isLoading}>
-                                    <Upload className="mr-2 h-4 w-4" />
-                                    Upload Payment Slip
+                                <Button
+                                    className={cn(
+                                        "w-full transition-all duration-200",
+                                        errors.file
+                                            ? "border-2 border-red-500 bg-red-500 hover:bg-red-600 text-white"
+                                            : "bg-blue-600 hover:bg-blue-700 text-white"
+                                    )}
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={isLoading}
+                                >
+                                    {errors.file ? (
+                                        <>
+                                            <AlertCircle className="mr-2 h-4 w-4" />
+                                            Upload Failed - Try Again
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Upload className="mr-2 h-4 w-4" />
+                                            Upload Payment Slip
+                                        </>
+                                    )}
                                 </Button>
                                 <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" aria-label="Upload file" />
+                                {errors.file && (
+                                    <p className="text-sm text-red-600 mt-1">Please upload a payment slip file.</p>
+                                )}
                                 <Button
                                     onClick={(e) => handleSendMessage(e)}
                                     disabled={isSubmitting}
