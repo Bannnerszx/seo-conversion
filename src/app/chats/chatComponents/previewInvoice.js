@@ -811,21 +811,72 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
 
 
 
-    const preMsg = `
+        const preMsg = `
 <!doctype html>
-<title>Generating…</title>
-<style>body{font:16px system-ui;margin:16px}</style>
-Generating your invoice… please wait.
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <title>Generating…</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <style>
+        :root{--bg:#f8fafc;--accent:#0a8dd5;--muted:#64748b}
+        html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial}
+        body{display:flex;align-items:center;justify-content:center;background:var(--bg);color:#0f172a;padding:24px}
+        .card{background:white;border-radius:12px;box-shadow:0 6px 20px rgba(2,6,23,0.08);padding:24px;max-width:420px;width:100%;text-align:center}
+        .title{font-weight:600;margin-bottom:8px}
+        .sub{color:var(--muted);font-size:14px;margin-bottom:18px}
+        .spinner{height:48px;width:48px;border-radius:50%;border:4px solid rgba(10,141,213,0.15);border-top-color:var(--accent);animation:spin 1s linear infinite;margin:12px auto}
+        .dots{height:18px;display:flex;gap:6px;align-items:center;justify-content:center;margin-top:8px}
+        .dot{width:8px;height:8px;background:var(--muted);border-radius:50%;opacity:0.3;animation:dots 1s infinite ease-in-out}
+        .dot:nth-child(2){animation-delay:0.15s}
+        .dot:nth-child(3){animation-delay:0.3s}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        @keyframes dots{50%{opacity:1;transform:translateY(-6px)}}
+        .note{margin-top:12px;font-size:12px;color:#475569}
+    </style>
+</head>
+<body>
+    <div class="card" role="status" aria-live="polite">
+        <div class="title">Preparing your invoice…</div>
+        <div class="sub">This may take a few seconds. We'll open the invoice in a new tab when ready.</div>
+        <div class="spinner" aria-hidden="true"></div>
+        <div class="dots" aria-hidden="true">
+            <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+        </div>
+        <div class="note">If the tab remains empty, please allow pop-ups or try again.</div>
+    </div>
+    <script>
+        // Keep the tab visibly active and show a small timestamp to reassure users
+        const t = document.createElement('div');
+        t.style.position='fixed';t.style.bottom='10px';t.style.left='12px';t.style.fontSize='12px';t.style.color='#94a3b8';
+        setInterval(()=>{t.textContent = 'Updated: ' + new Date().toLocaleTimeString();},1000);
+        document.body.appendChild(t);
+    </script>
+</body>
+</html>
 `;
 
     function openPreparingTab() {
-        const tab = window.open("about:blank", "_blank", "noopener"); // sync with user gesture
+        // Some browsers block writing into a window opened with rel=noopener or the noopener feature.
+        // Open a plain about:blank tab (synchronously from a user gesture) and attempt to write into it.
+        // If the open is blocked or cross-origin, we safely return null and fall back to anchor navigation later.
+        let tab = null;
         try {
+            tab = window.open('about:blank', '_blank'); // keep it writable
             if (tab && !tab.closed) {
-                tab.document.write(preMsg);
-                tab.document.close();
+                try {
+                    tab.document.open();
+                    tab.document.write(preMsg);
+                    tab.document.close();
+                } catch (e) {
+                    // writing may fail in some embedded browsers; ignore and return tab so caller can fallback
+                    console.warn('Could not write to pre-opened tab:', e);
+                }
             }
-        } catch { }
+        } catch (err) {
+            console.warn('openPreparingTab failed:', err);
+            tab = null;
+        }
         return tab;
     }
     const isProforma = (selectedChatData?.stepIndicator?.value ?? 0) < 3;
