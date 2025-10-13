@@ -39,7 +39,16 @@ const Modal = forwardRef(({ showModal, setShowModal, children, context, disableC
                   {children}
                 </div>
               );
-
+            case 'documentAddress':
+              return (
+                <div
+                  ref={ref}
+                  className="w-full bg-transparent max-w-[800px] mx-auto"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {children}
+                </div>
+              );
             case 'order':
               return (
                 <div

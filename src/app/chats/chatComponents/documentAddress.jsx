@@ -220,7 +220,7 @@ export default function DocumentAddress({ accountData, countryList, setOrderModa
             validationErrors.push('You must agree to the terms and privacy policy');
             setFieldErrors(prev => ({ ...prev, agreeToTerms: 'You must agree to the terms and privacy policy' }));
         }
-        
+
         if (validationErrors.length > 0) {
             // Scroll to first error field for better UX
             const firstErrorField = Object.keys(fieldErrors)[0];
@@ -367,7 +367,7 @@ export default function DocumentAddress({ accountData, countryList, setOrderModa
                 <MapPin className="h-4 w-4" />
                 <span>Add Delivery Address</span>
             </Button>
-            <Modal showModal={amendVisible} setShowModal={setAmendVisible}>
+            <Modal context={'documentAddress'} showModal={amendVisible} setShowModal={setAmendVisible}>
                 <div className="max-h-[85vh] overflow-y-auto">
                     <div className="container mx-auto py-4 px-4 max-w-3xl pb-24">
                         <Card className="mb-6">

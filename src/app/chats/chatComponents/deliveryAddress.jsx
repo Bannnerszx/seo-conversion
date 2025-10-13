@@ -311,7 +311,47 @@ export default function DeliveryAddress({ accountData, countryList, setOrderModa
         handleCitySelect(city);
         clearFieldError('city');
     };
+    //number only for telephones
+    const allowOnlyDigitKeys = (e) => {
+        const allowed = [
+            "Backspace", "Delete", "ArrowLeft", "ArrowRight",
+            "Tab", "Home", "End"
+        ];
+        if (allowed.includes(e.key)) return;
+        if (!/^\d$/.test(e.key)) e.preventDefault(); // block non-digits
+    };
 
+    const sanitizePasteToDigits = (e) => {
+        const text = (e.clipboardData || window.clipboardData).getData("text");
+        const digits = text.replace(/\D+/g, "");
+        e.preventDefault();
+        const target = e.target;
+        const start = target.selectionStart ?? target.value.length;
+        const end = target.selectionEnd ?? target.value.length;
+        const next = target.value.slice(0, start) + digits + target.value.slice(end);
+        // Update the value and move caret
+        target.value = next;
+        // Trigger React onChange so your form state updates
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+            HTMLInputElement.prototype, 'value'
+        ).set;
+        nativeInputValueSetter.call(target, next);
+        target.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+
+    const handleNumericChange =
+        (origOnChange) =>
+            (e) => {
+                // extra safety if something slips through (e.g., autofill)
+                const digitsOnly = e.target.value.replace(/\D+/g, "");
+                if (digitsOnly !== e.target.value) {
+                    e.target.value = digitsOnly;
+                    // Fire input event so React sees the change
+                    e.target.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+                origOnChange?.(e);
+            };
+    //number only
     return (
         <>
             <Button
@@ -321,7 +361,7 @@ export default function DeliveryAddress({ accountData, countryList, setOrderModa
             >
                 <span>Delivery Address</span>
             </Button>
-            <Modal showModal={amendVisible} setShowModal={setAmendVisible}>
+            <Modal context={'documentAddress'} showModal={amendVisible} setShowModal={setAmendVisible}>
                 <div className="max-h-[85vh] overflow-y-auto">
                     <div className="container mx-auto py-4 px-4 max-w-3xl pb-24">
                         <Card className="mb-6">
@@ -470,18 +510,28 @@ export default function DeliveryAddress({ accountData, countryList, setOrderModa
                                             placeholder="Telephone Number 1"
                                             ref={(el) => (form1Ref.current.telephoneNumber = el)}
                                             defaultValue=""
-                                            onChange={handleInputChange("telephoneNumber")}
-                                            className={cn(
-                                                "h-11",
-                                                fieldErrors.telephoneNumber && "border-destructive focus-visible:ring-destructive",
-                                            )}
+                                            type="text"
+                                            inputMode="numeric"
+                                            pattern="\d*"
+                                            autoComplete="tel"
+                                            onKeyDown={allowOnlyDigitKeys}
+                                            onPaste={sanitizePasteToDigits}
+                                            onChange={handleNumericChange(handleInputChange("telephoneNumber"))}
+                                            className={cn("h-11", fieldErrors.telephoneNumber && "border-red-500 focus-visible:ring-red-500")}
                                         />
                                         {showAdditionalPhone && (
                                             <div className="mt-3 relative">
                                                 <Input
+                                                    id="telephoneNumber2"
                                                     placeholder="Telephone Number 2"
                                                     ref={(el) => (form1Ref.current.telephoneNumber2 = el)}
-                                                    onChange={handleInputChange("telephoneNumber")}
+                                                    type="text"
+                                                    inputMode="numeric"
+                                                    pattern="\d*"
+                                                    autoComplete="tel"
+                                                    onKeyDown={allowOnlyDigitKeys}
+                                                    onPaste={sanitizePasteToDigits}
+                                                    onChange={handleNumericChange(handleInputChange("telephoneNumber2"))}
                                                     className="h-11 pr-10"
                                                 />
                                                 <Button
