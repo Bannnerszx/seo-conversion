@@ -110,8 +110,39 @@ export default async function ChatPage() {
 
   // 8️⃣ Fetch shared data
   const currency = (await fetchCurrency()) || []
-  const countryList = await getCountries()
+  function prioritizeCountries(countryList, prioritizedCountries) {
+    const getName = (v) => (typeof v === "string" ? v : v?.name || "");
+    const rank = new Map(prioritizedCountries.map((c, i) => [c.toLowerCase(), i]));
 
+    // attach original index to keep non-priority items stable
+    return countryList
+      .map((item, idx) => ({ item, name: getName(item), idx }))
+      .sort((a, b) => {
+        const aKey = a.name.toLowerCase();
+        const bKey = b.name.toLowerCase();
+        const aIsPri = rank.has(aKey);
+        const bIsPri = rank.has(bKey);
+
+        if (aIsPri && !bIsPri) return -1;
+        if (!aIsPri && bIsPri) return 1;
+        if (aIsPri && bIsPri) return rank.get(aKey) - rank.get(bKey); // your custom order
+        return a.idx - b.idx; // keep original order
+      })
+      .map((x) => x.item);
+  }
+
+  // Your priority list
+  const prioritizedCountries = [
+    "Zambia",
+    "Tanzania",
+    "Mozambique",
+    "Kenya",
+    "Uganda",
+    "Zimbabwe",
+    "Democratic Republic of the Congo",
+  ];
+  const countryList = await getCountries(); // returns strings or objects with { name }
+  const countries = prioritizeCountries(countryList, prioritizedCountries);
   // 9️⃣ Check if the user exists and has no missing fields
   const { exists, missingFields } = await checkUserExist(userEmail)
   if (!exists || (missingFields && missingFields.length > 0)) {
@@ -140,7 +171,7 @@ export default async function ChatPage() {
         accountData={accountData}
         userEmail={userEmail}
         currency={currency}
-        countryList={countryList}
+        countryList={countries}
         prefetchedData={prefetchedData}
       />
     </>

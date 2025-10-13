@@ -215,6 +215,12 @@ export default function DocumentAddress({ accountData, countryList, setOrderModa
 
         // Validate form before proceeding
         const validationErrors = validateForm();
+        // Enforce agreeToTerms checkbox
+        if (!agreeToTerms) {
+            validationErrors.push('You must agree to the terms and privacy policy');
+            setFieldErrors(prev => ({ ...prev, agreeToTerms: 'You must agree to the terms and privacy policy' }));
+        }
+        
         if (validationErrors.length > 0) {
             // Scroll to first error field for better UX
             const firstErrorField = Object.keys(fieldErrors)[0];
@@ -312,7 +318,47 @@ export default function DocumentAddress({ accountData, countryList, setOrderModa
         handleCitySelect(city);
         clearFieldError('city');
     };
+    //number only for telephones
+    const allowOnlyDigitKeys = (e) => {
+        const allowed = [
+            "Backspace", "Delete", "ArrowLeft", "ArrowRight",
+            "Tab", "Home", "End"
+        ];
+        if (allowed.includes(e.key)) return;
+        if (!/^\d$/.test(e.key)) e.preventDefault(); // block non-digits
+    };
 
+    const sanitizePasteToDigits = (e) => {
+        const text = (e.clipboardData || window.clipboardData).getData("text");
+        const digits = text.replace(/\D+/g, "");
+        e.preventDefault();
+        const target = e.target;
+        const start = target.selectionStart ?? target.value.length;
+        const end = target.selectionEnd ?? target.value.length;
+        const next = target.value.slice(0, start) + digits + target.value.slice(end);
+        // Update the value and move caret
+        target.value = next;
+        // Trigger React onChange so your form state updates
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+            HTMLInputElement.prototype, 'value'
+        ).set;
+        nativeInputValueSetter.call(target, next);
+        target.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+
+    const handleNumericChange =
+        (origOnChange) =>
+            (e) => {
+                // extra safety if something slips through (e.g., autofill)
+                const digitsOnly = e.target.value.replace(/\D+/g, "");
+                if (digitsOnly !== e.target.value) {
+                    e.target.value = digitsOnly;
+                    // Fire input event so React sees the change
+                    e.target.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+                origOnChange?.(e);
+            };
+    //number only
     return (
         <>
             <Button
@@ -322,31 +368,38 @@ export default function DocumentAddress({ accountData, countryList, setOrderModa
                 <span>Add Delivery Address</span>
             </Button>
             <Modal showModal={amendVisible} setShowModal={setAmendVisible}>
-                <div className="max-h-[85vh] overflow-y-auto z-[9999]">
-                    <div className="container mx-auto py-6 px-4 max-w-3xl">
-                        {/* Customer Information Form (Form 1) */}
+                <div className="max-h-[85vh] overflow-y-auto">
+                    <div className="container mx-auto py-4 px-4 max-w-3xl pb-24">
                         <Card className="mb-6">
-                            <CardHeader className="border-b pb-3 sticky top-0 bg-white z-10">
-                                <CardTitle className="text-center text-blue-600">
+                            <CardHeader className="border-b pb-4 sticky top-0 bg-white z-10 rounded-t-lg">
+                                <CardTitle className="text-center text-blue-600 text-lg sm:text-xl">
                                     Document Delivery Information
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="pt-6">
-                                <h2 className="text-lg font-semibold mb-2">Customer Information</h2>
+                            <CardContent className="pt-6 space-y-6">
+                                <div>
+                                    <h2 className="text-base sm:text-lg font-semibold mb-4">Customer Information</h2>
 
-                                <div className="flex items-center mb-4">
-                                    <Checkbox
-                                        id="useCustomerInfo"
-                                        checked={useCustomerInfo}
-                                        onCheckedChange={handleUseCustomerInfo}
-                                    />
-                                    <Label htmlFor="useCustomerInfo" className="ml-2">
-                                        Set as customer&apos;s information <span className="text-red-500">*</span>
-                                    </Label>
+                                    <div className="flex items-start gap-3 mb-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
+                                        <Checkbox
+                                            id="useCustomerInfo"
+                                            checked={useCustomerInfo}
+                                            onCheckedChange={handleUseCustomerInfo}
+                                            className="mt-0.5"
+                                        />
+                                        <Label htmlFor="useCustomerInfo" className="text-sm leading-relaxed cursor-pointer">
+                                            Set as customer&apos;s information <span className="text-red-500">*</span>
+                                        </Label>
+                                    </div>
                                 </div>
-                                <div className="space-y-4">
+
+                                <div className="space-y-5">
+                                    {/* Full Name */}
                                     <div>
-                                        <Label htmlFor="fullName" className={fieldErrors.fullName ? "text-red-600" : ""}>
+                                        <Label
+                                            htmlFor="fullName"
+                                            className={cn("text-sm font-medium", fieldErrors.fullName && "text-red-600")}
+                                        >
                                             Full Name <span className="text-red-500">*</span>
                                         </Label>
                                         <Input
@@ -356,19 +409,23 @@ export default function DocumentAddress({ accountData, countryList, setOrderModa
                                                 if (el) form1Ref.current.fullName = el
                                             }}
                                             defaultValue=""
-                                            onChange={handleInputChange('fullName')}
-                                            className={fieldErrors.fullName ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}
+                                            onChange={handleInputChange("fullName")}
+                                            className={cn("mt-1.5 h-11", fieldErrors.fullName && "border-red-500 focus-visible:ring-red-500")}
                                             required
                                         />
                                         {fieldErrors.fullName && (
-                                            <p className="text-red-600 text-sm mt-1 flex items-center">
-                                                <span className="mr-1">⚠</span> {fieldErrors.fullName}
+                                            <p className="text-red-600 text-sm mt-1.5 flex items-center gap-1">
+                                                <span>⚠</span> {fieldErrors.fullName}
                                             </p>
                                         )}
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                         <div>
-                                            <Label htmlFor="country" className={fieldErrors.country ? "text-red-600" : ""}>
+                                            <Label
+                                                htmlFor="country"
+                                                className={cn("text-sm font-medium", fieldErrors.country && "text-red-600")}
+                                            >
                                                 Country <span className="text-red-500">*</span>
                                             </Label>
                                             <VirtualizedCombobox
@@ -378,17 +435,17 @@ export default function DocumentAddress({ accountData, countryList, setOrderModa
                                                 placeholder="Select Country"
                                                 valueKey="isoCode"
                                                 labelKey="name"
-                                                className={fieldErrors.country ? "border-red-500" : ""}
+                                                className={cn("mt-1.5", fieldErrors.country && "border-red-500")}
                                                 required
                                             />
                                             {fieldErrors.country && (
-                                                <p className="text-red-600 text-sm mt-1 flex items-center">
-                                                    <span className="mr-1">⚠</span> {fieldErrors.country}
+                                                <p className="text-red-600 text-sm mt-1.5 flex items-center gap-1">
+                                                    <span>⚠</span> {fieldErrors.country}
                                                 </p>
                                             )}
                                         </div>
                                         <div>
-                                            <Label htmlFor="city" className={fieldErrors.city ? "text-red-600" : ""}>
+                                            <Label htmlFor="city" className={cn("text-sm font-medium", fieldErrors.city && "text-red-600")}>
                                                 City <span className="text-red-500">*</span>
                                             </Label>
                                             <VirtualizedCombobox
@@ -396,18 +453,20 @@ export default function DocumentAddress({ accountData, countryList, setOrderModa
                                                 value={selectedCity}
                                                 onSelect={handleCitySelectWithValidation}
                                                 placeholder="Select City"
-                                                className={fieldErrors.city ? "border-red-500" : ""}
+                                                className={cn("mt-1.5", fieldErrors.city && "border-red-500")}
                                                 required
                                             />
                                             {fieldErrors.city && (
-                                                <p className="text-red-600 text-sm mt-1 flex items-center">
-                                                    <span className="mr-1">⚠</span> {fieldErrors.city}
+                                                <p className="text-red-600 text-sm mt-1.5 flex items-center gap-1">
+                                                    <span>⚠</span> {fieldErrors.city}
                                                 </p>
                                             )}
                                         </div>
                                     </div>
+
+                                    {/* Address */}
                                     <div>
-                                        <Label htmlFor="address" className={fieldErrors.address ? "text-red-600" : ""}>
+                                        <Label htmlFor="address" className={cn("text-sm font-medium", fieldErrors.address && "text-red-600")}>
                                             Address <span className="text-red-500">*</span>
                                         </Label>
                                         <Input
@@ -415,26 +474,30 @@ export default function DocumentAddress({ accountData, countryList, setOrderModa
                                             placeholder="Enter full address"
                                             ref={(el) => (form1Ref.current.address = el)}
                                             defaultValue=""
-                                            onChange={handleInputChange('address')}
-                                            className={fieldErrors.address ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}
+                                            onChange={handleInputChange("address")}
+                                            className={cn("mt-1.5 h-11", fieldErrors.address && "border-red-500 focus-visible:ring-red-500")}
                                             required
                                         />
                                         {fieldErrors.address && (
-                                            <p className="text-red-600 text-sm mt-1 flex items-center">
-                                                <span className="mr-1">⚠</span> {fieldErrors.address}
+                                            <p className="text-red-600 text-sm mt-1.5 flex items-center gap-1">
+                                                <span>⚠</span> {fieldErrors.address}
                                             </p>
                                         )}
                                     </div>
+
                                     <div>
-                                        <div className="flex justify-between items-center mb-2">
-                                            <Label htmlFor="telephoneNumber" className={fieldErrors.telephoneNumber ? "text-red-600" : ""}>
+                                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-2">
+                                            <Label
+                                                htmlFor="telephoneNumber"
+                                                className={cn("text-sm font-medium", fieldErrors.telephoneNumber && "text-red-600")}
+                                            >
                                                 Telephone Number <span className="text-red-500">*</span>
                                             </Label>
                                             <Button
                                                 type="button"
                                                 variant="outline"
                                                 size="sm"
-                                                className="h-8 text-blue-600 border-blue-600"
+                                                className="h-9 text-blue-600 border-blue-600 hover:bg-blue-50 w-full sm:w-auto bg-transparent"
                                                 onClick={() => setShowAdditionalPhone(true)}
                                             >
                                                 + Add Telephone
@@ -445,21 +508,36 @@ export default function DocumentAddress({ accountData, countryList, setOrderModa
                                             placeholder="Telephone Number 1"
                                             ref={(el) => (form1Ref.current.telephoneNumber = el)}
                                             defaultValue=""
-                                            onChange={handleInputChange('telephoneNumber')}
-                                            className={fieldErrors.telephoneNumber ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}
+                                            type="text"
+                                            inputMode="numeric"
+                                            pattern="\d*"
+                                            autoComplete="tel"
+                                            onKeyDown={allowOnlyDigitKeys}
+                                            onPaste={sanitizePasteToDigits}
+                                            onChange={handleNumericChange(handleInputChange("telephoneNumber"))}
+                                            className={cn("h-11", fieldErrors.telephoneNumber && "border-red-500 focus-visible:ring-red-500")}
                                         />
+
                                         {showAdditionalPhone && (
-                                            <div className="mt-2 relative">
+                                            <div className="mt-3 relative">
                                                 <Input
+                                                    id="telephoneNumber2"
                                                     placeholder="Telephone Number 2"
                                                     ref={(el) => (form1Ref.current.telephoneNumber2 = el)}
-                                                    onChange={handleInputChange('telephoneNumber')}
+                                                    type="text"
+                                                    inputMode="numeric"
+                                                    pattern="\d*"
+                                                    autoComplete="tel"
+                                                    onKeyDown={allowOnlyDigitKeys}
+                                                    onPaste={sanitizePasteToDigits}
+                                                    onChange={handleNumericChange(handleInputChange("telephoneNumber2"))}
+                                                    className="h-11 pr-10"
                                                 />
                                                 <Button
                                                     type="button"
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6"
+                                                    className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8"
                                                     onClick={() => setShowAdditionalPhone(false)}
                                                 >
                                                     <X className="h-4 w-4" />
@@ -467,22 +545,15 @@ export default function DocumentAddress({ accountData, countryList, setOrderModa
                                             </div>
                                         )}
                                         {fieldErrors.telephoneNumber && (
-                                            <p className="text-red-600 text-sm mt-1 flex items-center">
-                                                <span className="mr-1">⚠</span> {fieldErrors.telephoneNumber}
+                                            <p className="text-red-600 text-sm mt-1.5 flex items-center gap-1">
+                                                <span>⚠</span> {fieldErrors.telephoneNumber}
                                             </p>
                                         )}
                                     </div>
+
+                                    {/* Email */}
                                     <div>
-                                        <Label htmlFor="faxNumber">Fax Number</Label>
-                                        <Input
-                                            id="faxNumber"
-                                            placeholder="Enter fax number"
-                                            ref={(el) => (form1Ref.current.faxNumber = el)}
-                                            defaultValue=""
-                                        />
-                                    </div>
-                                    <div>
-                                        <Label htmlFor="email" className={fieldErrors.email ? "text-red-600" : ""}>
+                                        <Label htmlFor="email" className={cn("text-sm font-medium", fieldErrors.email && "text-red-600")}>
                                             E-mail <span className="text-red-500">*</span>
                                         </Label>
                                         <Input
@@ -492,12 +563,12 @@ export default function DocumentAddress({ accountData, countryList, setOrderModa
                                             ref={(el) => (form1Ref.current.email = el)}
                                             defaultValue=""
                                             onChange={handleEmailChange}
-                                            className={fieldErrors.email ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}
+                                            className={cn("mt-1.5 h-11", fieldErrors.email && "border-red-500 focus-visible:ring-red-500")}
                                             required
                                         />
                                         {fieldErrors.email && (
-                                            <p className="text-red-600 text-sm mt-1 flex items-center">
-                                                <span className="mr-1">⚠</span> {fieldErrors.email}
+                                            <p className="text-red-600 text-sm mt-1.5 flex items-center gap-1">
+                                                <span>⚠</span> {fieldErrors.email}
                                             </p>
                                         )}
                                     </div>
@@ -505,34 +576,71 @@ export default function DocumentAddress({ accountData, countryList, setOrderModa
                             </CardContent>
                         </Card>
 
-                        <div className="flex items-center mb-6">
+                        <div className="flex items-start gap-3 mb-6 p-4 bg-gray-50 rounded-lg border">
                             <Checkbox
                                 id="agreeToTerms"
                                 checked={agreeToTerms}
-                                onCheckedChange={(checked) => setAgreeToTerms(checked === true)}
+                                aria-required="true"
+                                onCheckedChange={(checked) => { setAgreeToTerms(checked === true); if (checked === true) clearFieldError('agreeToTerms'); }}
+                                className="mt-0.5"
                             />
-                            <Label htmlFor="agreeToTerms" className="ml-2">
-                                I agree to Privacy Policy and Terms of Agreement
-                            </Label>
-                        </div>
 
-                        <div className="grid grid-cols-2 gap-4 sticky bottom-0 bg-white py-4">
-                            <Button disabled={isSubmitting} variant="outline" className="w-full" onClick={() => setAmendVisible(false)}>
-                                Cancel
-                            </Button>
-                            <Button
-                                onClick={handleSubmit}
-                                type="submit"
-                                className={cn(
-                                    'w-full',
-                                    isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
-                                )}
-                                disabled={isSubmitting}               // ← DISABLED
-                            >
-                                {isSubmitting ? 'Submitting…' : 'Confirm'}
-                            </Button>
+                            <Label htmlFor="terms" className="text-sm pt-0.5">
+                                I agree to{" "}
+                                <a
+                                    href="/privacy-policy"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="underline underline-offset-2 hover:no-underline focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                    onClick={(e) => e.stopPropagation()}
+                                    onMouseDown={(e) => e.preventDefault()}
+                                >
+                                    Privacy Policy
+                                </a>{" "}
+                                and{" "}
+                                <a
+                                    href="/terms-of-use"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="underline underline-offset-2 hover:no-underline focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                    onClick={(e) => e.stopPropagation()}
+                                    onMouseDown={(e) => e.preventDefault()}
+                                >
+                                    Terms of Agreement
+                                </a>
+
+                            </Label>
+                            {/* Inline error for agreeToTerms */}
+                            {fieldErrors.agreeToTerms && (
+                                <p className="text-red-600 text-sm mt-2">
+                                    ⚠ {fieldErrors.agreeToTerms}
+                                </p>
+                            )}
+                        </div>
+                        <div className="bg-white">
+                            <div className="container mx-auto max-w-3xl px-4 py-4">
+                                <div className="grid grid-cols-2 gap-3">
+                                    <Button disabled={isSubmitting} variant="outline" className="h-11 font-medium bg-transparent">
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        onClick={handleSubmit}
+                                        type="submit"
+                                        className={cn(
+                                            "h-11 font-medium",
+                                            isSubmitting ? "bg-gray-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700",
+                                            !agreeToTerms && !isSubmitting ? "opacity-60 cursor-not-allowed" : ""
+                                        )}
+                                        disabled={isSubmitting || !agreeToTerms}
+                                    >
+                                        {isSubmitting ? "Submitting…" : "Confirm"}
+                                    </Button>
+                                </div>
+                            </div>
                         </div>
                     </div>
+
+
                 </div>
             </Modal>
         </>

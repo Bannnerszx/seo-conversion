@@ -33,7 +33,7 @@ export default function DeliveryAddress({ accountData, countryList, setOrderModa
 
     // Countries state (for dropdown options)
     const [countries] = useState(countryList)
-    
+
     // City list for customer form
     const [cityList, setCityList] = useState([])
 
@@ -322,32 +322,36 @@ export default function DeliveryAddress({ accountData, countryList, setOrderModa
                 <span>Delivery Address</span>
             </Button>
             <Modal showModal={amendVisible} setShowModal={setAmendVisible}>
-                <div className="max-h-[85vh] overflow-y-auto z-[9999]">
-                    <div className="container mx-auto py-6 px-4 max-w-3xl">
-                        {/* Customer Information Form (Form 1) */}
+                <div className="max-h-[85vh] overflow-y-auto">
+                    <div className="container mx-auto py-4 px-4 max-w-3xl pb-24">
                         <Card className="mb-6">
-                            <CardHeader className="border-b pb-3 sticky top-0 bg-white z-10">
-                                <CardTitle className="text-center text-blue-600">
+                            <CardHeader className="border-b pb-3 sticky top-0 bg-card z-10">
+                                <CardTitle className="text-center text-blue-600 text-lg sm:text-xl">
                                     Document Delivery Information
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="pt-6">
-                                <h2 className="text-lg font-semibold mb-2">Customer Information</h2>
+                                <h2 className="text-base sm:text-lg font-semibold mb-4">Customer Information</h2>
 
-                                <div className="flex items-center mb-4">
+                                <div className="flex items-start gap-3 mb-6 p-4 bg-muted/50 rounded-lg">
                                     <Checkbox
                                         id="useCustomerInfo"
                                         checked={useCustomerInfo}
                                         onCheckedChange={handleUseCustomerInfo}
+                                        className="mt-0.5"
                                     />
-                                    <Label htmlFor="useCustomerInfo" className="ml-2">
+                                    <Label htmlFor="useCustomerInfo" className="text-sm leading-relaxed cursor-pointer">
                                         Set as customer&apos;s information <span className="text-red-500">*</span>
                                     </Label>
                                 </div>
-                                <div className="space-y-4">
+
+                                <div className="space-y-5">
                                     <div>
-                                        <Label htmlFor="fullName" className={fieldErrors.fullName ? "text-red-600" : ""}>
-                                            Full Name <span className="text-red-500">*</span>
+                                        <Label
+                                            htmlFor="fullName"
+                                            className={cn("text-sm sm:text-base", fieldErrors.fullName && "text-destructive")}
+                                        >
+                                            Full Name <span className="text-destructive">*</span>
                                         </Label>
                                         <Input
                                             id="fullName"
@@ -356,20 +360,27 @@ export default function DeliveryAddress({ accountData, countryList, setOrderModa
                                                 if (el) form1Ref.current.fullName = el
                                             }}
                                             defaultValue=""
-                                            onChange={handleInputChange('fullName')}
-                                            className={fieldErrors.fullName ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}
+                                            onChange={handleInputChange("fullName")}
+                                            className={cn(
+                                                "h-11 mt-1.5",
+                                                fieldErrors.fullName && "border-destructive focus-visible:ring-destructive",
+                                            )}
                                             required
                                         />
                                         {fieldErrors.fullName && (
-                                            <p className="text-red-600 text-sm mt-1 flex items-center">
-                                                <span className="mr-1">⚠</span> {fieldErrors.fullName}
+                                            <p className="text-destructive text-sm mt-1.5 flex items-center gap-1">
+                                                <span>⚠</span> {fieldErrors.fullName}
                                             </p>
                                         )}
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                         <div>
-                                            <Label htmlFor="country" className={fieldErrors.country ? "text-red-600" : ""}>
-                                                Country <span className="text-red-500">*</span>
+                                            <Label
+                                                htmlFor="country"
+                                                className={cn("text-sm sm:text-base", fieldErrors.country && "text-destructive")}
+                                            >
+                                                Country <span className="text-destructive">*</span>
                                             </Label>
                                             <VirtualizedCombobox
                                                 items={countryList}
@@ -378,63 +389,77 @@ export default function DeliveryAddress({ accountData, countryList, setOrderModa
                                                 placeholder="Select Country"
                                                 valueKey="isoCode"
                                                 labelKey="name"
-                                                className={fieldErrors.country ? "border-red-500" : ""}
+                                                className={cn("mt-1.5", fieldErrors.country && "border-destructive")}
                                                 required
                                             />
                                             {fieldErrors.country && (
-                                                <p className="text-red-600 text-sm mt-1 flex items-center">
-                                                    <span className="mr-1">⚠</span> {fieldErrors.country}
+                                                <p className="text-destructive text-sm mt-1.5 flex items-center gap-1">
+                                                    <span>⚠</span> {fieldErrors.country}
                                                 </p>
                                             )}
                                         </div>
                                         <div>
-                                            <Label htmlFor="city" className={fieldErrors.city ? "text-red-600" : ""}>
-                                                City <span className="text-red-500">*</span>
+                                            <Label
+                                                htmlFor="city"
+                                                className={cn("text-sm sm:text-base", fieldErrors.city && "text-destructive")}
+                                            >
+                                                City <span className="text-destructive">*</span>
                                             </Label>
                                             <VirtualizedCombobox
                                                 items={cityList}
                                                 value={selectedCity}
                                                 onSelect={handleCitySelectWithValidation}
                                                 placeholder="Select City"
-                                                className={fieldErrors.city ? "border-red-500" : ""}
+                                                className={cn("mt-1.5", fieldErrors.city && "border-destructive")}
                                                 required
                                             />
                                             {fieldErrors.city && (
-                                                <p className="text-red-600 text-sm mt-1 flex items-center">
-                                                    <span className="mr-1">⚠</span> {fieldErrors.city}
+                                                <p className="text-destructive text-sm mt-1.5 flex items-center gap-1">
+                                                    <span>⚠</span> {fieldErrors.city}
                                                 </p>
                                             )}
                                         </div>
                                     </div>
+
                                     <div>
-                                        <Label htmlFor="address" className={fieldErrors.address ? "text-red-600" : ""}>
-                                            Address <span className="text-red-500">*</span>
+                                        <Label
+                                            htmlFor="address"
+                                            className={cn("text-sm sm:text-base", fieldErrors.address && "text-destructive")}
+                                        >
+                                            Address <span className="text-destructive">*</span>
                                         </Label>
                                         <Input
                                             id="address"
                                             placeholder="Enter full address"
                                             ref={(el) => (form1Ref.current.address = el)}
                                             defaultValue=""
-                                            onChange={handleInputChange('address')}
-                                            className={fieldErrors.address ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}
+                                            onChange={handleInputChange("address")}
+                                            className={cn(
+                                                "h-11 mt-1.5",
+                                                fieldErrors.address && "border-destructive focus-visible:ring-destructive",
+                                            )}
                                             required
                                         />
                                         {fieldErrors.address && (
-                                            <p className="text-red-600 text-sm mt-1 flex items-center">
-                                                <span className="mr-1">⚠</span> {fieldErrors.address}
+                                            <p className="text-destructive text-sm mt-1.5 flex items-center gap-1">
+                                                <span>⚠</span> {fieldErrors.address}
                                             </p>
                                         )}
                                     </div>
+
                                     <div>
-                                        <div className="flex justify-between items-center mb-2">
-                                            <Label htmlFor="telephoneNumber" className={fieldErrors.telephoneNumber ? "text-red-600" : ""}>
-                                                Telephone Number <span className="text-red-500">*</span>
+                                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-2">
+                                            <Label
+                                                htmlFor="telephoneNumber"
+                                                className={cn("text-sm sm:text-base", fieldErrors.telephoneNumber && "text-destructive")}
+                                            >
+                                                Telephone Number <span className="text-destructive">*</span>
                                             </Label>
                                             <Button
                                                 type="button"
                                                 variant="outline"
                                                 size="sm"
-                                                className="h-8 text-blue-600 border-blue-600"
+                                                className="h-9 text-blue-600 border-blue-600 hover:bg-blue-50 w-full sm:w-auto bg-transparent"
                                                 onClick={() => setShowAdditionalPhone(true)}
                                             >
                                                 + Add Telephone
@@ -445,21 +470,25 @@ export default function DeliveryAddress({ accountData, countryList, setOrderModa
                                             placeholder="Telephone Number 1"
                                             ref={(el) => (form1Ref.current.telephoneNumber = el)}
                                             defaultValue=""
-                                            onChange={handleInputChange('telephoneNumber')}
-                                            className={fieldErrors.telephoneNumber ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}
+                                            onChange={handleInputChange("telephoneNumber")}
+                                            className={cn(
+                                                "h-11",
+                                                fieldErrors.telephoneNumber && "border-destructive focus-visible:ring-destructive",
+                                            )}
                                         />
                                         {showAdditionalPhone && (
-                                            <div className="mt-2 relative">
+                                            <div className="mt-3 relative">
                                                 <Input
                                                     placeholder="Telephone Number 2"
                                                     ref={(el) => (form1Ref.current.telephoneNumber2 = el)}
-                                                    onChange={handleInputChange('telephoneNumber')}
+                                                    onChange={handleInputChange("telephoneNumber")}
+                                                    className="h-11 pr-10"
                                                 />
                                                 <Button
                                                     type="button"
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6"
+                                                    className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7"
                                                     onClick={() => setShowAdditionalPhone(false)}
                                                 >
                                                     <X className="h-4 w-4" />
@@ -467,23 +496,19 @@ export default function DeliveryAddress({ accountData, countryList, setOrderModa
                                             </div>
                                         )}
                                         {fieldErrors.telephoneNumber && (
-                                            <p className="text-red-600 text-sm mt-1 flex items-center">
-                                                <span className="mr-1">⚠</span> {fieldErrors.telephoneNumber}
+                                            <p className="text-destructive text-sm mt-1.5 flex items-center gap-1">
+                                                <span>⚠</span> {fieldErrors.telephoneNumber}
                                             </p>
                                         )}
                                     </div>
+
+
                                     <div>
-                                        <Label htmlFor="faxNumber">Fax Number</Label>
-                                        <Input
-                                            id="faxNumber"
-                                            placeholder="Enter fax number"
-                                            ref={(el) => (form1Ref.current.faxNumber = el)}
-                                            defaultValue=""
-                                        />
-                                    </div>
-                                    <div>
-                                        <Label htmlFor="email" className={fieldErrors.email ? "text-red-600" : ""}>
-                                            E-mail <span className="text-red-500">*</span>
+                                        <Label
+                                            htmlFor="email"
+                                            className={cn("text-sm sm:text-base", fieldErrors.email && "text-destructive")}
+                                        >
+                                            E-mail <span className="text-destructive">*</span>
                                         </Label>
                                         <Input
                                             id="email"
@@ -492,12 +517,15 @@ export default function DeliveryAddress({ accountData, countryList, setOrderModa
                                             ref={(el) => (form1Ref.current.email = el)}
                                             defaultValue=""
                                             onChange={handleEmailChange}
-                                            className={fieldErrors.email ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}
+                                            className={cn(
+                                                "h-11 mt-1.5",
+                                                fieldErrors.email && "border-destructive focus-visible:ring-destructive",
+                                            )}
                                             required
                                         />
                                         {fieldErrors.email && (
-                                            <p className="text-red-600 text-sm mt-1 flex items-center">
-                                                <span className="mr-1">⚠</span> {fieldErrors.email}
+                                            <p className="text-destructive text-sm mt-1.5 flex items-center gap-1">
+                                                <span>⚠</span> {fieldErrors.email}
                                             </p>
                                         )}
                                     </div>
@@ -505,35 +533,68 @@ export default function DeliveryAddress({ accountData, countryList, setOrderModa
                             </CardContent>
                         </Card>
 
-
-                        <div className="flex items-center mb-6">
+                        <div className="flex items-start gap-3 mb-6 p-4 rounded-lg">
                             <Checkbox
                                 id="agreeToTerms"
                                 checked={agreeToTerms}
                                 onCheckedChange={(checked) => setAgreeToTerms(checked === true)}
+                                className="mt-0.5"
                             />
-                            <Label htmlFor="agreeToTerms" className="ml-2">
-                                I agree to Privacy Policy and Terms of Agreement
+                            <Label htmlFor="terms" className="text-sm pt-0.5">
+                                I agree to{" "}
+                                <a
+                                    href="/privacy-policy"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="underline underline-offset-2 hover:no-underline focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                    onClick={(e) => e.stopPropagation()}
+                                    onMouseDown={(e) => e.preventDefault()}
+                                >
+                                    Privacy Policy
+                                </a>{" "}
+                                and{" "}
+                                <a
+                                    href="/terms-of-use"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="underline underline-offset-2 hover:no-underline focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                    onClick={(e) => e.stopPropagation()}
+                                    onMouseDown={(e) => e.preventDefault()}
+                                >
+                                    Terms of Agreement
+                                </a>
+
                             </Label>
                         </div>
-
-                        <div className="grid grid-cols-2 gap-4 sticky bottom-0 bg-white py-4">
-                            <Button disabled={isSubmitting} variant="outline" className="w-full" onClick={() => setAmendVisible(false)}>
-                                Cancel
-                            </Button>
-                            <Button
-                                onClick={handleSubmit}
-                                type="submit"
-                                className={cn(
-                                    'w-full',
-                                    isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
-                                )}
-                                disabled={isSubmitting}               // ← DISABLED
-                            >
-                                {isSubmitting ? 'Submitting…' : 'Confirm'}
-                            </Button>
+                        <div className="bg-card">
+                            <div className="container mx-auto max-w-3xl px-4 py-3">
+                                <div className="grid grid-cols-2 gap-3">
+                                    <Button
+                                        disabled={isSubmitting}
+                                        variant="outline"
+                                        className="w-full h-11 bg-transparent"
+                                        onClick={() => setAmendVisible(false)}
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        onClick={handleSubmit}
+                                        type="submit"
+                                        className={cn(
+                                            "w-full h-11",
+                                            isSubmitting ? "bg-gray-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700",
+                                            !agreeToTerms && !isSubmitting ? "opacity-60 cursor-not-allowed" : ""
+                                        )}
+                                        disabled={isSubmitting}
+                                    >
+                                        {isSubmitting ? "Submitting…" : "Confirm"}
+                                    </Button>
+                                </div>
+                            </div>
                         </div>
                     </div>
+
+
                 </div>
             </Modal>
         </>
