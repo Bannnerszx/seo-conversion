@@ -10,10 +10,48 @@ import { firestore } from "../../../../firebase/clientApp"
 import { loadMoreMessages } from "@/app/actions/actions"
 import { SortProvider } from "@/app/stock/stockComponents/sortContext"
 import TransactionCSRLoader from "./TransactionCSRLoader"
+import { constants } from "buffer"
 
 // import { SurveyModal } from "@/app/components/SurveyModal"
-
+const PAGE_SIZE = 12
+const PAGE_LIMIT = PAGE_SIZE + 1
 let lastVisible = null;
+function normalizeStrict(raw) {
+    // NFKC, remove format/bidi marks, unify ANY dash to '-', trim
+    return String(raw ?? "")
+        .normalize("NFKC")
+        .replace(/[\u200B-\u200F\u202A-\u202E\u2066-\u2069\u2060\uFEFF\u00A0]/g, "")
+        .replace(/\p{Pd}/gu, "-")
+        .trim()
+}
+
+function buildDashVariants(token) {
+    const base = normalizeStrict(token)
+    const dashes = ["-", "\u2013", "\u2212", "\uFF0D"]
+
+    const basicSet = new Set([base, base.toUpperCase(), base.toLowerCase()])
+
+    if (!base.includes("-")) {
+        return Array.from(basicSet).slice(0, 10)
+    }
+
+    for (const d of dashes) {
+        const v = base.replace(/-/g, d)
+        basicSet.add(v)
+        basicSet.add(v.toUpperCase())
+        basicSet.add(v.toLowerCase())
+    }
+    return Array.from(basicSet).slice(0, 10)
+}
+
+
+function cleanMany(arr) {
+    if (!Array.isArray(arr)) return []
+    const cleaned = arr.map(normalizeStrict).filter(Boolean)
+    return Array.from(new Set(cleaned)).slice(0, 10)
+}
+
+
 export function subscribeToChatList(
     userEmail,
     keywordArrayOrCallback = [],
@@ -21,51 +59,101 @@ export function subscribeToChatList(
 ) {
     if (!userEmail) return () => { }
 
-    // detect args
-    const is2ndArgFunction = typeof keywordArrayOrCallback === "function"
-    const keywordArray = is2ndArgFunction
-        ? []
-        : Array.isArray(keywordArrayOrCallback)
-            ? keywordArrayOrCallback
-            : []
-    const callback = is2ndArgFunction
-        ? keywordArrayOrCallback
-        : callbackOptional
-
-    /** @type {QueryConstraint[]} */
-    const constraints = [
-        where("participants.customer", "==", userEmail),
-    ]
-
-    if (keywordArray.length > 0) {
-        constraints.push(
-            where("keywords", "array-contains-any", keywordArray)
-        )
+    const isFn = typeof keywordArrayOrCallback === "function"
+    let keywords = []
+    if (!isFn) {
+        if (Array.isArray(keywordArrayOrCallback)) keywords = keywordArrayOrCallback
+        else if (typeof keywordArrayOrCallback === "string") {
+            const s = keywordArrayOrCallback.trim()
+            if (s) keywords = [s]
+        }
     }
+    const callback = isFn ? keywordArrayOrCallback : callbackOptional
 
-    constraints.push(
-        orderBy("lastMessageDate", "desc"),
-        limit(12)
-    )
+    const constraints = [where("participants.customer", "==", userEmail)]
+    if (keywords.length > 0) constraints.push(where("keywords", "array-contains-any", keywords))
 
-    const q = query(collection(firestore, "chats"), ...constraints)
+    constraints.push(orderBy("lastMessageDate", "desc"), limit(PAGE_LIMIT))
+    const qy = query(collection(firestore, "chats"), ...constraints)
 
     const unsubscribe = onSnapshot(
-        q,
-        snapshot => {
-            const chatList = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }))
-            callback(chatList)
-            lastVisible =
-                snapshot.docs[snapshot.docs.length - 1] || lastVisible
-        },
-        err => console.error("Error fetching chat list:", err)
-    )
+        qy,
+        (snapshot) => {
+            const docs = snapshot.docs
+            const hasMore = docs.length > PAGE_SIZE
 
+            const pageDocs = hasMore ? docs.slice(0, PAGE_SIZE) : docs
+            const chatList = pageDocs.map(d => ({ id: d.id, ...d.data() }))
+
+            const cursor = pageDocs.length ? pageDocs[pageDocs.length - 1] : null
+
+            if (typeof callback === 'function') {
+                callback(chatList, {
+                    hasMore,
+                    cursor,
+                    filtered: keywords.length > 0,
+                    usedValues: keywords
+                })
+            }
+        },
+        (err) => console.error("Error fetching chat list:", err)
+    )
     return unsubscribe
 }
+
+
+// export function subscribeToChatList(
+//     userEmail,
+//     keywordArrayOrCallback = [],
+//     callbackOptional
+// ) {
+//     if (!userEmail) return () => { }
+
+//     // detect args
+//     const is2ndArgFunction = typeof keywordArrayOrCallback === "function"
+//     const keywordArray = is2ndArgFunction
+//         ? []
+//         : Array.isArray(keywordArrayOrCallback)
+//             ? keywordArrayOrCallback
+//             : []
+//     const callback = is2ndArgFunction
+//         ? keywordArrayOrCallback
+//         : callbackOptional
+//     console.log(keywordArray, 'keyword')
+//     /** @type {QueryConstraint[]} */
+//     const constraints = [
+//         where("participants.customer", "==", userEmail),
+//     ]
+
+//     if (keywordArray.length > 0) {
+//         constraints.push(
+//             where("keywords", "array-contains-any", keywordArray)
+//         )
+//     }
+
+//     constraints.push(
+//         orderBy("lastMessageDate", "desc"),
+//         limit(12)
+//     )
+
+//     const q = query(collection(firestore, "chats"), ...constraints)
+
+//     const unsubscribe = onSnapshot(
+//         q,
+//         snapshot => {
+//             const chatList = snapshot.docs.map(doc => ({
+//                 id: doc.id,
+//                 ...doc.data()
+//             }))
+//             callback(chatList)
+//             lastVisible =
+//                 snapshot.docs[snapshot.docs.length - 1] || lastVisible
+//         },
+//         err => console.error("Error fetching chat list:", err)
+//     )
+
+//     return unsubscribe
+// }
 
 const subscribeToMessages = (id, callback) => {
     if (!id) {
@@ -134,42 +222,27 @@ export function subscribeToInvoiceData(invoiceNumber, callback) {
     return unsubscribe
 };
 
-export async function loadMoreChatList(userEmail, callback) {
-    if (!userEmail || !lastVisible) {
-        // nothing to load
-        callback([], true);
-        return;
+export async function loadMoreChatList(userEmail, { cursor, keywords = [] } = {}) {
+    if (!userEmail || !cursor) {
+        return { items: [], hasMore: false, cursor: null }
+    }
+    const constraints = [where('participants.customer', "==", userEmail)]
+    if (Array.isArray(keywords) && keywords.length > 0) {
+        constraints.push(where("keywords", "array-contains-any", keywords))
     }
 
-    try {
-        const nextQuery = query(
-            collection(firestore, "chats"),
-            where("participants.customer", "==", userEmail),
-            orderBy("lastMessageDate", "desc"),
-            startAfter(lastVisible),
+    constraints.push(orderBy("lastMessageDate", "desc"), startAfter(cursor, limit(PAGE_LIMIT)))
+    const qy = query(collection(firestore, 'chats'), ...constraints)
+    const snap = await getDocs(qy)
 
-            limit(10)
-        );
+    const hasMore = snap.size > PAGE_SIZE
+    const pageDocs = hasMore ? snap.docs.slice(0, PAGE_SIZE) : snap.docs
+    const items = pageDocs.map(d => ({ id: d.id, ...d.data() }))
+    const nextCursor = pageDocs.length ? pageDocs[pageDocs.length - 1] : null
 
-        const snap = await getDocs(nextQuery);
-        const moreChats = snap.docs.map((doc) => {
-            const data = doc.data();
-            return {
-                id: doc.id,
-                ...data,
-            };
-        });
+    return { items, hasMore, cursor: nextCursor }
 
-        // update cursor
-        lastVisible = snap.docs[snap.docs.length - 1] || lastVisible;
 
-        // if we got fewer than `limit`, we've hit the end
-        const noMore = snap.docs.length < 10;
-        callback(moreChats, noMore);
-    } catch (err) {
-        console.error("Error loading more chats:", err);
-        callback([], true);
-    }
 }
 // Subscribe to the chat document itself so we can observe tracker changes
 // subscribeToChatDoc is now provided by ./chatSubscriptions
@@ -226,68 +299,54 @@ const tsKey = (ts) => {
         .padEnd(17, "0");          // normalize when .SSS missing
 };
 export default function ChatPageCSR({ accountData, userEmail, currency, fetchInvoiceData, countryList, prefetchedData }) {
-    const [chatList, setChatList] = useState(prefetchedData?.map(chat => ({ id: chat.id, ...chat })) || []);
-    const [selectedContact, setSelectedContact] = useState(prefetchedData?.[0] || null);
+    const [chatList, setChatList] = useState(prefetchedData?.map(chat => ({ id: chat.id, ...chat })) || [])
+    const [selectedContact, setSelectedContact] = useState(prefetchedData?.[0] || null)
 
     const [searchQuery, setSearchQuery] = useState("")
-    const [hasMore, setHasMore] = useState(true);
-    const [loadingMore, setLoadingMore] = useState(false);
-    const [vehicleStatus, setVehicleStatus] = useState([]);
+    const [hasMore, setHasMore] = useState(true)
+    const [loadingMore, setLoadingMore] = useState(false)
+    const [pageCursor, setPageCursor] = useState(null)          // ← NEW: cursor for chat list paging
+
+    const [vehicleStatus, setVehicleStatus] = useState([])
     const [bookingData, setBookingData] = useState({})
     const router = useRouter()
-    const pathname = usePathname();
-    const segments = pathname
-        .split('/')                              // ["", "chats", "ordered", "12345"]
-        .filter(Boolean)   // e.g. "/chats/chat_2024040429_ryowell0921@gmail.com"
+    const pathname = usePathname()
+    const segments = pathname.split('/').filter(Boolean)
+
     const { messages, sendMessage, isLoading } = useCustomChat(selectedContact?.id)
     const [chatId, setChatId] = useState("")
     const [chatMessages, setChatMessages] = useState([])
     const [invoiceData, setInvoiceData] = useState({})
     const [lastTimestamp, setLastTimestamp] = useState("")
     const [isMobileView, setIsMobileView] = useState(false)
-    const [isLoadingTransaction, setIsLoadingTransaction] = useState(true);
+    const [isLoadingTransaction, setIsLoadingTransaction] = useState(true)
     const [isSurveyOpen, setIsSurveyOpen] = useState(true)
     const [isModalOpen] = useState(false)
-    // NOTE: Redirect based on the chat tracker was intentionally removed.
-    // Previous behavior fetched /api/getChatTracker and redirected to
-    // `/chats/ordered/:id` or `/chats/payment/:id`. That logic has been
-    // removed to avoid automatic client-side navigation.
-    // Check if we're on mobile view
-    useEffect(() => {
-        const checkMobileView = () => {
-            setIsMobileView(window.innerWidth <= 768)
-        }
 
+    // mobile check
+    useEffect(() => {
+        const checkMobileView = () => setIsMobileView(window.innerWidth <= 768)
         checkMobileView()
         window.addEventListener("resize", checkMobileView)
-
-        return () => {
-            window.removeEventListener("resize", checkMobileView)
-        }
+        return () => window.removeEventListener("resize", checkMobileView)
     }, [])
 
-    // Check if we're on a specific chat route
+    // Messages: prefill + live subscription
     useEffect(() => {
         if (!chatId) {
-            console.warn("chatId is not set. Messages cannot be fetched or scrolled.");
-            return;
+            console.warn("chatId is not set. Messages cannot be fetched or scrolled.")
+            return
         }
 
         // 1) prefill
         if (Array.isArray(prefetchedData) && prefetchedData.length) {
-            const match = prefetchedData.find(c => c.id === chatId || c.chatId === chatId) || null;
+            const match = prefetchedData.find(c => c.id === chatId || c.chatId === chatId) || null
             if (match) {
-                const pre = Array.isArray(match.messages) ? match.messages : [];
+                const pre = Array.isArray(match.messages) ? match.messages : []
                 if (pre.length) {
-                    // sort ascending so latest shows at the bottom
-                    const preAsc = [...pre].sort((a, b) => tsKey(a.timestamp).localeCompare(tsKey(b.timestamp)));
-                    setChatMessages(preAsc);
-
-                    // pick ONE, depending on your paging:
-                    // If you page "older" when user scrolls up, store the OLDEST:
-                    setLastTimestamp(preAsc[0]?.timestamp ?? null);
-                    // If you need the NEWEST instead, use:
-                    // setLastTimestamp(preAsc.at(-1)?.timestamp ?? null);
+                    const preAsc = [...pre].sort((a, b) => tsKey(a.timestamp).localeCompare(tsKey(b.timestamp)))
+                    setChatMessages(preAsc)
+                    setLastTimestamp(preAsc[0]?.timestamp ?? null) // oldest for "load older"
                 }
             }
         }
@@ -295,66 +354,45 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
         // 2) live subscription
         const unsubscribe = subscribeToMessages(chatId, (msgs) => {
             setChatMessages(prev => {
-                const keyOf = (m) => m.id ?? m.messageId ?? `${tsKey(m.timestamp)}_${m.senderId ?? ""}_${m.text ?? ""}`;
+                const keyOf = (m) => m.id ?? m.messageId ?? `${tsKey(m.timestamp)}_${m.senderId ?? ""}_${m.text ?? ""}`
+                const map = new Map()
+                for (const m of prev) map.set(keyOf(m), m)
+                if (Array.isArray(msgs)) for (const m of msgs) map.set(keyOf(m), m)
 
-                // merge + dedupe
-                const map = new Map();
-                for (const m of prev) map.set(keyOf(m), m);
-                if (Array.isArray(msgs)) for (const m of msgs) map.set(keyOf(m), m);
+                const mergedAsc = Array.from(map.values()).sort((a, b) => tsKey(a.timestamp).localeCompare(tsKey(b.timestamp)))
+                const oldest = mergedAsc[0]?.timestamp ?? null
+                setLastTimestamp(oldest)
+                return mergedAsc
+            })
+        })
 
-                // sort ascending by our template-aware key
-                const mergedAsc = Array.from(map.values()).sort((a, b) =>
-                    tsKey(a.timestamp).localeCompare(tsKey(b.timestamp))
-                );
+        return () => unsubscribe()
+    }, [chatId, prefetchedData])
 
-                // update lastTimestamp consistently with your paging choice
-                // (same rule as above; here I assume we want the OLDEST for "load older" pagination)
-                const oldest = mergedAsc[0]?.timestamp ?? null;
-                setLastTimestamp(oldest);
-
-                return mergedAsc;
-            });
-        });
-
-        return () => unsubscribe();
-    }, [chatId, prefetchedData]);
-
+    // invoice sub
     useEffect(() => {
-        // Subscribe to real-time updates
         const unsubscribe = subscribeToInvoiceData(selectedContact?.invoiceNumber, (msgs) => {
             setInvoiceData(msgs)
         })
-
-        // Clean up the listener on unmount or when chatId changes
         return () => unsubscribe()
     }, [selectedContact?.invoiceNumber, chatId])
 
-
+    // derive chatId from pathname, guard ownership
     useEffect(() => {
-
         const segments = pathname.split("/").filter(Boolean)
-        // ── if we're exactly on "/chats", do nothing (that's your main page)
-        if (segments.length === 1 && segments[0] === "chats") {
-            return
-        }
+        if (segments.length === 1 && segments[0] === "chats") return
 
-        // ── otherwise expect a deeper route like:
-        //    /chats/chat_<…>
-        //    /chats/ordered/chat_<…>
-        //    /chats/payment/chat_<…>
-        const section = segments[1]               // e.g. "ordered", "payment", or "chat…"
+        const section = segments[1]
         const chatIdFromPath =
             section === "ordered" || section === "payment"
                 ? segments[2]
                 : section
 
-        // ── no ID → back to listing
         if (!chatIdFromPath) {
             router.replace("/chats")
             return
         }
 
-        // ── pull off email part (allowing underscore or no-underscore separators)
         const m = chatIdFromPath.match(/^chat[_-]?\d+[_-]?(.+)$/)
         if (!m) {
             router.replace("/chats")
@@ -362,60 +400,40 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
         }
 
         const rawEmail = m[1]
-        const emailFromChatId = rawEmail.includes("%")
-            ? decodeURIComponent(rawEmail)
-            : rawEmail
+        const emailFromChatId = rawEmail.includes("%") ? decodeURIComponent(rawEmail) : rawEmail
 
-        // ── if it’s not *your* chat, send you back to listing
         if (emailFromChatId !== userEmail) {
             router.replace("/chats")
         } else {
             setChatId(chatIdFromPath)
-
         }
     }, [pathname, userEmail, router])
 
     const handleSelectContact = async (contact) => {
-        router.push(`/chats/${contact.id}`);
-        console.log("handleSelectContact called with contact:", contact);
-        // Prevent reloading if the selected contact is the current chat
-        if (contact.id === chatId) {
-            console.log("Contact is already selected, skipping update.");
-            return;
-        }
+        router.push(`/chats/${contact.id}`)
+        if (contact.id === chatId) return
 
-        // Set loading state
-        setIsLoadingTransaction(true);
+        setIsLoadingTransaction(true)
         setInvoiceData({})
-        // Clear all state variables
-        setSelectedContact(null);
-        setChatMessages([]);
-        setLastTimestamp(null);
-        // setInvoiceData({}); index[0] list is clearing when selecting
-        setBookingData({});
+        setSelectedContact(null)
+        setChatMessages([])
+        setLastTimestamp(null)
+        setBookingData({})
 
-        // Find prefetched contact and route
-        const prefetchedContact = prefetchedData.find(item => item.id === contact.id);
-        if (prefetchedContact) {
-            setSelectedContact(prefetchedContact);
-        }
-
-        console.log("Navigating to chat route for contact:", contact.id);
-
+        const prefetchedContact = (prefetchedData || []).find(item => item.id === contact.id)
+        if (prefetchedContact) setSelectedContact(prefetchedContact)
     }
 
-    // Monitor pathname changes to update loading state
+    // loading state toggle when route changes
     useEffect(() => {
-        if (isLoadingTransaction) {
-            setIsLoadingTransaction(false);
-        }
-    }, [pathname]);
+        if (isLoadingTransaction) setIsLoadingTransaction(false)
+    }, [pathname, isLoadingTransaction])
 
     const handleBackToList = () => {
         router.push({
             pathname: "/chats",
             query: { prefetchedData: JSON.stringify(prefetchedData) },
-        });
+        })
     }
 
     const [loadMain, setLoadMain] = useState(true)
@@ -429,132 +447,121 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
         }
     }, [chatId, chatList])
 
-    const [isLoadingMore, setIsLoadingMore] = useState(false);
-    const keyOf = (m) => m.id ?? m.messageId ?? `${tsKey(m.timestamp)}_${m.senderId ?? ""}_${m.text ?? ""}`;
+    const [isLoadingMore, setIsLoadingMore] = useState(false)
+    const keyOf = (m) => m.id ?? m.messageId ?? `${tsKey(m.timestamp)}_${m.senderId ?? ""}_${m.text ?? ""}`
 
-
+    // MESSAGE "load older" (unchanged logic)
     const handleLoadMore = async () => {
-        if (isLoadingMore || !hasMore) return;
-        if (!chatId || !lastTimestamp) return; // nothing to page yet
+        if (isLoadingMore || !hasMore) return
+        if (!chatId || !lastTimestamp) return
 
-        setIsLoadingMore(true);
+        setIsLoadingMore(true)
         try {
-            // Expectation: returns messages STRICTLY older than `lastTimestamp`
-            // (e.g., Firestore: .orderBy('timestamp').endBefore(lastTimestamp).limit(n))
-            const older = await loadMoreMessages(chatId, lastTimestamp);
-
+            const older = await loadMoreMessages(chatId, lastTimestamp)
             if (!older || older.length === 0) {
-                setHasMore(false);
-                return;
+                setHasMore(false)
+                return
             }
 
             setChatMessages((prev) => {
-                // merge (older first so older wins on same key is fine either way)
-                const map = new Map();
-                for (const m of older) map.set(keyOf(m), m);
-                for (const m of prev) map.set(keyOf(m), m);
+                const map = new Map()
+                for (const m of older) map.set(keyOf(m), m)
+                for (const m of prev) map.set(keyOf(m), m)
 
-                // sort ascending by the same template-aware key
                 const mergedAsc = Array.from(map.values()).sort((a, b) =>
                     tsKey(a.timestamp).localeCompare(tsKey(b.timestamp))
-                );
-
-                // keep the cursor consistent with your useEffect: store the OLDEST
-                const newOldest = mergedAsc[0]?.timestamp ?? null;
-                setLastTimestamp(newOldest);
-
-                return mergedAsc;
-            });
+                )
+                const newOldest = mergedAsc[0]?.timestamp ?? null
+                setLastTimestamp(newOldest)
+                return mergedAsc
+            })
         } catch (error) {
-            console.error("Error loading more messages:", error);
+            console.error("Error loading more messages:", error)
         } finally {
-            setIsLoadingMore(false);
+            setIsLoadingMore(false)
         }
-    };
+    }
+
+    // 🔁 CHAT LIST: subscribe (first page) and reset paging on search change
     useEffect(() => {
         if (!userEmail) return
-        const trimmedQuery = searchQuery.trim()
+        const trimmedQuery = (searchQuery || "").trim()
 
-        // If there's no search query, use default subscription
-        if (!trimmedQuery) {
-            const unsubscribe = subscribeToChatList(userEmail, (newChatList) => {
-                setChatList(newChatList)
-                setHasMore(newChatList.length === 12)
-            })
+        // reset paging state on every new search
+        setHasMore(true)
+        setPageCursor(null)
+        setChatList([])
 
-            return () => unsubscribe()
-        }
+        const keywords =
+            trimmedQuery
+                ? (trimmedQuery.includes("-") ? buildDashVariants(trimmedQuery) : cleanMany([trimmedQuery]))
+                : []
 
-        // If there is a search query, use keyword-based subscription
-        const keywords = [trimmedQuery]
-
-        const unsubscribe = subscribeToChatList(userEmail, keywords, (newChatList) => {
+        const unsubscribe = subscribeToChatList(userEmail, keywords, (newChatList, meta) => {
             setChatList(newChatList)
-            setHasMore(newChatList.length === 12)
+            setHasMore(Boolean(meta?.hasMore))
+            setPageCursor(meta?.cursor ?? null)
         })
-        return () => unsubscribe();
 
+        return () => unsubscribe()
     }, [userEmail, searchQuery])
 
+    // 🔁 CHAT LIST: infinite load for the list (respects search)
+    const loadMore = useCallback(async () => {
+        if (!hasMore || loadingMore || !pageCursor) return
+        setLoadingMore(true)
 
+        const trimmed = (searchQuery || "").trim()
+        const keywords =
+            trimmed
+                ? (trimmed.includes("-") ? buildDashVariants(trimmed) : cleanMany([trimmed]))
+                : []
 
+        try {
+            const { items, hasMore: nextHasMore, cursor: nextCursor } =
+                await loadMoreChatList(userEmail, { cursor: pageCursor, keywords })
 
-    const [error, setError] = useState()
+            setChatList(prev => [...prev, ...items])
+            setHasMore(nextHasMore)
+            setPageCursor(nextCursor)
+        } catch (e) {
+            console.error("Error loading more chats:", e)
+            setHasMore(false)
+        } finally {
+            setLoadingMore(false)
+        }
+    }, [userEmail, searchQuery, hasMore, loadingMore, pageCursor])
 
-    const loadMore = useCallback(() => {
-        if (!hasMore || loadingMore) return;
-        setLoadingMore(true);
-
-        loadMoreChatList(userEmail, (moreChats, noMore) => {
-            setChatList((prev) => [...prev, ...moreChats]);
-            setHasMore(!noMore);
-            setLoadingMore(false);
-        });
-    }, [userEmail, hasMore, loadingMore]);
-
+    // vehicle statuses live listeners
     useEffect(() => {
-        const stockIDs = chatList.map(chat => chat.carData?.stockID).filter(Boolean);
-
+        const stockIDs = chatList.map(chat => chat.carData?.stockID).filter(Boolean)
         const updateStatuses = (stockID, status) => {
-            setVehicleStatus(prevStatus => ({
-                ...prevStatus,
-                [stockID]: status
-            }));
-        };
-
-        const cleanup = fetchVehicleStatuses(stockIDs, updateStatuses);
-
-        return () => {
-            if (cleanup) cleanup();
-        };
+            setVehicleStatus(prevStatus => ({ ...prevStatus, [stockID]: status }))
+        }
+        const cleanup = fetchVehicleStatuses(stockIDs, updateStatuses)
+        return () => { if (cleanup) cleanup() }
     }, [chatList])
-    // e.g. "/chats" or "/chats/123"
-    // detail view whenever we're on /chats/<something>
-    const isDetail = segments[0] === 'chats' && segments.length > 1;
 
+    const isDetail = segments[0] === 'chats' && segments.length > 1
+
+    // booking doc sub
     useEffect(() => {
         if (!userEmail || !selectedContact?.invoiceNumber) return
-
-        const q = query(
+        const qy = query(
             collection(firestore, 'booking'),
             where('invoiceNumber', '==', selectedContact?.invoiceNumber),
             where('customerEmail', '==', userEmail)
         )
-
-        // subscribe in real time
-        const unsubscribe = onSnapshot(q, snapshot => {
+        const unsubscribe = onSnapshot(qy, snapshot => {
             if (snapshot.empty) {
                 setBookingData(null)
             } else {
-                // assume one document per invoice+email
-                const doc = snapshot.docs[0]
-                setBookingData({ id: doc.id, ...doc.data() })
+                const doc0 = snapshot.docs[0]
+                setBookingData({ id: doc0.id, ...doc0.data() })
             }
         })
-
-        // cleanup on unmount or deps change
         return () => unsubscribe()
-    }, [selectedContact?.invoiceNumber, userEmail]);
+    }, [selectedContact?.invoiceNumber, userEmail])
 
     return (
         <SortProvider>

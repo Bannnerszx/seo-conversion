@@ -16,6 +16,7 @@ import DesktopSignUpBanner from './homeComponents/desktopSignUpBanner';
 import ZambiaBranchSection from './homeComponents/ZambiaBranchSection';
 import { m } from 'framer-motion';
 import TestimonialsSection from './homeComponents/TestimonialsSection';
+import TruckIconsSection from './homeComponents/TruckSection';
 // generateMetadata is only for SEO metadata
 export async function generateMetadata() {
 
@@ -262,7 +263,7 @@ export default async function Home() {
   // build { TOYOTA: 42, NISSAN: 17, … }
   const makeCounts = Object.fromEntries(entries);
   const testimonies = await fetchTestimonies();
- 
+
   const { products, totalCount } = await fetchVehicleProductsByPage({
     searchKeywords: null,
     carMakes: null,
@@ -355,6 +356,13 @@ export default async function Home() {
           <SearchByType />
         </div>
       </ClientWrapper>
+
+      {/* <ClientWrapper id="by-trucks">
+        <div id="by-types" className="relative z-40">
+          <TruckIconsSection />
+        </div>
+      </ClientWrapper> */}
+
       <ClientWrapper id="testimonials">
         <div id="testimonials" className="relative z-40">
           <TestimonialsSection testimonials={testimonies} />
