@@ -16,6 +16,30 @@ import { constants } from "buffer"
 const PAGE_SIZE = 12
 const PAGE_LIMIT = PAGE_SIZE + 1
 let lastVisible = null;
+
+// --- Lowercase variants for search ---
+function buildDashVariantsLower(token) {
+    // normalize then force lower
+    const base = normalizeStrict(token).toLowerCase();
+    const dashes = ["-", "\u2013", "\u2212", "\uFF0D"]; // hyphen, en dash, minus, full-width
+    const set = new Set([base]);
+
+    if (!base.includes("-")) {
+        return Array.from(set).slice(0, 10);
+    }
+    for (const d of dashes) {
+        set.add(base.replace(/-/g, d)); // keep all-lowercase
+    }
+    return Array.from(set).slice(0, 10);
+}
+
+function cleanManyLower(arr) {
+    if (!Array.isArray(arr)) return [];
+    const cleaned = arr
+        .map((s) => normalizeStrict(s).toLowerCase())
+        .filter(Boolean);
+    return Array.from(new Set(cleaned)).slice(0, 10);
+}
 function normalizeStrict(raw) {
     // NFKC, remove format/bidi marks, unify ANY dash to '-', trim
     return String(raw ?? "")
@@ -484,54 +508,57 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
 
     // 🔁 CHAT LIST: subscribe (first page) and reset paging on search change
     useEffect(() => {
-        if (!userEmail) return
-        const trimmedQuery = (searchQuery || "").trim()
+        if (!userEmail) return;
+        const trimmedQuery = (searchQuery || "").trim();
 
-        // reset paging state on every new search
-        setHasMore(true)
-        setPageCursor(null)
-        setChatList([])
+        setHasMore(true);
+        setPageCursor(null);
+        setChatList([]);
 
         const keywords =
             trimmedQuery
-                ? (trimmedQuery.includes("-") ? buildDashVariants(trimmedQuery) : cleanMany([trimmedQuery]))
-                : []
+                ? (trimmedQuery.includes("-"))
+                    ? buildDashVariantsLower(trimmedQuery)
+                    : cleanManyLower([trimmedQuery])
+                : [];
 
         const unsubscribe = subscribeToChatList(userEmail, keywords, (newChatList, meta) => {
-            setChatList(newChatList)
-            setHasMore(Boolean(meta?.hasMore))
-            setPageCursor(meta?.cursor ?? null)
-        })
+            setChatList(newChatList);
+            setHasMore(Boolean(meta?.hasMore));
+            setPageCursor(meta?.cursor ?? null);
+        });
 
-        return () => unsubscribe()
+        return () => unsubscribe();
     }, [userEmail, searchQuery])
 
     // 🔁 CHAT LIST: infinite load for the list (respects search)
     const loadMore = useCallback(async () => {
-        if (!hasMore || loadingMore || !pageCursor) return
-        setLoadingMore(true)
+        if (!hasMore || loadingMore || !pageCursor) return;
+        setLoadingMore(true);
 
-        const trimmed = (searchQuery || "").trim()
+        const trimmed = (searchQuery || "").trim();
         const keywords =
             trimmed
-                ? (trimmed.includes("-") ? buildDashVariants(trimmed) : cleanMany([trimmed]))
-                : []
+                ? (trimmed.includes("-")
+                    ? buildDashVariantsLower(trimmed)
+                    : cleanManyLower([trimmed])
+                )
+                : [];
 
         try {
             const { items, hasMore: nextHasMore, cursor: nextCursor } =
-                await loadMoreChatList(userEmail, { cursor: pageCursor, keywords })
+                await loadMoreChatList(userEmail, { cursor: pageCursor, keywords });
 
-            setChatList(prev => [...prev, ...items])
-            setHasMore(nextHasMore)
-            setPageCursor(nextCursor)
-        } catch (e) {
-            console.error("Error loading more chats:", e)
+            setChatList(prev => [...prev, ...items]);
+            setHasMore(nextHasMore);
+            setPageCursor(nextCursor);
+        } catch (error) {
+            console.error("Error loading more chats:", error);
             setHasMore(false)
         } finally {
             setLoadingMore(false)
         }
     }, [userEmail, searchQuery, hasMore, loadingMore, pageCursor])
-
     // vehicle statuses live listeners
     useEffect(() => {
         const stockIDs = chatList.map(chat => chat.carData?.stockID).filter(Boolean)
