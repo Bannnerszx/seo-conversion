@@ -14,9 +14,10 @@ const nextConfig = {
     }
   },
   experimental: {
-  
+
     serverActions: {
       bodySizeLimit: '5mb',
+      allowedOrigins: ['localhost:3000', 'realmotor.jp', 'www.realmotor.jp']
     },
     cssChunking: true,
   },
@@ -43,7 +44,7 @@ const nextConfig = {
         source: '/chats/:chatId',
         destination: '/chats',
       },
-   
+
     ]
   }
 }

@@ -263,7 +263,6 @@ export default async function Home() {
   // build { TOYOTA: 42, NISSAN: 17, … }
   const makeCounts = Object.fromEntries(entries);
   const testimonies = await fetchTestimonies();
-
   const { products, totalCount } = await fetchVehicleProductsByPage({
     searchKeywords: null,
     carMakes: null,
@@ -357,11 +356,11 @@ export default async function Home() {
         </div>
       </ClientWrapper>
 
-      {/* <ClientWrapper id="by-trucks">
+      <ClientWrapper id="by-trucks">
         <div id="by-types" className="relative z-40">
           <TruckIconsSection />
         </div>
-      </ClientWrapper> */}
+      </ClientWrapper>
 
       <ClientWrapper id="testimonials">
         <div id="testimonials" className="relative z-40">

@@ -354,7 +354,8 @@ export default function TransactionList({
                 <>
                   {contacts.map((contact, index) => {
                     const isLast = index === contacts.length - 1 // ✅ check if this is the last item
-                    const { stockStatus, reservedTo } = vehicleStatus[contact.stockID] || {};
+                    const hit = vehicleStatus.find(v => v.id === contact.stockID);
+                    const { stockStatus, reservedTo } = hit ?? {};
                     const isReservedOrSold = (stockStatus === "Reserved" || stockStatus === "Sold") && reservedTo !== userEmail;
 
                     return (

@@ -15,7 +15,7 @@ export function AnnouncementBar({
   countryList,
   userEmail,
   accountData,
-  vehicleStatus = {},
+  vehicleStatus ,
   onBrowseOtherVehicles,
   invoiceData,
   selectedCurrency
@@ -83,7 +83,12 @@ export function AnnouncementBar({
   if (isClosed || (stepValue === 0 && !isCancelled)) return null
 
   const stockID = selectedChatData?.carData?.stockID
-  const { stockStatus, reservedTo } = (stockID && vehicleStatus?.[stockID]) || {}
+  const { stockStatus, reservedTo } =
+    stockID
+      ? (vehicleStatus.find(v => String(v.id) === String(stockID)) || {})
+      : {};
+
+  console.log(stockStatus, 'status inside')
   const isReservedOrSold =
     (stockStatus === "Reserved" || stockStatus === "Sold") &&
     reservedTo !== userEmail

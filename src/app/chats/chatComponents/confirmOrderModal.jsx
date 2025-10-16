@@ -12,6 +12,7 @@ import { firestore } from "../../../../firebase/clientApp";
 import { runTransaction, doc, increment } from "firebase/firestore"
 import { submitJackallClient, submitUserData } from "@/app/actions/actions";
 import { FloatingAlertPortal } from "./floatingAlert"
+import { server } from "typescript"
 
 export default function OrderButton({ handlePreviewInvoiceModal, context, setIsHidden, ipInfo, tokyoTime, accountData, isOrderMounted, setIsOrderMounted, userEmail, chatId, selectedChatData, countryList, invoiceData }) {
     const [ordered, setOrdered] = useState(false)
@@ -74,42 +75,106 @@ export default function OrderButton({ handlePreviewInvoiceModal, context, setIsH
         sales_pending: "1",
     });
 
-    // 3) Atomically allocate or retrieve salesInfoId
-    const processJackallSalesInfo = async (chatId) => {
-        const countsDocRef = doc(firestore, "counts", "jackall_ids");
-        const chatDocRef = doc(firestore, "chats", chatId);
+    const assignSalesInfoIdViaCallable = async (chatId) => {
+        const callable = httpsCallable(functions, 'processJackallSalesInfo');
+        const res = await callable({ chatId });
 
-        const { resultingId, wasNew } = await runTransaction(
-            firestore,
-            async (tx) => {
-                const countsSnap = await tx.get(countsDocRef);
-                const chatSnap = await tx.get(chatDocRef);
+        return res.data
+    }
 
-                if (!countsSnap.exists()) {
-                    throw new Error("counts/jackall_ids missing");
-                }
-                if (!chatSnap.exists()) {
-                    throw new Error(`Chat ${chatId} missing`);
-                }
+    const assignSalesInfoIdViaLocalTxn = async (chatId) => {
+        const countsDocRef = doc(firestore, 'counts', 'jackall_ids');
+        const chatDocRef = doc(firestore, 'chats', chatId);
+        const { resultindId, wasNew } = await runTransaction(firestore, async (tx) => {
+            const [countsSnap, chatSnap] = await Promise.all([
+                tx.get(countsDocRef),
+                tx.get(chatDocRef)
+            ]);
 
-                const chatData = chatSnap.data();
-                // already has one?
-                if (chatData.salesInfoId != null) {
-                    return { resultingId: chatData.salesInfoId, wasNew: false };
-                }
+            if (!chatSnap.exists()) throw new Error(`Chat ${chatId} missing`);
+            if (!countsSnap.exists()) throw new Error('counts/jackall_ids missing');
 
-                // allocate new
-                const currentId = countsSnap.data()["sales-info-id"];
-                const nextId = currentId + 1;
-                tx.update(chatDocRef, { salesInfoId: nextId });
-                tx.update(countsDocRef, { "sales-info-id": increment(1) });
-                return { resultingId: nextId, wasNew: true };
+            const chatData = chatSnap.data() || {};
+
+            if (chatData.salesInfoId != null) {
+                return { resultingId: chatData.salesInfoId, wasNew: false }
             }
-        );
 
+            const currentId = countsSnap.get('sales-info-id') ?? 0;
+            const nextId = currentId + 1;
 
-        return { resultingId, wasNew };
+            tx.update(chatDocRef, { salesInfoId: nextId })
+            tx.update(countsDocRef, { 'sales-info-id': increment(1) });
+
+            return { resultingId: nextId, wasNew: true }
+        })
+
+        return { resultindId, wasNew }
     };
+
+    const delay = (ms) => new Promise((r) => setTimeout(r, ms))
+
+    const getOrAssignedSalesInfoId = async (chatId) => {
+        const serverPromise = assignSalesInfoIdViaCallable(chatId);
+
+        const localPromise = (async () => {
+            await delay(150);
+            return assignSalesInfoIdViaLocalTxn(chatId)
+        })();
+
+        let winner;
+        try {
+            winner = await Promise.any([serverPromise, localPromise])
+        } catch (error) {
+            const [srv, loc] = await Promise.allSettled([serverPromise, localPromise]);
+            const srvErr = srv.status === 'rejected' ? srv.reason?.message : null;
+            const locErr = loc.status === 'rejected' ? loc.reason?.message : null;
+            throw new Error(
+                `Failed to assign salesInfoId (server: ${srvErr || 'ok'}, local: ${locErr || 'ok'})`
+            );
+        }
+
+        Promise.allSettled([serverPromise, localPromise]).catch(() => { });
+
+        return winner;
+    }
+
+    // 3) Atomically allocate or retrieve salesInfoId
+    // const processJackallSalesInfo = async (chatId) => {
+    //     const countsDocRef = doc(firestore, "counts", "jackall_ids");
+    //     const chatDocRef = doc(firestore, "chats", chatId);
+
+    //     const { resultingId, wasNew } = await runTransaction(
+    //         firestore,
+    //         async (tx) => {
+    //             const countsSnap = await tx.get(countsDocRef);
+    //             const chatSnap = await tx.get(chatDocRef);
+
+    //             if (!countsSnap.exists()) {
+    //                 throw new Error("counts/jackall_ids missing");
+    //             }
+    //             if (!chatSnap.exists()) {
+    //                 throw new Error(`Chat ${chatId} missing`);
+    //             }
+
+    //             const chatData = chatSnap.data();
+    //             // already has one?
+    //             if (chatData.salesInfoId != null) {
+    //                 return { resultingId: chatData.salesInfoId, wasNew: false };
+    //             }
+    //             // allocate new
+    //             const currentId = countsSnap.data()["sales-info-id"];
+    //             const nextId = currentId + 1;
+    //             tx.update(chatDocRef, { salesInfoId: nextId });
+    //             tx.update(countsDocRef, { "sales-info-id": increment(1) });
+    //             return { resultingId: nextId, wasNew: true };
+    //         }
+    //     );
+
+
+    //     return { resultingId, wasNew };
+    // };
+
     const deleteFromTcvBoth = async () => {
         const apis = ['https://asia-northeast2-real-motor-japan.cloudfunctions.net/uploadToTcvSalesF', 'https://asia-northeast2-real-motor-japan.cloudfunctions.net/uploadToTcvSales'];
 
@@ -280,7 +345,7 @@ export default function OrderButton({ handlePreviewInvoiceModal, context, setIsH
         }
 
         //----STEP 2: Proceed with other operations ONLY after successful reservation ----
-        const { resultingId, wasNew } = await processJackallSalesInfo(chatId);
+        const { resultingId, wasNew } = await getOrAssignedSalesInfoId(chatId);
         await submitJackallClient({
             userEmail,
             newClientId: accountData?.client_id,

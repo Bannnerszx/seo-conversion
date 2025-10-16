@@ -251,84 +251,162 @@ const toFirstName = (full) => {
   return first.charAt(0).toLocaleUpperCase() + first.slice(1).toLocaleLowerCase();
 };
 
+const F = (...p) => new FieldPath(...p);
+
+
 export const fetchTestimonies = cache(
   async () => {
-    const q = db
-      .collection("Testimonies")
+    const base = db.collection("Testimonies")
       .where("visible", "==", true)
-      .where("carData.carName", ">=", "")
-      .where("carData.carName", "<=", "\uf8ff")
-      .where("consignee.name", ">=", "")
-      .where("consignee.name", "<=", "\uf8ff")
-      .where("experienceRating", ">=", 0)
-      .where("productRating", ">=", 0)
       .select(
-        new FieldPath("carData", "carName"),
-        new FieldPath("carData", "images"), // include nested images
+        F("carData", "carName"),
+        F("carData", "images"),
         "experienceRating",
         "productRating",
         "imageUrls",
         "images",
-        new FieldPath("consignee", "name"),
+        F("consignee", "name"),
         "comment",
         "visible"
       );
 
-    const snap = await q.get();
-    if (snap.empty) return [];
+    // 1) Total count
+    const agg = await base.count().get();
+    const total = agg.data().count || 0;
+    if (!total) return [];
 
+    // 2) Random offset in [0, total-1]
+    const limit = 12;
+    const skip = Math.floor(Math.random() * total);
+
+    // 3) Read slice; wrap if needed
+    const q1 = base.orderBy(FieldPath.documentId()).offset(skip).limit(limit);
+    let snap = await q1.get();
+    let docs = snap.docs;
+
+    if (docs.length < limit && total > docs.length) {
+      const q2 = base.orderBy(FieldPath.documentId()).offset(0).limit(limit - docs.length);
+      const snap2 = await q2.get();
+      docs = docs.concat(snap2.docs);
+    }
+
+    // ---- map like your original ----
     const pickFirstImage = (d) => {
       const arr = [
         ...(Array.isArray(d?.carData?.images) ? d.carData.images : []),
         ...(Array.isArray(d?.images) ? d.images : []),
         ...(Array.isArray(d?.imageUrls) ? d.imageUrls : []),
       ];
-      const first = arr.find((x) => typeof x === "string" && x.trim() !== "");
-      return first || null;
+      return arr.find((x) => typeof x === "string" && x.trim() !== "") || null;
     };
 
-    const rows = snap.docs
-      .map((doc) => {
-        const d = doc.data() || {};
+    const rows = docs.map((doc) => {
+      const d = doc.data() || {};
+      const ok =
+        typeof d?.carData?.carName === "string" && d.carData.carName.trim() &&
+        typeof d?.consignee?.name === "string" && d.consignee.name.trim() &&
+        typeof d?.experienceRating === "number" &&
+        typeof d?.productRating === "number" &&
+        typeof d?.comment === "string" && d.comment.trim() &&
+        !!pickFirstImage(d);
 
-        const hasCarName =
-          typeof d?.carData?.carName === "string" && d.carData.carName.trim() !== "";
-        const hasConsigneeName =
-          typeof d?.consignee?.name === "string" && d.consignee.name.trim() !== "";
-        const hasExp = typeof d?.experienceRating === "number";
-        const hasProd = typeof d?.productRating === "number";
-        const hasComment = typeof d?.comment === "string" && d.comment.trim() !== "";
-        const firstImage = pickFirstImage(d);
+      if (!ok) return null;
 
-        if (!(hasCarName && hasConsigneeName && hasExp && hasProd && hasComment && firstImage)) {
-          return null;
-        }
+      const avg = Math.round((d.experienceRating + d.productRating) / 2);
+      const rating = Math.max(1, Math.min(5, avg || 0));
 
-        // average the two ratings, clamp 1..5
-        const avg = Math.round((d.experienceRating + d.productRating) / 2);
-        const rating = Math.max(1, Math.min(5, avg || 0));
+      return {
+        productImage: pickFirstImage(d) || "/placeholder.jpg",
+        rating,
+        quote: d.comment,
+        author: toFirstName(d.consignee.name),
+      };
+    }).filter(Boolean);
 
-        return {
-          productImage: firstImage || "/placeholder.jpg",
-          rating,
-          quote: d.comment,
-          author: d.consignee.name,
-        };
-      })
-      .filter(Boolean);
-
-    // add 1-based id for UI
-    return rows.map((r, i) => ({
-      id: i + 1,
-      productImage: r.productImage,
-      rating: r.rating,
-      quote: r.quote,
-      author: toFirstName(r.author),
-    }));
+    return rows.map((r, i) => ({ id: i + 1, ...r }));
   },
-  ["testimonies"], // cache key
-  { revalidate: 60, tags: ["testimonies"] }
+  ["testimonies-random-offset"],
+  { revalidate: 60, tags: ["testimonies"] } // no caching → new random slice each call
 );
+// export const fetchTestimonies = cache(
+//   async () => { i will have that butterfly knife emerald in dreams and nightmares case
+
+//     const q = db
+//       .collection("Testimonies")
+//       .where("visible", "==", true)
+//       .where("carData.carName", ">=", "")
+//       .where("carData.carName", "<=", "\uf8ff")
+//       .where("consignee.name", ">=", "")
+//       .where("consignee.name", "<=", "\uf8ff")
+//       .where("experienceRating", ">=", 0)
+//       .where("productRating", ">=", 0)
+//       .select(
+//         new FieldPath("carData", "carName"),
+//         new FieldPath("carData", "images"), // include nested images
+//         "experienceRating",
+//         "productRating",
+//         "imageUrls",
+//         "images",
+//         new FieldPath("consignee", "name"),
+//         "comment",
+//         "visible"
+//       );
+
+//     const snap = await q.get();
+//     if (snap.empty) return [];
+
+//     const pickFirstImage = (d) => {
+//       const arr = [
+//         ...(Array.isArray(d?.carData?.images) ? d.carData.images : []),
+//         ...(Array.isArray(d?.images) ? d.images : []),
+//         ...(Array.isArray(d?.imageUrls) ? d.imageUrls : []),
+//       ];
+//       const first = arr.find((x) => typeof x === "string" && x.trim() !== "");
+//       return first || null;
+//     };
+
+//     const rows = snap.docs
+//       .map((doc) => {
+//         const d = doc.data() || {};
+
+//         const hasCarName =
+//           typeof d?.carData?.carName === "string" && d.carData.carName.trim() !== "";
+//         const hasConsigneeName =
+//           typeof d?.consignee?.name === "string" && d.consignee.name.trim() !== "";
+//         const hasExp = typeof d?.experienceRating === "number";
+//         const hasProd = typeof d?.productRating === "number";
+//         const hasComment = typeof d?.comment === "string" && d.comment.trim() !== "";
+//         const firstImage = pickFirstImage(d);
+
+//         if (!(hasCarName && hasConsigneeName && hasExp && hasProd && hasComment && firstImage)) {
+//           return null;
+//         }
+
+//         // average the two ratings, clamp 1..5
+//         const avg = Math.round((d.experienceRating + d.productRating) / 2);
+//         const rating = Math.max(1, Math.min(5, avg || 0));
+
+//         return {
+//           productImage: firstImage || "/placeholder.jpg",
+//           rating,
+//           quote: d.comment,
+//           author: d.consignee.name,
+//         };
+//       })
+//       .filter(Boolean);
+
+//     // add 1-based id for UI
+//     return rows.map((r, i) => ({
+//       id: i + 1,
+//       productImage: r.productImage,
+//       rating: r.rating,
+//       quote: r.quote,
+//       author: toFirstName(r.author),
+//     }));
+//   },
+//   ["testimonies"], // cache key
+//   { revalidate: 60, tags: ["testimonies"] }
+// );
 
 // /services/fetch.js
 // services/fetchFirebaseData.js

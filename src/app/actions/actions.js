@@ -1574,3 +1574,61 @@ export async function emailUs({ userName, userEmail, subject, message }) {
     return { success: true, messageId: info.messageId }
 };
 
+export async function getVehicleStatuses(ids = []) {
+    const unique = Array.from(new Set(ids.filter(Boolean)));
+    if (unique.length === 0) return {};
+
+    const out = {};
+    const CHUNK = 10;
+    for (let i = 0; i < unique.length; i += CHUNK) {
+        const batch = unique.slice(i, i + CHUNK);
+        const snap = await db
+            .collection('VehicleProducts')
+            .where(FieldPath.documentId(), 'in', batch)
+            .select('reservedTo', 'stockStatus')
+            .get();
+
+        const seen = new Set();
+        snap.forEach((doc) => {
+            const d = doc.data() || {};
+            out[doc.id] = {
+                reservedTo: d.reservedTo ?? null,
+                stockStatus: d.stockStatus ?? null
+            };
+            seen.add(doc.id)
+        });
+
+        for (const id of batch) {
+            if (!seen.has(id)) out[id] = { reservedTo: null, stockStatus: null }
+        }
+    }
+    return out;
+}
+
+export async function getVehicleStatusByChatId(chatId) {
+    if (!chatId) return {};
+
+    const chatQ = await db
+        .collection('chats')
+        .where(FieldPath.documentId(), '==', String(chatId))
+        .select('carData.stockID')
+        .get();
+
+    const chatDoc = chatQ.docs[0];
+    const stockID = chatDoc?.get('carData.stockID');
+    if (!stockID) return {};
+
+    const statusQ = await db
+        .collection('VehicleProducts')
+        .where(FieldPath.documentId(), '==', (stockID))
+        .select('reservedTo', 'stockStatus')
+        .get()
+
+    const d = statusQ.docs[0]?.data() || {};
+    return {
+        [String(stockID)]: {
+            reservedTo: d.reservedTo ?? null,
+            stockStatus: d.stockStatus ?? null
+        }
+    }
+}

@@ -5,12 +5,12 @@ import { useRouter, usePathname } from "next/navigation"
 import { useCustomChat } from "./useCustomChat"
 import TransactionCSR from "./TransactionCSR"
 import TransactionList from "./TransactionListCSR"
-import { doc, query, collection, where, orderBy, limit, onSnapshot, startAfter, getDocs, updateDoc } from "firebase/firestore"
+import { doc, query, collection, where, orderBy, limit, onSnapshot, startAfter, getDocs, updateDoc, documentId } from "firebase/firestore"
 import { firestore } from "../../../../firebase/clientApp"
-import { loadMoreMessages } from "@/app/actions/actions"
+import { getVehicleStatusByChatId, loadMoreMessages } from "@/app/actions/actions"
 import { SortProvider } from "@/app/stock/stockComponents/sortContext"
 import TransactionCSRLoader from "./TransactionCSRLoader"
-import { constants } from "buffer"
+import { getVehicleStatuses } from "@/app/actions/actions"
 
 // import { SurveyModal } from "@/app/components/SurveyModal"
 const PAGE_SIZE = 12
@@ -250,21 +250,29 @@ export async function loadMoreChatList(userEmail, { cursor, keywords = [] } = {}
     if (!userEmail || !cursor) {
         return { items: [], hasMore: false, cursor: null }
     }
-    const constraints = [where('participants.customer', "==", userEmail)]
+    const constraints = [
+        where('participants.customer', '==', userEmail),
+        ...(Array.isArray(keywords) && keywords.length > 0
+            ? [where('keywords', 'array-contains-any', keywords)]
+            : []),
+        orderBy('lastMessageDate', 'desc'),
+        startAfter(cursor),
+        limit(PAGE_LIMIT + 1), // fetch one extra to know if there's next page
+    ];
     if (Array.isArray(keywords) && keywords.length > 0) {
         constraints.push(where("keywords", "array-contains-any", keywords))
     }
 
-    constraints.push(orderBy("lastMessageDate", "desc"), startAfter(cursor, limit(PAGE_LIMIT)))
-    const qy = query(collection(firestore, 'chats'), ...constraints)
-    const snap = await getDocs(qy)
 
-    const hasMore = snap.size > PAGE_SIZE
-    const pageDocs = hasMore ? snap.docs.slice(0, PAGE_SIZE) : snap.docs
-    const items = pageDocs.map(d => ({ id: d.id, ...d.data() }))
-    const nextCursor = pageDocs.length ? pageDocs[pageDocs.length - 1] : null
+    const qy = query(collection(firestore, 'chats'), ...constraints);
+    const snap = await getDocs(qy);
 
-    return { items, hasMore, cursor: nextCursor }
+    const hasMore = snap.size > PAGE_LIMIT;
+    const pageDocs = hasMore ? snap.docs.slice(0, PAGE_LIMIT) : snap.docs;
+    const items = pageDocs.map(d => ({ id: d.id, ...d.data() }));
+    const nextCursor = pageDocs.length ? pageDocs[pageDocs.length - 1] : null;
+
+    return { items, hasMore, cursor: nextCursor };
 
 
 }
@@ -279,36 +287,38 @@ export async function makeTrueRead(chatId) {
     }
 };
 
-const fetchVehicleStatuses = (stockIDs, updateStatuses) => {
-    if (!stockIDs || stockIDs.length === 0) return;
 
-    // Store unsubscribe functions to clean up listeners
-    const unsubscribeMap = {};
 
-    // Set up onSnapshot for each stockID in VehicleProducts
-    stockIDs.forEach((stockID) => {
-        const docRef = doc(firestore, 'VehicleProducts', stockID);
+// const fetchVehicleStatuses = (stockIDs, updateStatuses) => {
+//     if (!stockIDs || stockIDs.length === 0) return;
 
-        // Listen for real-time updates on each document
-        const unsubscribe = onSnapshot(docRef, (docSnap) => {
-            if (docSnap.exists()) {
-                const data = docSnap.data();
-                updateStatuses(stockID, { stockStatus: data.stockStatus, reservedTo: data.reservedTo });
-            } else {
-                console.log(`No document for stockID: ${stockID}`);
-                updateStatuses(stockID, { stockStatus: null, reservedTo: null });
-            }
-        });
+//     // Store unsubscribe functions to clean up listeners
+//     const unsubscribeMap = {};
 
-        // Store each unsubscribe function
-        unsubscribeMap[stockID] = unsubscribe;
-    });
+//     // Set up onSnapshot for each stockID in VehicleProducts
+//     stockIDs.forEach((stockID) => {
+//         const docRef = doc(firestore, 'VehicleProducts', stockID);
 
-    // Return a cleanup function to remove all listeners when needed
-    return () => {
-        Object.values(unsubscribeMap).forEach((unsubscribe) => unsubscribe());
-    };
-};
+//         // Listen for real-time updates on each document
+//         const unsubscribe = onSnapshot(docRef, (docSnap) => {
+//             if (docSnap.exists()) {
+//                 const data = docSnap.data();
+//                 updateStatuses(stockID, { stockStatus: data.stockStatus, reservedTo: data.reservedTo });
+//             } else {
+//                 console.log(`No document for stockID: ${stockID}`);
+//                 updateStatuses(stockID, { stockStatus: null, reservedTo: null });
+//             }
+//         });
+
+//         // Store each unsubscribe function
+//         unsubscribeMap[stockID] = unsubscribe;
+//     });
+
+//     // Return a cleanup function to remove all listeners when needed
+//     return () => {
+//         Object.values(unsubscribeMap).forEach((unsubscribe) => unsubscribe());
+//     };
+// };
 const tsKey = (ts) => {
     if (!ts) return "";
     if (typeof ts?.toMillis === "function") {
@@ -331,7 +341,8 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
     const [loadingMore, setLoadingMore] = useState(false)
     const [pageCursor, setPageCursor] = useState(null)          // ← NEW: cursor for chat list paging
 
-    const [vehicleStatus, setVehicleStatus] = useState([])
+    const [vehicleStatuses, setVehicleStatuses] = useState([]);
+    const [loadingBooking, setLoadingBooking] = useState(false)
     const [bookingData, setBookingData] = useState({})
     const router = useRouter()
     const pathname = usePathname()
@@ -345,7 +356,7 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
     const [isMobileView, setIsMobileView] = useState(false)
     const [isLoadingTransaction, setIsLoadingTransaction] = useState(true)
     const [isSurveyOpen, setIsSurveyOpen] = useState(true)
-    const [isModalOpen] = useState(false)
+
 
     // mobile check
     useEffect(() => {
@@ -513,7 +524,10 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
 
         setHasMore(true);
         setPageCursor(null);
-        setChatList([]);
+        if (trimmedQuery) {
+            setChatList([]);
+        }
+
 
         const keywords =
             trimmedQuery
@@ -522,14 +536,85 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
                     : cleanManyLower([trimmedQuery])
                 : [];
 
+        // const unsubscribe = subscribeToChatList(userEmail, keywords, (newChatList, meta) => {
+        //     setChatList(newChatList);
+        //     setHasMore(Boolean(meta?.hasMore));
+        //     setPageCursor(meta?.cursor ?? null);
+        // });
+
+        //Smooth handoff: merge once on the very first realtime tick
+        const firstTick = { current: true };
         const unsubscribe = subscribeToChatList(userEmail, keywords, (newChatList, meta) => {
-            setChatList(newChatList);
             setHasMore(Boolean(meta?.hasMore));
             setPageCursor(meta?.cursor ?? null);
+            setChatList(
+                prev => {
+                    if (!keywords.length > 0) return newChatList;
+                    if (firstTick.current) {
+                        firstTick.current = false;
+                        const byId = new Map(prev.map(i => [i.id, i]));
+                        return newChatList.map(n => ({ ...byId.get(n.id), ...n }));
+                    }
+                    return newChatList;
+                });
         });
 
         return () => unsubscribe();
     }, [userEmail, searchQuery])
+
+
+    //vehicle status
+    useEffect(() => {
+        const ids = (chatList || []).map(c => c?.carData?.stockID).filter(Boolean);
+        if (ids.length === 0) return;
+
+        let cancelled = false;
+
+        (async () => {
+            const map = await getVehicleStatuses(ids);  // { [id]: { reservedTo, stockStatus } }
+            if (cancelled) return;
+
+            // Turn map → array of rows we fetched this time
+            const incoming = Object.entries(map).map(([id, v]) => ({ id, ...v }));
+
+            // ✅ Merge (upsert) into existing array, keyed by id
+            setVehicleStatuses(prev => {
+                const byId = new Map(prev.map(x => [x.id, x]));
+                for (const row of incoming) {
+                    const existing = byId.get(row.id) || {};
+                    byId.set(row.id, { ...existing, ...row });
+                }
+                return Array.from(byId.values());
+            });
+        })();
+
+        return () => { cancelled = true; };
+    }, [chatList]);
+    useEffect(() => {
+        if (!selectedContact?.id) return;
+        let cancelled = false;
+
+        (async () => {
+            const map = await getVehicleStatusByChatId(selectedContact?.id);
+            if (cancelled) return;
+
+            const incoming = Object.entries(map).map(([id, v]) => ({
+                id: String(id),
+                stockStatus: v?.stockStatus ?? null,
+                reservedTo: v?.reservedTo ?? null
+            }));
+
+            setVehicleStatuses(prev => {
+                const byId = new Map(prev.map(x => [String(x.id), x]));
+                for (const row of incoming) byId.set(row.id, { ...(byId.get(row.id) || {}), ...row });
+                return Array.from(byId.values())
+            })
+        })();
+        return () => { cancelled = true }
+    }, [selectedContact?.id])
+    //
+
+
 
     // 🔁 CHAT LIST: infinite load for the list (respects search)
     const loadMore = useCallback(async () => {
@@ -560,34 +645,41 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
         }
     }, [userEmail, searchQuery, hasMore, loadingMore, pageCursor])
     // vehicle statuses live listeners
-    useEffect(() => {
-        const stockIDs = chatList.map(chat => chat.carData?.stockID).filter(Boolean)
-        const updateStatuses = (stockID, status) => {
-            setVehicleStatus(prevStatus => ({ ...prevStatus, [stockID]: status }))
-        }
-        const cleanup = fetchVehicleStatuses(stockIDs, updateStatuses)
-        return () => { if (cleanup) cleanup() }
-    }, [chatList])
+    // useEffect(() => {
+    //     const stockIDs = chatList.map(chat => chat.carData?.stockID).filter(Boolean)
+    //     const updateStatuses = (stockID, status) => {
+    //         setVehicleStatus(prevStatus => ({ ...prevStatus, [stockID]: status }))
+    //     }
+    //     const cleanup = fetchVehicleStatuses(stockIDs, updateStatuses)
+    //     return () => { if (cleanup) cleanup() }
+    // }, [chatList])
 
     const isDetail = segments[0] === 'chats' && segments.length > 1
 
     // booking doc sub
     useEffect(() => {
-        if (!userEmail || !selectedContact?.invoiceNumber) return
-        const qy = query(
+        setLoadingBooking(true);
+        if (!userEmail || !selectedContact?.invoiceNumber) {
+            return
+        }
+
+        const q = query(
             collection(firestore, 'booking'),
             where('invoiceNumber', '==', selectedContact?.invoiceNumber),
             where('customerEmail', '==', userEmail)
         )
-        const unsubscribe = onSnapshot(qy, snapshot => {
+
+        const unsubscribe = onSnapshot(q, snapshot => {
             if (snapshot.empty) {
                 setBookingData(null)
             } else {
-                const doc0 = snapshot.docs[0]
-                setBookingData({ id: doc0.id, ...doc0.data() })
+                const doc = snapshot.docs[0]
+                setBookingData({ id: doc.id, ...doc.data() })
             }
+            setLoadingBooking(false)
         })
-        return () => unsubscribe()
+
+        return () => unsubscribe();
     }, [selectedContact?.invoiceNumber, userEmail])
 
     return (
@@ -619,7 +711,7 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
                         userEmail={userEmail}
                         setChatList={setChatList}
                         chatList={chatList}
-                        vehicleStatus={vehicleStatus}
+                        vehicleStatus={vehicleStatuses}
                     />
                 </aside>
 
@@ -651,7 +743,8 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
                     >
                         {isDetail ? (
                             <TransactionCSR
-                                vehicleStatus={vehicleStatus}
+                                loadingBooking={loadingBooking}
+                                vehicleStatus={vehicleStatuses}
                                 accountData={accountData}
                                 isMobileView={true}
                                 isDetailView={isDetail}

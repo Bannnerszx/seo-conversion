@@ -8,7 +8,7 @@ import { doc, updateDoc } from "firebase/firestore"
 import { subscribeToChatDoc } from "./chatSubscriptions"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Paperclip, Send, X, Download, CheckCircle } from "lucide-react"
+import { Paperclip, Send, X, Download, CheckCircle, Loader, Loader2 } from "lucide-react"
 import { toast } from 'sonner';
 import { Textarea } from "@/components/ui/textarea"
 import CarDetails from "./carDetails"
@@ -80,16 +80,16 @@ async function warmUpNetwork() {
         });
 
         // perform two quick fetches spaced out to avoid hammering but to warm DNS/TCP
-        await retryableCall(fetchJson("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo"), null).catch(() => {});
+        await retryableCall(fetchJson("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo"), null).catch(() => { });
         await new Promise((r) => setTimeout(r, 500));
-        await retryableCall(fetchJson("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time"), null).catch(() => {});
+        await retryableCall(fetchJson("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time"), null).catch(() => { });
     } catch (e) {
         // don't escalate: warm-up is best-effort
         // console.debug('Warm-up failed', e);
     }
 }
 
-export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, accountData, isMobileView, isDetailView, handleBackToList, bookingData, countryList, currency, dueDate, handleLoadMore, invoiceData, userEmail, contact, messages, onSendMessage, isLoading, chatId, chatMessages }) {
+export default function TransactionCSR({ loadingBooking, isLoadingTransaction, vehicleStatus, accountData, isMobileView, isDetailView, handleBackToList, bookingData, countryList, currency, dueDate, handleLoadMore, invoiceData, userEmail, contact, messages, onSendMessage, isLoading, chatId, chatMessages }) {
 
     const [newMessage, setNewMessage] = useState("");
     const sendMessage = httpsCallable(functions, 'sendMessage');
@@ -297,7 +297,7 @@ export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, ac
                 const effective = connection && connection.effectiveType ? connection.effectiveType : null;
                 if (effective && (effective.includes('3g') || effective.includes('2g'))) {
                     // warm network quickly but don't block send for too long
-                    warmUpNetwork().catch(() => {});
+                    warmUpNetwork().catch(() => { });
                 }
                 const fetchJson = (url) => () => fetch(url).then(r => {
                     if (!r.ok) throw new Error('Network response was not ok');
@@ -382,9 +382,9 @@ export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, ac
             }
 
             setNewMessage("");
-        setAttachedFile(null);
-        // clear the hidden file input so re-selecting the same file triggers onChange
-        if (fileInputRef && fileInputRef.current) fileInputRef.current.value = "";
+            setAttachedFile(null);
+            // clear the hidden file input so re-selecting the same file triggers onChange
+            if (fileInputRef && fileInputRef.current) fileInputRef.current.value = "";
             setLoadingSent(false);
         } catch (error) {
             console.error("Error sending message:", error);
@@ -463,7 +463,15 @@ export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, ac
 
     }, [chatMessages, shouldScroll]);
 
-    const { stockStatus, reservedTo } = vehicleStatus[contact?.carData?.stockID] || {};
+
+    const stockID = contact?.carData?.stockID;
+
+    const hit = stockID
+        ? vehicleStatus.find(v => String(v.id) === String(stockID))
+        : undefined;
+
+    const { stockStatus, reservedTo } = hit ?? {};
+
     const isReservedOrSold = (stockStatus === "Reserved" || stockStatus === "Sold") && reservedTo !== userEmail
 
 
@@ -757,15 +765,27 @@ export default function TransactionCSR({ isLoadingTransaction, vehicleStatus, ac
                                                     {message.text}
                                                 </div>
 
-                                                {message.text.includes('Vessel Name') && bookingData?.sI?.url && (
-                                                    <Button
-                                                        variant="default"
-                                                        className="gap-2 bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-100"
-                                                        onClick={() => window.open(bookingData.sI.url, '_blank')}
-                                                    >
-                                                        <Download className="h-4 w-4" />
-                                                        <span>Download SI</span>
-                                                    </Button>
+                                                {message.text.includes('Shipping Instruction') && (
+                                                    loadingBooking ? (
+                                                        <Button
+                                                            variant="default"
+                                                            disabled
+                                                            aria-busy="true"
+                                                            className="gap-2 bg-purple-50 text-purple-600 border-purple-200"
+                                                        >
+                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                            <span>Loading...</span>
+                                                        </Button>
+                                                    ) : bookingData?.sI?.url ? (
+                                                        <Button
+                                                            variant="default"
+                                                            className="gap-2 bg-purple-50 text-purple-600 border-purpl-200 hover:bg-purple-100"
+                                                            onClick={() => window.open(bookingData?.sI?.url, '_bank')}
+                                                        >
+                                                            <Download className="h-4 w-4" />
+                                                            <span>Download SI</span>
+                                                        </Button>
+                                                    ) : null
                                                 )}
 
 
