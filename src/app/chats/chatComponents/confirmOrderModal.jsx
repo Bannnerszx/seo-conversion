@@ -372,6 +372,8 @@ export default function OrderButton({ handlePreviewInvoiceModal, context, setIsH
 
     // Called from the modal confirm button. Keeps the modal open while processing,
     // disables the confirm button, then navigates to /chats/ordered/:chatId on success.
+
+    
     const handleConfirm = async () => {
         // Prevent double submission
         if (isLoading) return
