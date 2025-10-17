@@ -1,37 +1,40 @@
-//pages/api/car-images/[id].js
 import { unstable_cache } from "next/cache";
 import { db } from "@/lib/firebaseAdmin";
+// Fetches only the thumbnailImage string from the database.
+async function fetchThumbnailFromDB(id) {
+  let thumbnailUrl = "";
 
-async function fetchImagesFromDB(id) {
-  let images = [];
-  const snap = await db.collection('VehicleProducts').doc(String(id)).get();
+  // Get the entire document reference first
+  const docRef = db.collection('VehicleProducts').doc(String(id));
+  const snap = await docRef.get();
+
   if (snap.exists) {
+    // Access the specific field from the document's data
     const data = snap.data() || {};
-    images = Array.isArray(data.images)
-      ? data.images
-      : typeof data.images === "string"
-        ? [data.images]
-        : [];
-  }
-  if (!images.length) {
-    const q = await db.collection('VehicleProducts').where('stockID', '==', id).limit(1).get();
-    if (!q.empty) {
-      const d = q.docs[0].data() || {};
-      images = Array.isArray(d.images)
-        ? d.images
-        : typeof d.images === 'string'
-          ? [d.images]
-          : [];
+    if (typeof data.thumbnailImage === "string") {
+      thumbnailUrl = data.thumbnailImage;
     }
   }
-  return images;
+  // 2. If not found, try fetching by stockID as a fallback.
+  if (!thumbnailUrl) {
+    const q = await db.collection('VehicleProducts').where('stockID', '==', id).select('thumbnailImage').limit(1).get();
+    if (!q.empty) {
+      const d = q.docs[0].data() || {};
+      if (typeof d.thumbnailImage === 'string' && d.thumbnailImage) {
+        thumbnailUrl = d.thumbnailImage;
+      }
+    }
+  }
+
+  return thumbnailUrl;
 }
 
-function getImagesCachedFactory(id) {
+// Caching factory specifically for the thumbnail URL.
+function getThumbnailCachedFactory(id) {
   return unstable_cache(
-    async () => fetchImagesFromDB(id),
-    ['car-images', String(id)],
-    { revalidate: 300, tags: ["car-images", `car:${id}`] }
+    async () => fetchThumbnailFromDB(id),
+    ['car-thumbnail', String(id)], // Updated cache key for clarity.
+    { revalidate: 300, tags: ["car-thumbnail", `car-thumb:${id}`] } // Updated tags.
   );
 }
 
@@ -44,19 +47,25 @@ export default async function handler(req, res) {
   const { id } = req.query;
   if (!id) return res.status(400).json({ error: 'Missing car ID' });
 
-  const getImagesCached = getImagesCachedFactory(id);
-  const images = await getImagesCached();
+  const getThumbnailCached = getThumbnailCachedFactory(id);
+  const thumbnailUrl = await getThumbnailCached();
 
-  res.setHeader('Cached-Control', 'public, max-age=300, stale-while-revalidate=60');
-  const etag = `W/"${Buffer.from(
-    JSON.stringify([images.length, images[0], images[images.length - 1] || ""])
-  )
-    .toString("base64")
-    .slice(0, 16)}"`;
+  // If no URL is found after checking DB, you might want to send a 404.
+  if (!thumbnailUrl) {
+    return res.status(404).json({ error: 'Thumbnail not found' });
+  }
+
+  res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=60');
+
+  // A simpler ETag based on the thumbnail URL itself is sufficient.
+  const etag = `W/"${Buffer.from(thumbnailUrl).toString("base64")}"`;
   res.setHeader("ETag", etag);
+
+  // If the client's ETag matches, send a 304 Not Modified response.
   if (req.headers["if-none-match"] === etag) {
     return res.status(304).end();
   }
 
-  return res.status(200).json({ images });
+  // Return the single thumbnail URL in the response.
+  return res.status(200).json({ thumbnailUrl });
 }

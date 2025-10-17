@@ -259,7 +259,6 @@ export default async function Home() {
       )
     )
   ]);
-
   // build { TOYOTA: 42, NISSAN: 17, … }
   const makeCounts = Object.fromEntries(entries);
   const testimonies = await fetchTestimonies();

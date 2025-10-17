@@ -33,7 +33,7 @@ const NewArrivals = ({ newVehicles, currency }) => {
     const scrollContainerRef = useRef(null);
     const [activeIndex, setActiveIndex] = useState(0);
     const { selectedCurrency } = useCurrency();
-
+    console.log(newVehicles)
     useEffect(() => {
         const container = scrollContainerRef.current;
         if (!container) return;
@@ -80,7 +80,7 @@ const NewArrivals = ({ newVehicles, currency }) => {
                                             <div className="bg-white rounded-2xl shadow-md overflow-hidden transition-transform duration-300 hover:-translate-y-1 hover:shadow-lg h-full">
                                                 <div className="relative h-auto">
                                                     <Image
-                                                        src={car.images[0]}
+                                                        src={car.images}
                                                         alt={`Photo of ${car.make} ${car.model}`}
                                                         sizes="100vw"
                                                         style={{

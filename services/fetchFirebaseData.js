@@ -212,7 +212,7 @@ export const fetchNewVehicle = cache(
           'carName',
           'regYearNumber',
           'regMonth',
-          'images'
+          'thumbnailImage'
         )
         .where('imageCount', '>', 0)
         .where('stockStatus', '==', 'On-Sale')
@@ -230,7 +230,7 @@ export const fetchNewVehicle = cache(
           carName: data.carName,
           regYear: data.regYearNumber,
           regMonth: data.regMonth,
-          images: Array.isArray(data.images) ? data.images : [],
+          images:data.thumbnailImage ? data.thumbnailImage : '/placeholder.svg',
         });
       });
 
