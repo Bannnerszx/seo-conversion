@@ -8,6 +8,23 @@ const withAnalyzer = withBundleAnalyzer({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  async headers() {
+    return [
+      {
+        source: "/:all*\\.(png|jpe?g|gif|webp|avif|svg|ico|woff2?|ttf|otf)$",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, s-maxage=31536000, immutable" },
+        ],
+      },
+      {
+        // Optionally cache fonts
+        source: "/:all*.(woff|woff2|ttf|otf)",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
+      },
+    ];
+  },
   logging: {
     fetches: {
       fullUrl: true

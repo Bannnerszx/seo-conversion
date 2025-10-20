@@ -103,7 +103,7 @@ export default function TruckIconsSection() {
     return (
         <section className="w-full bg-white py-8 px-4 md:py-10 lg:py-12">
             <div className="mx-auto ">
-                <div className="flex items-center gap-4 px-6 mb-10 -ml-10">
+                <div className="flex items-center gap-4 px-6 mb-10  ml-[-25]">
                     {/* Line */}
                     <div className="h-[2px] bg-black flex-1 max-w-[70px] ml-25" />
 

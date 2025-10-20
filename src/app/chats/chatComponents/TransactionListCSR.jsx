@@ -186,6 +186,7 @@ export default function TransactionList({
     run();
     return () => { cancelled = true; };
   }, [chatList]);
+  
 
   // map Firestore data to your UI shape
 

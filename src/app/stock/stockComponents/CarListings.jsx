@@ -70,7 +70,7 @@ export function CarCardSkeleton() {
 
 // Single car card display
 function CarCard({
-  images = [],
+  thumbnailImage,
   carName,
   fobPrice,
   regYear,
@@ -94,7 +94,7 @@ function CarCard({
   const { profitMap, inspectionToggle } = useSort();
 
   const { selectedCurrency } = useCurrency();
-  const imageUrl = images[0];
+  const imageUrl = thumbnailImage;
   const basePrice = parseFloat(fobPrice) * parseFloat(currency.jpyToUsd);
   const baseFinalPrice = (basePrice) + (parseFloat(dimensionCubicMeters) * parseFloat(profitMap));
   const finalPrice = (((baseFinalPrice * selectedCurrency.value) + (inspectionToggle ? 300 : 0)));
@@ -243,7 +243,6 @@ function CarCard({
 }
 
 export default function CarListings({ loadingSkeleton, resultsIsFavorited, products, currency, country, port, userEmail }) {
-  console.log(userEmail, 'carlistings')
   const router = useRouter()
   const { withPhotosOnly } = useSort();
   const filtered = products

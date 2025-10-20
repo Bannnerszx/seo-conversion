@@ -1,4 +1,5 @@
 "use client"
+import rmj from "../../../public/rmj.webp"
 import Link from "next/link"
 import { Menu, UserPlus, LogIn, MessageSquare, CircleUser, ChevronDown, TrendingUp, Tag, Package } from "lucide-react"
 import { useState, useEffect } from "react"
@@ -563,7 +564,7 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
                         <div className="flex items-center space-x-8 overflow-visible">
                             <Link href="/" className="h-auto overflow-hidden">
                                 <ImageHeader
-                                    src="/rmj.webp"
+                                    src={rmj}
                                     alt="REAL MOTOR JAPAN"
                                     width={250}
                                     height={65}
@@ -631,7 +632,7 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
                     <div className="flex items-center space-x-8 overflow-visible">
                         <Link href="/" className="flex items-center">
                             <ImageHeader
-                                src="/rmj.webp"
+                                src={rmj}
                                 alt="REAL MOTOR JAPAN"
                                 width={250}
                                 height={65}

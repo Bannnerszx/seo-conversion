@@ -230,7 +230,7 @@ export const fetchNewVehicle = cache(
           carName: data.carName,
           regYear: data.regYearNumber,
           regMonth: data.regMonth,
-          images:data.thumbnailImage ? data.thumbnailImage : '/placeholder.svg',
+          images: data.thumbnailImage ? data.thumbnailImage : '/placeholder.svg',
         });
       });
 
@@ -633,10 +633,11 @@ export const fetchVehicleProductsByPage = cache(
       exteriorColor: 1,
       transmission: 1,
       bodyType: 1,
+      images: 1,
       engineDisplacementNumber: 1,
       steering: 1,
       driveType: 1,
-      images: 1,
+      thumbnailImage: 1,
       carName: 1,
       fobPrice: 1,
       regYear: 1,

@@ -1,5 +1,5 @@
 import Image from "next/image"
-import { useEffect, useState } from "react";
+import { useRef, useEffect, useState } from "react";
 import TimelineStatus from "./timelineStatus"
 import { useRouter } from "next/navigation";
 import { ChevronLeft } from "lucide-react"
@@ -9,6 +9,22 @@ export default function CarDetails({ chatId, handleBackToList, isMobileView, isD
     const selectedCurrencyCode = contact?.selectedCurrencyExchange; // e.g. "JPY"
     // Payment auto-navigation removed — SEO/admin will control visible URL for /chats/payment
     // 2) build your lookup table
+
+
+    const toNumber = (v, fallback = 0) => {
+        if (v == null) return fallback;
+        if (typeof v === 'number') return Number.isFinite(v) ? v : fallback;
+        if (typeof v === 'string') {
+            const n = parseFloat(v.replace(/[^\d.-]/g, ''));
+            return Number.isFinite(n) ? n : fallback;
+        }
+        return fallback;
+    };
+
+    const formatMoney = (amount, symbol) =>
+        Number.isFinite(amount) ? `${symbol} ${Math.ceil(amount).toLocaleString()}` : 'ASK';
+
+    // --- currency setup (USD pivot) ---
     const currencies = [
         { code: "USD", symbol: "USD$", value: 1 },
         { code: "EUR", symbol: "€", value: contact?.currency?.usdToEur },
@@ -19,86 +35,127 @@ export default function CarDetails({ chatId, handleBackToList, isMobileView, isD
         { code: "ZAR", symbol: "R", value: contact?.currency?.usdToZar },
     ];
 
-    // 3) find the matching currency (fallback to USD if nothing matches)
-    const currency =
-        currencies.find((c) => c.code === selectedCurrencyCode)
-        || currencies[0];
+    const pickCurrency = (code) =>
+        currencies.find(c => c.code === code) || currencies[0];
 
-    // 4) do your price math with currency.value
-    const basePrice =
-        parseFloat(contact?.carData?.fobPrice)
-        * parseFloat(contact?.currency.jpyToUsd);
+    const rates = {
+        USD: 1,
+        EUR: toNumber(contact?.currency?.usdToEur, NaN), // USD->EUR
+        JPY: toNumber(contact?.currency?.usdToJpy, NaN), // USD->JPY
+        CAD: toNumber(contact?.currency?.usdToCad, NaN),
+        AUD: toNumber(contact?.currency?.usdToAud, NaN),
+        GBP: toNumber(contact?.currency?.usdToGbp, NaN),
+        ZAR: toNumber(contact?.currency?.usdToZar, NaN),
+        jpyToUsd: toNumber(contact?.currency?.jpyToUsd, NaN), // JPY->USD for FOB
+    };
 
-    const baseFinalPrice = invoiceData?.paymentDetails.totalAmount ? parseFloat(invoiceData?.paymentDetails.totalAmount) - (contact?.inspection ? 300 : 0) :
-        basePrice + parseFloat(contact?.carData?.dimensionCubicMeters) * parseFloat(contact?.freightPrice);
- console.log(invoiceData?.paymentDetails.totalAmount, 'log')
+    const fromUSD = (usdAmount, toCode = 'USD') => {
+        const usd = toNumber(usdAmount, NaN);
+        if (!Number.isFinite(usd)) return NaN;
+        const mul = rates[toCode] ?? 1;
+        return Number.isFinite(mul) ? usd * mul : NaN;
+    };
 
-    const inspectionSurcharge = contact?.inspection === true ? 300 * currency.value : 0;
-    const insuranceSurcharge = contact?.insurance === true ? 50 * currency.value : 0
-    const finalPrice = (baseFinalPrice * currency.value + inspectionSurcharge + insuranceSurcharge);
+    // --- core compute ---
+    // Fallback parts (all in USD)
+    const fobPriceUSD = toNumber(contact?.carData?.fobPrice) *
+        (Number.isFinite(rates.jpyToUsd) ? rates.jpyToUsd : 1);
+    const dimM3 = toNumber(contact?.carData?.dimensionCubicMeters);
+    const freightUSD = toNumber(contact?.freightPrice);
+    const fallbackUSD = (Number.isFinite(fobPriceUSD) ? fobPriceUSD : 0) +
+        (Number.isFinite(dimM3) ? dimM3 : 0) *
+        (Number.isFinite(freightUSD) ? freightUSD : 0);
 
+    // Invoice totals are ALWAYS USD in your system:
+    const invoiceTotalUSD = toNumber(invoiceData?.paymentDetails?.totalAmount, NaN);
+    const hasInvoiceTotal = Number.isFinite(invoiceTotalUSD);
 
-   
-    const [images, setImages] = useState([]);
-    const [loading, setLoading] = useState(true);
+    // If invoice exists, display using the invoice’s chosen display currency,
+    // otherwise use the UI-selected currency.
+    const targetCurrencyCode = hasInvoiceTotal && invoiceData?.selectedCurrencyExchange
+        ? invoiceData.selectedCurrencyExchange
+        : pickCurrency(selectedCurrencyCode).code;
+
+    const targetCurrency = pickCurrency(targetCurrencyCode);
+
+    // Base (USD): invoice wins (authoritative); else fallback.
+    const baseFinalUSD = hasInvoiceTotal ? invoiceTotalUSD : fallbackUSD;
+
+    // Only add surcharges when using fallback (NOT when invoice exists)
+    let amountInTarget = fromUSD(baseFinalUSD, targetCurrencyCode);
+    if (!hasInvoiceTotal) {
+        const inspection = contact?.inspection ? fromUSD(300, targetCurrencyCode) : 0;
+        const insurance = contact?.insurance ? fromUSD(50, targetCurrencyCode) : 0;
+        amountInTarget = toNumber(amountInTarget, 0) + inspection + insurance;
+    }
+
+    // Final for render
+    const finalDisplay = formatMoney(amountInTarget, targetCurrency.symbol);
+
+    const [thumbnailUrl, setThumbnailUrl] = useState('');
+    const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-
     const carId = contact?.carData?.stockID
+    const C = useRef(new Map());
+
     useEffect(() => {
-        let cancelled = false;
+        if (!carId) {
+            setThumbnailUrl('/placeholder.svg');
+            setLoading(false);
+            return;
+        }
 
-        const normalizeToArray = (payload) => {
-            if (!payload) return [];
-            if (Array.isArray(payload)) return payload;
-            if (typeof payload === "string") return payload ? [payload] : [];
-            if (typeof payload === "object") {
-                if (Array.isArray(payload.images)) return payload.images;
-                if (typeof payload.images === "string") return [payload.images];
-                if (typeof payload.image === "string") return [payload.image];
-                if (typeof payload.url === "string") return [payload.url];
-                if (typeof payload.href === "string") return [payload.href];
-            }
-            return [];
-        };
+        let aborted = false;
+        const ctrl = new AbortController();
 
-        async function loadImages() {
+        async function loadImage() {
             setLoading(true);
             setError(null);
-            try {
-                const res = await fetch(`/api/car-images/${carId}`);
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-                const ct = res.headers.get("content-type") || "";
-                const data = ct.includes("application/json") ? await res.json() : await res.text();
-
-                const imagesArr = normalizeToArray(data);
-
-                if (!cancelled) {
-                    setImages(imagesArr);
+            // 1) Serve from cache if present
+            if (C.current.has(carId)) {
+                if (!aborted) {
+                    setThumbnailUrl(C.current.get(carId) || '');
+                    setLoading(false);
                 }
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/car-images/${encodeURIComponent(carId)}`, {
+                    signal: ctrl.signal,
+                });
+
+                if (!res.ok) {
+                    C.current.set(carId, '');            // cache empty to avoid refetch loops
+                    if (!aborted) setThumbnailUrl('');
+                    return;
+                }
+
+                const json = await res.json();
+                const url = typeof json?.thumbnailUrl === 'string' ? json.thumbnailUrl : '';
+
+                C.current.set(carId, url);             // cache the string
+                if (!aborted) setThumbnailUrl(url);
             } catch (err) {
-                if (!cancelled) {
-                    setImages([]); // keep state consistent
+                if (!aborted && err.name !== 'AbortError') {
+                    setThumbnailUrl('');
                     setError(err);
                 }
             } finally {
-                if (!cancelled) setLoading(false);
+                if (!aborted) setLoading(false);
             }
         }
 
-        if (carId) {
-            loadImages();
-        } else {
-            setImages([]);
-            setLoading(false);
-        }
+        loadImage();
 
         return () => {
-            cancelled = true;
+            aborted = true;
+            ctrl.abort();
         };
     }, [carId]);
 
-    const src = images[0] ? images[0] : '/placeholder.jpg';
+    const src = thumbnailUrl || '/placeholder.svg';
 
 
     return (
@@ -176,23 +233,7 @@ export default function CarDetails({ chatId, handleBackToList, isMobileView, isD
                 <div className="flex flex-col gap-2 min-w-[180px]">
                     <div className="font-bold">
                         Total Price:{' '}
-                        <span className="text-green-600">
-                            {
-                                (() => {
-                                    const invoiceTotal = Number(invoiceData?.paymentDetails?.totalAmount);
-                                    const fallback = Number(finalPrice);
-
-                                    const amount =
-                                        invoiceTotal > 0 ? invoiceTotal :
-                                            fallback > 0 ? fallback :
-                                                null;
-                                    return amount != null
-                                        ? `${currency.symbol} ${Math.ceil(amount).toLocaleString()}`
-                                        : 'ASK';
-                                })()
-                            }
-
-                        </span>
+                        <span className="text-green-600">{finalDisplay}</span>
                     </div>
 
                     <div className="text-sm">{contact?.country} / {contact?.port}</div>

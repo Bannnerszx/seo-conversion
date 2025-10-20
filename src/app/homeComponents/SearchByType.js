@@ -188,6 +188,7 @@ const SearchByType = () => {
     ];
     return (
         <div className='bg-gradient-to-b from-black to-gray-900'>
+
             <div className="flex items-center gap-4 px-6 py-4">
                 {/* Line */}
                 <div className="h-[2px] bg-white flex-1 max-w-[70px] ml-[-25]" />

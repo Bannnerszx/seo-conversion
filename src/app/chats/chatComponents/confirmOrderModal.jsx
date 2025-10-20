@@ -373,7 +373,7 @@ export default function OrderButton({ handlePreviewInvoiceModal, context, setIsH
     // Called from the modal confirm button. Keeps the modal open while processing,
     // disables the confirm button, then navigates to /chats/ordered/:chatId on success.
 
-    
+
     const handleConfirm = async () => {
         // Prevent double submission
         if (isLoading) return
@@ -438,33 +438,87 @@ export default function OrderButton({ handlePreviewInvoiceModal, context, setIsH
     }
 
     const selectedCurrencyCode = selectedChatData?.selectedCurrencyExchange;
+    const toNumber = (v, fallback = 0) => {
+        if (v == null) return fallback;
+        if (typeof v === 'number') return Number.isFinite(v) ? v : fallback;
+        if (typeof v === 'string') {
+            const n = parseFloat(v.replace(/[^\d.-]/g, ''));
+            return Number.isFinite(n) ? n : fallback;
+        }
+        return fallback;
+    };
+
+    const formatMoney = (amount, symbol) =>
+        Number.isFinite(amount) ? `${symbol} ${Math.ceil(amount).toLocaleString()}` : 'ASK';
+
+    // --- currency setup (USD pivot) ---
     const currencies = [
         { code: "USD", symbol: "USD$", value: 1 },
-        { code: "EUR", symbol: "€", value: selectedChatData?.currency.usdToEur },
-        { code: "JPY", symbol: "¥", value: selectedChatData?.currency.usdToJpy },
-        { code: "CAD", symbol: "CAD$", value: selectedChatData?.currency.usdToCad },
-        { code: "AUD", symbol: "AUD$", value: selectedChatData?.currency.usdToAud },
-        { code: "GBP", symbol: "GBP£", value: selectedChatData?.currency.usdToGbp },
-        { code: "ZAR", symbol: "R", value: selectedChatData?.currency.usdToZar },
+        { code: "EUR", symbol: "€", value: selectedChatData?.currency?.usdToEur },
+        { code: "JPY", symbol: "¥", value: selectedChatData?.currency?.usdToJpy },
+        { code: "CAD", symbol: "CAD$", value: selectedChatData?.currency?.usdToCad },
+        { code: "AUD", symbol: "AUD$", value: selectedChatData?.currency?.usdToAud },
+        { code: "GBP", symbol: "GBP£", value: selectedChatData?.currency?.usdToGbp },
+        { code: "ZAR", symbol: "R", value: selectedChatData?.currency?.usdToZar },
     ];
-    // 3) find the matching currency (fallback to USD if nothing matches)
-    const currency =
-        currencies.find((c) => c.code === selectedCurrencyCode)
-        || currencies[0];
 
-    // 4) do your price math with currency.value
-    const basePrice =
-        parseFloat(selectedChatData?.carData?.fobPrice)
-        * parseFloat(selectedChatData?.currency.jpyToUsd);
+    const pickCurrency = (code) =>
+        currencies.find(c => c.code === code) || currencies[0];
 
-    const baseFinalPrice = invoiceData?.paymentDetails.totalAmount ? parseFloat(invoiceData?.paymentDetails.totalAmount) - (selectedChatData?.inspection ? 300 : 0) :
-        basePrice
-        + parseFloat(selectedChatData?.carData?.dimensionCubicMeters)
-        * parseFloat(selectedChatData?.freightPrice);
+    const rates = {
+        USD: 1,
+        EUR: toNumber(selectedChatData?.currency?.usdToEur, NaN), // USD->EUR
+        JPY: toNumber(selectedChatData?.currency?.usdToJpy, NaN), // USD->JPY
+        CAD: toNumber(selectedChatData?.currency?.usdToCad, NaN),
+        AUD: toNumber(selectedChatData?.currency?.usdToAud, NaN),
+        GBP: toNumber(selectedChatData?.currency?.usdToGbp, NaN),
+        ZAR: toNumber(selectedChatData?.currency?.usdToZar, NaN),
+        jpyToUsd: toNumber(selectedChatData?.currency?.jpyToUsd, NaN), // JPY->USD for FOB
+    };
 
-    const inspectionSurcharge = selectedChatData?.inspection ? 300 * currency.value : 0;
-    const insuranceSurcharge = selectedChatData?.insurance ? 50 * currency.value : 0
-    const finalPrice = (baseFinalPrice * currency.value + inspectionSurcharge + insuranceSurcharge);
+    const fromUSD = (usdAmount, toCode = 'USD') => {
+        const usd = toNumber(usdAmount, NaN);
+        if (!Number.isFinite(usd)) return NaN;
+        const mul = rates[toCode] ?? 1;
+        return Number.isFinite(mul) ? usd * mul : NaN;
+    };
+
+    // --- core compute ---
+    // Fallback parts (all in USD)
+    const fobPriceUSD = toNumber(selectedChatData?.carData?.fobPrice) *
+        (Number.isFinite(rates.jpyToUsd) ? rates.jpyToUsd : 1);
+    const dimM3 = toNumber(selectedChatData?.carData?.dimensionCubicMeters);
+    const freightUSD = toNumber(selectedChatData?.freightPrice);
+    const fallbackUSD = (Number.isFinite(fobPriceUSD) ? fobPriceUSD : 0) +
+        (Number.isFinite(dimM3) ? dimM3 : 0) *
+        (Number.isFinite(freightUSD) ? freightUSD : 0);
+
+    // Invoice totals are ALWAYS USD in your system:
+    const invoiceTotalUSD = toNumber(invoiceData?.paymentDetails?.totalAmount, NaN);
+    const hasInvoiceTotal = Number.isFinite(invoiceTotalUSD);
+
+    // If invoice exists, display using the invoice’s chosen display currency,
+    // otherwise use the UI-selected currency.
+    const targetCurrencyCode = hasInvoiceTotal && invoiceData?.selectedCurrencyExchange
+        ? invoiceData.selectedCurrencyExchange
+        : pickCurrency(selectedCurrencyCode).code;
+
+    const targetCurrency = pickCurrency(targetCurrencyCode);
+
+    // Base (USD): invoice wins (authoritative); else fallback.
+    const baseFinalUSD = hasInvoiceTotal ? invoiceTotalUSD : fallbackUSD;
+
+    // Only add surcharges when using fallback (NOT when invoice exists)
+    let amountInTarget = fromUSD(baseFinalUSD, targetCurrencyCode);
+    if (!hasInvoiceTotal) {
+        const inspection = selectedChatData?.inspection ? fromUSD(300, targetCurrencyCode) : 0;
+        const insurance = selectedChatData?.insurance ? fromUSD(50, targetCurrencyCode) : 0;
+        amountInTarget = toNumber(amountInTarget, 0) + inspection + insurance;
+    }
+
+    // Final for render
+    const finalDisplay = formatMoney(amountInTarget, targetCurrency.symbol);
+
 
     return (
         <>
@@ -554,7 +608,7 @@ export default function OrderButton({ handlePreviewInvoiceModal, context, setIsH
                                             <li>
                                                 Transfer{" "}
                                                 <strong>
-                                                    {currency.symbol} {Math.ceil(finalPrice).toLocaleString()}
+                                                    {finalDisplay}
                                                 </strong>{" "}
                                                 to our account
                                             </li>

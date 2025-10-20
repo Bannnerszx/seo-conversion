@@ -3,7 +3,6 @@ import { admin } from "@/lib/firebaseAdmin";
 import { cookies } from "next/headers";
 import CarListings from "./stockComponents/CarListings";
 import SearchHeader from "./stockComponents/Pagination";
-import CarSearch from "./stockComponents/SearchQuery";
 import {
     fetchCarMakes,
     fetchVehicleProductsByPage,
@@ -13,10 +12,8 @@ import {
 } from "../../../services/fetchFirebaseData";
 import { isFavorited } from "../actions/actions";
 import { SortProvider } from "./stockComponents/sortContext";
-import FeaturedCarousel from "./stockComponents/featuredCarousel";
 import CarFilter from "./stockComponents/CarFilter";
-import { ScrollToTop } from "./stockComponents/scrollToTop";
-import { Sidebar } from "./stockComponents/SideBar";
+
 import { DynamicBreadcrumbs } from "../components/Breadcrumbs";
 import BannerAwareAside from "./stockComponents/BannerAwareAside";
 import BreadCrumbChild from "./stockComponents/BreadCrumbChild";
