@@ -18,7 +18,6 @@ export const config = {
     '/stock_detail',
     // ✅ ensure middleware runs on /stock and all subroutes
     '/stock/:path*',
-    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\.(?:png|jpg|jpeg|webp|gif|svg|ico|woff2?|ttf|otf)$).*)',
   ],
 }
 
