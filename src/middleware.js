@@ -120,31 +120,38 @@ export async function middleware(request) {
   //     If country/port are missing in the URL, inject from cookies and redirect once.
   // ───────────────────────────────────────────────────────
   if (pathname.startsWith('/stock')) {
-    const hasCountry = url.searchParams.has('country')
-    const hasPort = url.searchParams.has('port')
-    const hasInspection = url.searchParams.has('inspection')
+    const hasCountry = url.searchParams.has('country');
+    const hasPort = url.searchParams.has('port');
+    const hasInspection = url.searchParams.has('inspection');
+    const hasInsurance = url.searchParams.has('insurance');   // <-- NEW
 
-    const cookieCountry = cookies.get('stock_country')?.value
-    const cookiePort = cookies.get('stock_port')?.value
-    const cookieInspection = cookies.get('stock_inspection')?.value // "1" or "0"
+    const cookieCountry = cookies.get('stock_country')?.value;
+    const cookiePort = cookies.get('stock_port')?.value;
+    const cookieInspection = cookies.get('stock_inspection')?.value; // "1" or "0"
+    const cookieInsurance = cookies.get('stock_insurance')?.value;  // "1" or "0" <-- NEW
 
-    let mutated = false
+    let mutated = false;
+
     if (!hasCountry && cookieCountry) {
-      url.searchParams.set('country', cookieCountry)
-      mutated = true
+      url.searchParams.set('country', cookieCountry);
+      mutated = true;
     }
     if (!hasPort && cookiePort) {
-      url.searchParams.set('port', cookiePort)
-      mutated = true
+      url.searchParams.set('port', cookiePort);
+      mutated = true;
     }
     if (!hasInspection && cookieInspection === '1') {
-      url.searchParams.set('inspection', '1')
-      mutated = true
+      url.searchParams.set('inspection', '1');
+      mutated = true;
+    }
+    // 🔐 Insurance: restore from cookie if URL lacks it
+    if (!hasInsurance && cookieInsurance === '1') {
+      url.searchParams.set('insurance', '1');
+      mutated = true;
     }
 
     if (mutated) {
-      // Redirect to the same /stock/** path with injected filters
-      return NextResponse.redirect(url)
+      return NextResponse.redirect(url);
     }
   }
 

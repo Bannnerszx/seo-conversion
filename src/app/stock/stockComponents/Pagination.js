@@ -41,6 +41,7 @@ export default function SearchHeader({
   countryArray,
   context
 }) {
+  
   const params = useParams()
   // URLSearchParams for ?foo=bar
   const searchParams = useSearchParams()
@@ -166,8 +167,7 @@ export default function SearchHeader({
   }
 
 
-  const onFilterClick = () => console.log("Filter clicked")
-  const onCalculatorClick = () => console.log("Calculator clicked")
+
   const hasQueryParams = Array.from(searchParams.keys()).length > 0
 
   const isPureStock = filters.length === 0 && !hasQueryParams

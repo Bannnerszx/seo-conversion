@@ -10,7 +10,7 @@ import Link from "next/link";
 import { useCurrency } from "@/providers/CurrencyContext";
 import AnimatedHeartButton from "./animatedHeart";
 import { useSort } from "./sortContext";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import RecommendedBadge from "./recommendedBage";
 import SalesOffDisplay from "./salesOffDisplay";
 // Skeleton placeholder for loading
@@ -88,16 +88,26 @@ function CarCard({
   resultsIsFavorited,
   isRecommended,
   router,
-  fobHistory
+  fobHistory,
+  insuranceParams,
+  inspectionParams
 }) {
+  const qs = new URLSearchParams();
+  if (countryParams) qs.set('country', countryParams);
+  if (portParams) qs.set('port', portParams);
+  if (inspectionParams === '1') qs.set('inspection', '1');
+  if (insuranceParams === '1') qs.set('insurance', '1');
+  const href = qs.toString()
+    ? `/product/${stockID}?${qs.toString()}`
+    : `/product/${stockID}`;
 
-  const { profitMap, inspectionToggle } = useSort();
+  const { profitMap, inspectionToggle, insuranceToggle } = useSort();
 
   const { selectedCurrency } = useCurrency();
   const imageUrl = thumbnailImage;
   const basePrice = parseFloat(fobPrice) * parseFloat(currency.jpyToUsd);
   const baseFinalPrice = (basePrice) + (parseFloat(dimensionCubicMeters) * parseFloat(profitMap));
-  const finalPrice = (((baseFinalPrice * selectedCurrency.value) + (inspectionToggle ? 300 : 0)));
+  const finalPrice = (((baseFinalPrice * selectedCurrency.value) + (inspectionToggle ? 300 : 0) + (insuranceToggle ? 50 : 0)));
 
   return (
     <Card key={stockID} className="w-full mx-auto border border-gray-200 rounded-lg shadow-lg">
@@ -221,13 +231,7 @@ function CarCard({
 
           <div className="grid sm:w-full">
             <div className="mt-6 justify-self-stretch sm:justify-self-end">
-              <Link
-                href={
-                  countryParams && portParams
-                    ? `/product/${stockID}?country=${countryParams}&port=${portParams}`
-                    : `/product/${stockID}`
-                }
-              >
+              <Link href={href}>
                 <Button className="flex items-center w-full sm:w-auto bg-[#0000ff] hover:bg-[#0000dd] font-semibold" size="lg">
                   <Eye className="text-white w-5 h-5" />
                   View Details
@@ -244,6 +248,11 @@ function CarCard({
 
 export default function CarListings({ loadingSkeleton, resultsIsFavorited, products, currency, country, port, userEmail }) {
   const router = useRouter()
+  const searchParams = useSearchParams();
+  const inspectionParam = searchParams.get('inspection') === '1' ? '1' : undefined;
+  const insuranceParam = searchParams.get('insurance') === '1' ? '1' : undefined;
+
+
   const { withPhotosOnly } = useSort();
   const filtered = products
     ?.filter(car => car.fobPriceNumber)
@@ -263,6 +272,8 @@ export default function CarListings({ loadingSkeleton, resultsIsFavorited, produ
             countryParams={country}
             portParams={port}
             userEmail={userEmail}
+            inspectionParams={inspectionParam}   // <-- NEW
+            insuranceParams={insuranceParam}
             resultsIsFavorited={resultsIsFavorited}
           />
         ))

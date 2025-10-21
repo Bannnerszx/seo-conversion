@@ -102,10 +102,13 @@ async function handleCreateConversation(
     dropdownValuesLocations,
     setShakeCountry,
     setShakePort,
-    insuranceToggle,
+    insuranceSelected,
     ipInfo,
-    tokyoTimeData
+    tokyoTimeData,
+    inspectionSelected
 ) {
+
+    console.log(inspectionSelected, insuranceSelected)
     setLoadingChat(true);
 
     // 1) Make sure we have a user and an account
@@ -179,8 +182,8 @@ async function handleCreateConversation(
             chatFieldCurrency: selectedCurrency.code,
             inspectionIsRequired: inspectionData.inspectionIsRequired,
             inspectionName: inspectionData.inspectionName,
-            toggle: inspectionData.toggle,
-            insurance: insuranceToggle,
+            toggle: inspectionSelected,
+            insurance: insuranceSelected,
             currency,
             profitMap: profitMap || 0,
             freightOrigPrice,
@@ -277,7 +280,7 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
     const [doorToDoorEnabled, setDoorToDoorEnabled] = useState(false);
     const [zones, setZones] = useState(null)
     const router = useRouter();
-    const [insuranceToggle, setInsuranceToggle] = useState(false)
+
     const { user } = useAuth();
     const [shakeCountry, setShakeCountry] = useState(false);
     const [shakePort, setShakePort] = useState(false);
@@ -358,7 +361,8 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
     const searchParams = useSearchParams();
     const country = searchParams.get("country");
     const port = searchParams.get("port");
-
+    const inspection = searchParams.get("inspection")
+    const insurance = searchParams.get("insurance")
     // Initialize state using the query parameters
     const [dropdownValuesLocations, setDropdownValuesLocations] = useState({
         "Select Country": country,
@@ -369,8 +373,11 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
     const [inspectionPrice, setInspectionPrice] = useState('')
     const { inspectionData } = useInspectionToggle(dropdownValuesLocations);
     const [inspectionToggle, setInspectionToggle] = useState(undefined);
-
-
+    const urlInspectionOn = inspection === '1';
+    const urlInsuranceOn = insurance === '1';
+    const [insuranceToggle, setInsuranceToggle] = useState(() => urlInsuranceOn);
+    const rule = inspectionData?.inspectionIsRequired; // "Required" | "Optional" | undefined
+    const isRequired = rule === "Required"
 
     useEffect(() => {
         if (!inspectionData?.inspectionName) {
@@ -388,24 +395,40 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
         getInspectionPrice();
     }, [inspectionData?.inspectionName, inspectionToggle]);
 
-    const isRequired = inspectionData?.inspectionIsRequired === "Required";
-    const checkedValue =
-        isRequired
-            ? true
-            : inspectionToggle !== undefined
-                ? inspectionToggle
-                : !!inspectionData?.toggle;
-    const finalPrice =
-        baseFinalPrice
-        + (checkedValue ? (inspectionPrice ?? 300) : 0)
-        + (insuranceToggle ? 50 : 0);
+    const inspectionAddOn = Number(inspectionPrice ?? 300) || 300;
+    const inspectionSelected =
+        isRequired ? true
+            : inspection !== null ? urlInspectionOn
+                : (inspectionToggle ?? !!inspectionData?.toggle);
 
+    const insuranceSelected = !!insuranceToggle;
+
+    const finalPrice =
+        baseFinalPrice +
+        (inspectionSelected ? inspectionAddOn : 0) +
+        (insuranceSelected ? 50 : 0);
 
     useEffect(() => {
-        if (!isRequired) {
-            setInspectionToggle(false);
-        }
-    }, [selectedCountry, isRequired]);
+        setInspectionToggle(prev => {
+            if (isRequired) return true;                      // rule wins
+            if (inspection !== null) return urlInspectionOn;  // URL wins if present
+            // otherwise, keep user choice if any; else config default; else false
+            return prev ?? (inspectionData?.toggle ?? false);
+        });
+        // also sync insurance from URL whenever it changes (user may navigate/back)
+        setInsuranceToggle(prev => (prev === urlInsuranceOn ? prev : urlInsuranceOn));
+    }, [
+        isRequired,
+        inspection, urlInspectionOn,
+        insurance, urlInsuranceOn,
+        inspectionData?.toggle,
+        selectedCountry, selectedPort
+    ]);
+    const disableInspection =
+        isRequired ||
+        inspectionData?.isToggleDisabled === true ||
+        carData?.stockStatus?.startsWith("Sold") ||
+        carData?.stockStatus === "Reserved";
 
     const [freightOrigPrice, setFreightOrigPrice] = useState('');
     useEffect(() => {
@@ -639,7 +662,6 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
 
     //     fetchZones();
     // }, [dropdownValuesLocations]);
-
 
 
     return (
@@ -965,21 +987,45 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
                                         <div className="grid grid-cols-2 gap-8 pt-4">
                                             <div className="flex items-center space-x-2">
                                                 <Switch
-
                                                     id="inspection"
-                                                    checked={checkedValue}
-                                                    disabled={inspectionData?.isToggleDisabled || isRequired || carData?.stockStatus?.startsWith("Sold") || carData?.stockStatus === "Reserved"}
-                                                    onCheckedChange={checked => {
-                                                        if (!isRequired) setInspectionToggle(checked);
+                                                    checked={!!inspectionSelected}
+                                                    disabled={disableInspection}
+                                                    onCheckedChange={(checked) => {
+                                                        if (isRequired) return; // cannot change
+
+                                                        // set local state
+                                                        setInspectionToggle(checked);
+
+                                                        // update URL immediately (push so Back/Forward keeps the action)
+                                                        const params = new URLSearchParams(window.location.search);
+                                                        if (checked) params.set('inspection', '1');
+                                                        else params.delete('inspection');
+
+                                                        const q = params.toString();
+                                                        router.push(q ? `${location.pathname}?${q}` : location.pathname, { scroll: false });
                                                     }}
                                                     className="data-[state=checked]:bg-[#7b9cff]"
                                                 />
+
                                                 <Label htmlFor="inspection">Inspection</Label>
                                             </div>
                                             <div className="flex items-center space-x-2">
-                                                <Switch id="insurance"
-                                                    onCheckedChange={checked => setInsuranceToggle(checked)}
-                                                    className="data-[state=checked]:bg-[#7b9cff]" />
+                                                <Switch
+                                                    id="insurance"
+                                                    checked={!!insuranceSelected}
+                                                    onCheckedChange={(checked) => {
+                                                        setInsuranceToggle(checked);
+
+                                                        // update URL immediately
+                                                        const params = new URLSearchParams(window.location.search);
+                                                        if (checked) params.set('insurance', '1');
+                                                        else params.delete('insurance');
+
+                                                        const q = params.toString();
+                                                        router.push(q ? `${location.pathname}?${q}` : location.pathname, { scroll: false });
+                                                    }}
+                                                    className="data-[state=checked]:bg-[#7b9cff]"
+                                                />
                                                 <Label htmlFor="insurance">Insurance</Label>
                                             </div>
                                         </div>
@@ -1086,9 +1132,10 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
                                                 dropdownValuesLocations,
                                                 setShakeCountry,
                                                 setShakePort,
-                                                insuranceToggle,
+                                                insuranceSelected,
                                                 ipInfo,
-                                                tokyoTimeData
+                                                tokyoTimeData,
+                                                inspectionSelected
                                             )
                                         }
                                         className="w-full bg-blue-600 hover:bg-blue-700 py-6"

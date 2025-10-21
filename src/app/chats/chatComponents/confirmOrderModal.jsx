@@ -447,9 +447,8 @@ export default function OrderButton({ handlePreviewInvoiceModal, context, setIsH
         }
         return fallback;
     };
-
     const formatMoney = (amount, symbol) =>
-        Number.isFinite(amount) ? `${symbol} ${Math.ceil(amount).toLocaleString()}` : 'ASK';
+        Number.isFinite(amount) ? `${symbol} ${Math.trunc(amount).toLocaleString()}` : 'ASK';
 
     // --- currency setup (USD pivot) ---
     const currencies = [

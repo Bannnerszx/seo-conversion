@@ -247,7 +247,7 @@ const CarStock = async ({ params, searchParams }) => {
                             </p>
                         </section>
                         <SearchHeader
-                        context={context}
+                            context={context}
                             totalCount={totalCount}
                             initialLimit={Number(limit)}
                             products={products}
