@@ -198,7 +198,7 @@ function CarCard({
                   ) : (
                     <>
                       <span className="text-sm">{selectedCurrency.symbol}</span>{' '}
-                      {Math.ceil(finalPrice).toLocaleString()}
+                      {Math.trunc(finalPrice).toLocaleString()}
                     </>
                   )}
                 </div>
