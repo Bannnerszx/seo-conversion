@@ -1202,10 +1202,10 @@ export async function handleSignUp(userEmail, userPassword) {
     }
 }
 
-export async function makeFavorite({ product, userEmail }) {
+export async function makeFavorite({ product, userEmail, tokyoTime }) {
     const [tokyoTimeResponse] = await Promise.all([
         fetch('https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time', {
-            headers: { 'Origin': 'https://seo-conversion--real-motor-japan.asia-east1.hosted.app' }
+            headers: { 'Origin': 'https://www.realmotor.jp' }
         })
     ]);
 
