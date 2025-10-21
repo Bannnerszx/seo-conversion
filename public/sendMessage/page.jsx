@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { functions } from '../../../firebase/clientApp';
+import { functions } from '../../firebase/clientApp';
 import { httpsCallable } from 'firebase/functions';
 const DEFAULT_NETWORK_TIMEOUT = 15000; // 15s per attempt
 const DEFAULT_NETWORK_RETRIES = 2; // number of retries after the first attempt
