@@ -100,7 +100,7 @@ export default function CarDetails({ chatId, handleBackToList, isMobileView, isD
 
     useEffect(() => {
         if (!carId) {
-            setThumbnailUrl('/placeholder.svg');
+            setThumbnailUrl('/placeholder.jpg');
             setLoading(false);
             return;
         }
@@ -155,7 +155,7 @@ export default function CarDetails({ chatId, handleBackToList, isMobileView, isD
         };
     }, [carId]);
 
-    const src = thumbnailUrl || '/placeholder.svg';
+    const src = thumbnailUrl || '/placeholder.jpg';
 
 
     return (
