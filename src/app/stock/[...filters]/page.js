@@ -4,7 +4,7 @@ import CarListings from "../stockComponents/CarListings";
 import SearchHeader from "../stockComponents/Pagination";
 import { Search } from "lucide-react";
 import { fetchCarMakes, fetchVehicleProductsByPage, fetchCarBodytype, fetchCountries, fetchCurrency } from "../../../../services/fetchFirebaseData";
-import { isFavorited } from "@/app/actions/actions";
+import { fetchChatCountForVehicle, isFavorited } from "@/app/actions/actions";
 import { SortProvider } from "../stockComponents/sortContext";
 import CarFilter from "../stockComponents/CarFilter";
 import { notFound } from "next/navigation";
@@ -181,7 +181,16 @@ export default async function StockPage({ params, searchParams }) {
         isRecommended,
         isSale,
     });
-
+    const chatCountPromises = products.map(product =>
+        fetchChatCountForVehicle(product.stockID)
+    );
+    const chatCounts = await Promise.all(chatCountPromises);
+    const productsWithChatCounts = products.map((product, index) => {
+        return {
+            ...product, // Copy all existing product data
+            chatCount: chatCounts[index] || 0 // Add the specific count from the array
+        };
+    });
     const carFilters = { make: maker, model };
     // Session and favorites with legacy support
     const OLD_NAMES_ENV = process.env.OLD_SESSION_COOKIE_NAMES || "";
@@ -276,10 +285,9 @@ export default async function StockPage({ params, searchParams }) {
                             carBodytypes={carBodytypes}
                             countryArray={countryArray}
                         >
-
                             <CarListings
                                 resultsIsFavorited={resultsIsFavorited}
-                                products={products}
+                                products={productsWithChatCounts}
                                 currency={currency}
                                 country={country}
                                 port={port}

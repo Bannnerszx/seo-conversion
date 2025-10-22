@@ -248,3 +248,15 @@ h1 {
 .ios-no-zoom :where(input, select, textarea) {
   font-size: 16px !important;
 }
+
+@keyframes blink {
+
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}

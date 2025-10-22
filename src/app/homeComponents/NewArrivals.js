@@ -1,10 +1,11 @@
 'use client';
 import React, { useRef, useState, useEffect } from 'react';
 import { Calendar } from 'lucide-react';
-
 import Link from 'next/link';
 import { useCurrency } from '@/providers/CurrencyContext';
 import Image from 'next/image';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../../../firebase/clientApp';
 const SquareGrays = () => {
     const createOddRowOfSquares = () =>
         Array.from({ length: 20 }, (_, index) => (
@@ -30,6 +31,21 @@ const SquareGrays = () => {
     );
 };
 const NewArrivals = ({ newVehicles, currency }) => {
+
+    const incrementView = httpsCallable(functions, 'incrementViewCounter')
+    const handleViewDetailsClick = async (productId) => {
+        const viewLoggedKey = `viewed_${productId}`;
+
+        if (!sessionStorage.getItem(viewLoggedKey)) {
+            try {
+                incrementView({ docId: productId });
+
+                sessionStorage.setItem(viewLoggedKey, 'true');
+            } catch (error) {
+                console.error("Error incrementing view:", error)
+            }
+        }
+    }
     const scrollContainerRef = useRef(null);
     const [activeIndex, setActiveIndex] = useState(0);
     const { selectedCurrency } = useCurrency();
@@ -76,11 +92,11 @@ const NewArrivals = ({ newVehicles, currency }) => {
                                         key={car.id}
                                         className="flex-none w-[85vw] sm:w-[calc(50%-8px)] lg:w-[calc(33.333%-11px)] xl:w-[calc(16.666%-14px)]"
                                     >
-                                        <Link key={car.id} href={`/product/${car.id}`}>
+                                        <Link onClick={() => handleViewDetailsClick(car.id)} key={car.id} href={`/product/${car.id}`}>
                                             <div className="bg-white rounded-2xl shadow-md overflow-hidden transition-transform duration-300 hover:-translate-y-1 hover:shadow-lg h-full">
                                                 <div className="relative h-auto">
                                                     <Image
-                                                        src={car.images}
+                                                        src={car.images ? car.images : '/placeholder.jpg'}
                                                         alt={`Photo of ${car.make} ${car.model}`}
                                                         sizes="100vw"
                                                         style={{

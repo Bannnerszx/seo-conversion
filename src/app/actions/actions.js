@@ -1632,3 +1632,26 @@ export async function getVehicleStatusByChatId(chatId) {
         }
     }
 }
+
+
+export async function fetchChatCountForVehicle(stockID) {
+    if (!stockID) {
+        console.warn("Stock ID is missing.");
+        return 0
+    }
+    try {
+        const chatsRef = db.collection('chats');
+        const q = chatsRef.where('carData.stockID', '==', stockID);
+
+        const snapshot = await q.count().get();
+
+        const chatCount = snapshot.data().count;
+
+        console.log(`(Server Action) Chat count for ${stockID}:`, chatCount);
+        return chatCount;
+    } catch (err) {
+        console.error("Error fetching chat count (Admin SDK):", err);
+        return 0
+    }
+}
+

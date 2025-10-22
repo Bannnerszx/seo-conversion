@@ -5,7 +5,7 @@ import { functions } from "../../../../firebase/clientApp"
 import { httpsCallable } from 'firebase/functions'
 import { useState, useEffect, useCallback, useRef } from "react"
 import Image from "next/image"
-import { Download, Heart, ChevronLeft, ChevronRight, Loader2, UserPlus, MapPin, Truck, DollarSign, DollarSignIcon } from "lucide-react"
+import { Download, Heart, ChevronLeft, ChevronRight, Loader2, UserPlus, Users, TrendingUp, Eye } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
@@ -27,6 +27,7 @@ import AnimatedHeartButton from "@/app/stock/stockComponents/animatedHeart";
 import ImageViewer from "@/app/chats/chatComponents/imageViewer"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { SignUpButton } from "@/app/components/SignUpButton"
+import { Badge } from "@/components/ui/badge"
 const Dropdown = ({ placeholder, options, value, onChange, className = '' }) => {
     const [isHydrated, setIsHydrated] = useState(false);
 
@@ -274,8 +275,9 @@ const getFileExtension = (url) => {
     return match ? match[1].toLowerCase() : null;
 };
 
-export default function CarProductPageCSR({ carData, countryArray, currency, useAuth, resultsIsFavorited, }) {
+export default function CarProductPageCSR({ chatCount, carData, countryArray, currency, useAuth, resultsIsFavorited, }) {
     const addChat = httpsCallable(functions, 'addChat')
+
     const [agreed, setAgreed] = useState(false)
     const [doorToDoorEnabled, setDoorToDoorEnabled] = useState(false);
     const [zones, setZones] = useState(null)
@@ -728,6 +730,22 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
                             <div>
                                 <h1 className="text-3xl font-bold">{carData?.carName}</h1>
                                 <p className="text-sm text-muted-foreground">{carData?.carDescription}</p>
+                                <div className="flex items-start gap-2 mt-1">
+                                    {chatCount > 3 && carData?.views + 2 > 7 && (
+                                        <Badge className="gap-1.5 border-orange-200 bg-orange-50 text-orange-700 text-xs sm:text-sm">
+                                            <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5" />
+                                            <span>High Demand</span>
+                                        </Badge>
+                                    )}
+
+                                    <Badge variant="secondary" className="gap-1.5 text-xs sm:text-sm">
+                                        <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
+                                        <span className="truncate">{(carData?.views ?? 0) + 2} views today</span>
+                                    </Badge>
+
+
+                                </div>
+
                             </div>
                             <div className="flex gap-2">
                                 {user && (
@@ -863,58 +881,72 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
 
                     {/* Right side - buttons */}
                     <div className="w-full">
-                        <div className="flex justify-end items-center gap-3 mt-6">
-                            {!user && (
-                                <SignUpButton
-                                    href="/signup"
-                                    variant="contrast"
-                                    size="sm"
-                                    orientation="horizontal"
-                                    widthClass="w-40"
+                        <div className="flex flex-col gap-1">
+                            <div className="flex justify-end items-center gap-3 mt-6">
+                                {!user && (
+                                    <SignUpButton
+                                        href="/signup"
+                                        variant="contrast"
+                                        size="sm"
+                                        orientation="horizontal"
+                                        widthClass="w-40"
+                                    >
+                                        <UserPlus className="mr-2 h-6 w-6" />
+                                        Sign Up Free
+                                    </SignUpButton>
+                                )}
+                                <Select
+                                    defaultValue={selectedCurrency.code}
+                                    onValueChange={(value) => {
+                                        const currencyOptions = [
+                                            { code: "USD", symbol: "USD$", value: 1 },
+                                            { code: "EUR", symbol: "EUR€", value: currency.usdToEur },
+                                            { code: "JPY", symbol: "JPY¥", value: currency.usdToJpy },
+                                            { code: "CAD", symbol: "CAD$", value: currency.usdToCad },
+                                            { code: "AUD", symbol: "AUD$", value: currency.usdToAud },
+                                            { code: "GBP", symbol: "GBP£", value: currency.usdToGbp },
+                                            { code: "ZAR", symbol: "ZAR", value: currency.usdToZar },
+                                        ]
+                                        const selected = currencyOptions.find((curr) => curr.code === value)
+                                        if (selected) setSelectedCurrency(selected)
+                                    }}
                                 >
-                                    <UserPlus className="mr-2 h-6 w-6" />
-                                    Sign Up Free
-                                </SignUpButton>
-                            )}
-                            <Select
-                                defaultValue={selectedCurrency.code}
-                                onValueChange={(value) => {
-                                    const currencyOptions = [
-                                        { code: "USD", symbol: "USD$", value: 1 },
-                                        { code: "EUR", symbol: "EUR€", value: currency.usdToEur },
-                                        { code: "JPY", symbol: "JPY¥", value: currency.usdToJpy },
-                                        { code: "CAD", symbol: "CAD$", value: currency.usdToCad },
-                                        { code: "AUD", symbol: "AUD$", value: currency.usdToAud },
-                                        { code: "GBP", symbol: "GBP£", value: currency.usdToGbp },
-                                        { code: "ZAR", symbol: "ZAR", value: currency.usdToZar },
-                                    ]
-                                    const selected = currencyOptions.find((curr) => curr.code === value)
-                                    if (selected) setSelectedCurrency(selected)
-                                }}
-                            >
-                                <SelectTrigger className="w-[90px] h-9 px-3 [&_svg]:text-[#0000ff] [&_svg]:stroke-[#0000ff] mx-3 -my-2">
+                                    <SelectTrigger className="w-[90px] h-9 px-3 [&_svg]:text-[#0000ff] [&_svg]:stroke-[#0000ff] mx-3 -my-2">
 
-                                    <SelectValue placeholder="Currency" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {[
-                                        { code: "USD", symbol: "USD$", value: 1 },
-                                        { code: "EUR", symbol: "EUR€", value: currency.usdToEur },
-                                        { code: "JPY", symbol: "JPY¥", value: currency.usdToJpy },
-                                        { code: "CAD", symbol: "CAD$", value: currency.usdToCad },
-                                        { code: "AUD", symbol: "AUD$", value: currency.usdToAud },
-                                        { code: "GBP", symbol: "GBP£", value: currency.usdToGbp },
-                                        { code: "ZAR", symbol: "ZAR", value: currency.usdToZar },
-                                    ].map((curr) => (
-                                        <SelectItem key={curr.code} value={curr.code}>
-                                            {curr.code}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                                        <SelectValue placeholder="Currency" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {[
+                                            { code: "USD", symbol: "USD$", value: 1 },
+                                            { code: "EUR", symbol: "EUR€", value: currency.usdToEur },
+                                            { code: "JPY", symbol: "JPY¥", value: currency.usdToJpy },
+                                            { code: "CAD", symbol: "CAD$", value: currency.usdToCad },
+                                            { code: "AUD", symbol: "AUD$", value: currency.usdToAud },
+                                            { code: "GBP", symbol: "GBP£", value: currency.usdToGbp },
+                                            { code: "ZAR", symbol: "ZAR", value: currency.usdToZar },
+                                        ].map((curr) => (
+                                            <SelectItem key={curr.code} value={curr.code}>
+                                                {curr.code}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
 
+                            </div>
+                            <div className="mt-2 -mb-2">
+                                <div className="flex items-center gap-2">
+                                    <Users className="h-5 w-5 text-blue-600" />
+                                    <span className="text-sm font-bold text-blue-600">
+                                        {chatCount + 2} {chatCount === 1 ? "person" : "people"} inquiring right now
+                                    </span>
+                                    <div className="flex gap-1">
+                                        <span className="inline-block h-2 w-2 animate-[blink_1.5s_ease-in-out_0s_infinite] rounded-full bg-blue-600"></span>
+                                        <span className="inline-block h-2 w-2 animate-[blink_1.5s_ease-in-out_0.5s_infinite] rounded-full bg-blue-600"></span>
+                                        <span className="inline-block h-2 w-2 animate-[blink_1.5s_ease-in-out_1s_infinite] rounded-full bg-blue-600"></span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-
                         <Card className="my-6 relative overflow-visible">
                             {/* Watermark overlay */}
                             {showWatermark && (
@@ -937,27 +969,34 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
                             {/* Actual card content */}
                             <CardContent className="relative z-0 p-6">
                                 {/* Background stripe */}
-                                <div className="relative mb-6">
-                                    <div className="absolute -inset-6 bg-[#E5EBFD] rounded-t-md" />
-                                    <div className="relative grid grid-cols-2 gap-4 p-4">
-                                        <div>
-                                            <p className="text-sm text-muted-foreground">FOB Price</p>
-                                            <AnimatedCurrencyPrice
-                                                basePrice={basePrice}
-                                                selectedCurrency={{ symbol: selectedCurrency.symbol, value: selectedCurrency.value }}
-                                                duration={1000}
-                                                selectedPort={selectedPort}
-                                            />
+                                <div className="relative -mx-6 -mt-6 mb-6">
+                                    {/* background */}
+                                    <div className="absolute inset-0 bg-[#E5EBFD] rounded-t-xl" />
+                                    {/* restore inner spacing for the stripe content */}
+                                    <div className="relative px-6 pt-6">
+
+
+                                        <div className="relative grid grid-cols-1 sm:grid-cols-2 gap-4 p-4">
+                                            <div>
+                                                <p className="text-sm text-muted-foreground">FOB Price</p>
+                                                <AnimatedCurrencyPrice
+                                                    basePrice={basePrice}
+                                                    selectedCurrency={{ symbol: selectedCurrency.symbol, value: selectedCurrency.value }}
+                                                    duration={1000}
+                                                    selectedPort={selectedPort}
+                                                />
+                                            </div>
+                                            <div>
+                                                <p className="text-sm text-muted-foreground">Final Price</p>
+                                                <AnimatedCurrencyPrice
+                                                    basePrice={profitMap && selectedPort && selectedCountry ? finalPrice : 0}
+                                                    selectedCurrency={{ symbol: selectedCurrency.symbol, value: selectedCurrency.value }}
+                                                    duration={1000}
+                                                    selectedPort={selectedPort}
+                                                />
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="text-sm text-muted-foreground">Final Price</p>
-                                            <AnimatedCurrencyPrice
-                                                basePrice={profitMap && selectedPort && selectedCountry ? finalPrice : 0}
-                                                selectedCurrency={{ symbol: selectedCurrency.symbol, value: selectedCurrency.value }}
-                                                duration={1000}
-                                                selectedPort={selectedPort}
-                                            />
-                                        </div>
+
                                     </div>
                                 </div>
 

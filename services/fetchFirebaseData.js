@@ -230,7 +230,7 @@ export const fetchNewVehicle = cache(
           carName: data.carName,
           regYear: data.regYearNumber,
           regMonth: data.regMonth,
-          images: data.thumbnailImage ? data.thumbnailImage : '/placeholder.svg',
+          images: data.thumbnailImage ? data.thumbnailImage : '/placeholder.jpg',
         });
       });
 
@@ -652,6 +652,7 @@ export const fetchVehicleProductsByPage = cache(
       fobHistory: 1,
       isSale: 1,
       subBodyType: 1,
+      views: 1
       // …and any feature flags you render in the UI…
     };
 

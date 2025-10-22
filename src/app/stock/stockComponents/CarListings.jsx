@@ -1,7 +1,7 @@
 'use client'
 import { ScrollToTop } from "./scrollToTop";
 import Image from "next/image";
-import { ShipWheel as SteeringWheel, Heart, Car, Gauge, Palette, Fuel, Eye } from "lucide-react";
+import { ShipWheel as SteeringWheel, Heart, Car, Gauge, Palette, Fuel, Eye, TrendingUp, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -13,6 +13,9 @@ import { useSort } from "./sortContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import RecommendedBadge from "./recommendedBage";
 import SalesOffDisplay from "./salesOffDisplay";
+import { httpsCallable } from "firebase/functions";
+import { functions } from "../../../../firebase/clientApp";
+
 // Skeleton placeholder for loading
 export function CarCardSkeleton() {
   return (
@@ -70,6 +73,9 @@ export function CarCardSkeleton() {
 
 // Single car card display
 function CarCard({
+  handleViewDetailsClick,
+  chatCount,
+  views,
   thumbnailImage,
   carName,
   fobPrice,
@@ -171,6 +177,38 @@ function CarCard({
             />
           </div>
 
+          <div className="flex flex-col gap-2">
+            <div className="flex items-start gap-2">
+              {chatCount > 3 && views > 7 && (
+                <Badge variant="outline" className="gap-1.5 border-orange-200 bg-orange-50 text-orange-700">
+                  <TrendingUp className="h-3 w-3" />
+                  High Demand
+                </Badge>
+              )}
+
+              <Badge variant="secondary" className="gap-1.5">
+                <Eye className="h-3 w-3" />
+                {views + 2} views today
+              </Badge>
+            </div>
+            <div className="p-1">
+              <div className="flex items-center gap-2">
+
+                <Users className="h-4 w-4 text-blue-600" />
+                <span className="text-sm font-bold text-blue-600">
+                  {chatCount + 2} {chatCount === 1 ? "person" : "people"} inquiring right now
+                </span>
+                <div className="flex gap-1">
+                  <span className="inline-block h-2 w-2 animate-[blink_1.5s_ease-in-out_0s_infinite] rounded-full bg-blue-600"></span>
+                  <span className="inline-block h-2 w-2 animate-[blink_1.5s_ease-in-out_0.5s_infinite] rounded-full bg-blue-600"></span>
+                  <span className="inline-block h-2 w-2 animate-[blink_1.5s_ease-in-out_1s_infinite] rounded-full bg-blue-600"></span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+
           {/* This line changed: use max-[425px] instead of max-[1024px] */}
           <div className="mt-6 flex flex-row justify-between max-[425px]:flex-col max-[425px]:space-y-4">
             <div>
@@ -184,7 +222,6 @@ function CarCard({
                   </div>
                 </div>
                 <SalesOffDisplay currency={currency} selectedCurrency={selectedCurrency} fobHistory={fobHistory} fobPrice={fobPrice} />
-
               </div>
 
             </div>
@@ -231,7 +268,7 @@ function CarCard({
 
           <div className="grid sm:w-full">
             <div className="mt-6 justify-self-stretch sm:justify-self-end">
-              <Link href={href}>
+              <Link href={href} onClick={() => handleViewDetailsClick(stockID)}>
                 <Button className="flex items-center w-full sm:w-auto bg-[#0000ff] hover:bg-[#0000dd] font-semibold" size="lg">
                   <Eye className="text-white w-5 h-5" />
                   View Details
@@ -246,7 +283,7 @@ function CarCard({
   );
 }
 
-export default function CarListings({ loadingSkeleton, resultsIsFavorited, products, currency, country, port, userEmail }) {
+export default function CarListings({ resultsIsFavorited, products, currency, country, port, userEmail }) {
   const router = useRouter()
   const searchParams = useSearchParams();
   const inspectionParam = searchParams.get('inspection') === '1' ? '1' : undefined;
@@ -257,6 +294,23 @@ export default function CarListings({ loadingSkeleton, resultsIsFavorited, produ
   const filtered = products
     ?.filter(car => car.fobPriceNumber)
     .filter(car => !withPhotosOnly || (car.images?.length ?? 0) > 0);
+  const incrementView = httpsCallable(functions, 'incrementViewCounter')
+  const handleViewDetailsClick = async (productId) => {
+    const viewLoggedKey = `viewed_${productId}`;
+
+    if (!sessionStorage.getItem(viewLoggedKey)) {
+      try {
+        incrementView({ docId: productId });
+
+        sessionStorage.setItem(viewLoggedKey, 'true');
+      } catch (error) {
+        console.error("Error incrementing view:", error)
+      }
+    }
+  }
+
+
+
   return (
     <div className="space-y-4 p-2 mx-auto w-full">
       <ScrollToTop />
@@ -264,7 +318,9 @@ export default function CarListings({ loadingSkeleton, resultsIsFavorited, produ
       {filtered && filtered.length > 0 ? (
         filtered.map((car, index) => (
           <CarCard
+            handleViewDetailsClick={handleViewDetailsClick}
             key={index}
+            chatCount={car.chatCount}
             {...car}
             router={router}
             product={car}

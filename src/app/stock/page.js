@@ -10,7 +10,7 @@ import {
     fetchCountries,
     fetchCurrency,
 } from "../../../services/fetchFirebaseData";
-import { isFavorited } from "../actions/actions";
+import { fetchChatCountForVehicle, isFavorited } from "../actions/actions";
 import { SortProvider } from "./stockComponents/sortContext";
 import CarFilter from "./stockComponents/CarFilter";
 
@@ -175,7 +175,16 @@ const CarStock = async ({ params, searchParams }) => {
         isRecommended,
         isOnSale,
     });
-
+    const chatCountPromises = products.map(product =>
+        fetchChatCountForVehicle(product.stockID)
+    );
+    const chatCounts = await Promise.all(chatCountPromises);
+    const productsWithChatCounts = products.map((product, index) => {
+        return {
+            ...product, // Copy all existing product data
+            chatCount: chatCounts[index] || 0 // Add the specific count from the array
+        };
+    });
     const carFilters = { make: maker, model };
 
     const OLD_NAMES_ENV = process.env.OLD_SESSION_COOKIE_NAMES || "";
@@ -263,8 +272,9 @@ const CarStock = async ({ params, searchParams }) => {
                             countryArray={countryArray}
                         >
                             <CarListings
+                                chatCountArray={chatCounts}
                                 resultsIsFavorited={resultsIsFavorited}
-                                products={products}
+                                products={productsWithChatCounts}
                                 currency={currency}
                                 country={country}
                                 port={port}
