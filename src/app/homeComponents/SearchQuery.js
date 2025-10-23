@@ -261,6 +261,8 @@ const SearchQuery = ({ carMakes, db, carBodytypes, initialMaker = "",
   // Toggle handlers for inspection and insurance
 
 
+  
+
   return (
     <div className="max-w-7xl mx-auto w-full space-y-4 md:space-y-6 relative md:-top-20 px-1">
       {/*mobile form*/}

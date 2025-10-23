@@ -674,8 +674,7 @@ export const fetchVehicleProductsByPage = cache(
   },
 
   {
-    revalidate: 1, // Keep the revalidation period
-    tags: ['products-by-page'], // Use a simple, static tag for this group of cached data
+    revalidate: 0, // Keep the revalidation period // Use a simple, static tag for this group of cached data
   }
 );
 
