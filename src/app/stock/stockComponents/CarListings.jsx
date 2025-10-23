@@ -135,6 +135,7 @@ function CarCard({
       "
         >
           <Link
+            onClick={() => handleViewDetailsClick(stockID)}
             href={
               countryParams && portParams
                 ? `/product/${stockID}?country=${countryParams}&port=${portParams}`
