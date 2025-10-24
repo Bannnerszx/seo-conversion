@@ -180,6 +180,7 @@ const CarStock = async ({ params, searchParams }) => {
     );
     const chatCounts = await Promise.all(chatCountPromises);
     const productsWithChatCounts = products.map((product, index) => {
+        console.log(product.views, product.carName, 'car name')
         return {
             ...product, // Copy all existing product data
             chatCount: chatCounts[index] || 0 // Add the specific count from the array

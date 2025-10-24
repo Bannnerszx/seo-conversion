@@ -1,11 +1,11 @@
 "use client"
 import * as React from "react"
 import { Button } from "@/components/ui/button"
-
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { useState, useEffect } from "react"
 import { useRouter } from "@bprogress/next"
 import { Autocomplete } from "../stock/stockComponents/autoComplete"
+import { VehicleRequestSection } from "./VehicleRequestSection"
 
 const Dropdown = ({ placeholder, options, value, onChange }) => {
 
@@ -27,9 +27,9 @@ const Dropdown = ({ placeholder, options, value, onChange }) => {
   )
 }
 
-const SearchQuery = ({ carMakes, db, carBodytypes, initialMaker = "",
-  initialModel = "",
-  initialBodyType = "", }) => {
+const SearchQuery = ({ carMakes, db, carBodytypes, initialMaker = "", initialModel = "", initialBodyType = "" }) => {
+
+  const [showRequestNotice, setShowRequestNotice] = useState(false)
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [dropdownValues, setDropdownValues] = useState({
@@ -261,10 +261,14 @@ const SearchQuery = ({ carMakes, db, carBodytypes, initialMaker = "",
   // Toggle handlers for inspection and insurance
 
 
-  
+
 
   return (
     <div className="max-w-7xl mx-auto w-full space-y-4 md:space-y-6 relative md:-top-20 px-1">
+      {/* <div className="max-w-7xl absolute -top-20 md:relative md:top-5">
+        <VehicleRequestSection />
+      </div> */}
+
       {/*mobile form*/}
       <div className="md:hidden">
         <div className="bg-white p-8 rounded-md shadow-lg space-y-4 relative -top-[20px]">
@@ -342,6 +346,7 @@ const SearchQuery = ({ carMakes, db, carBodytypes, initialMaker = "",
       </div>
 
       {/*desktop form*/}
+
       <div className="hidden md:block bg-white p-8 rounded-lg shadow-lg space-y-6">
 
         {/* Group 0 */}

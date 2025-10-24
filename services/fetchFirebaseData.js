@@ -478,7 +478,7 @@ const cursorCache = {};
 
 
 
-export const fetchVehicleProductsByPage = cache(
+export const fetchVehicleProductsByPage = 
   async ({
     searchKeywords = "",
     page = 1,
@@ -671,12 +671,9 @@ export const fetchVehicleProductsByPage = cache(
 
     const products = docs.map(({ _id, ...data }) => ({ id: _id, ...data }));
     return { products, totalCount: totalCount ?? -1, hasMore, currentPage: page };
-  },
-
-  {
-    revalidate: 0, // Keep the revalidation period // Use a simple, static tag for this group of cached data
   }
-);
+
+
 
 // const color = 'Pearl'
 
