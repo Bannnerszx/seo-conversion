@@ -380,7 +380,7 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
     const [insuranceToggle, setInsuranceToggle] = useState(() => urlInsuranceOn);
     const rule = inspectionData?.inspectionIsRequired; // "Required" | "Optional" | undefined
     const isRequired = rule === "Required"
-
+    console.log(selectedCountry)
     useEffect(() => {
         if (!inspectionData?.inspectionName) {
             return;

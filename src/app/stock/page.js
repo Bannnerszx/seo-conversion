@@ -17,7 +17,7 @@ import CarFilter from "./stockComponents/CarFilter";
 import { DynamicBreadcrumbs } from "../components/Breadcrumbs";
 import BannerAwareAside from "./stockComponents/BannerAwareAside";
 import BreadCrumbChild from "./stockComponents/BreadCrumbChild";
-
+import RequestCarBanner from "./stockComponents/request-car-banner";
 // In-memory cursor map (Note: not SSR-safe, use in client or persist elsewhere)
 export async function generateMetadata({ params, searchParams }) {
     // 1) fetch your look-ups in parallel
@@ -249,13 +249,16 @@ const CarStock = async ({ params, searchParams }) => {
                         <BreadCrumbChild>
                             <DynamicBreadcrumbs maxItems={5} />
                         </BreadCrumbChild>
+                        <div className="space-y-2">
+                            <section className="text-center mt-20">
+                                <h1 className="text-3xl font-bold text-gray-900 mb-4">All Japanese Used Cars</h1>
+                                <p className="text-xl text-gray-600 max-w-full mx-auto">
+                                    Browse our up-to-date inventory of Japanese used cars ready for immediate shipping.
+                                </p>
+                            </section>
+                            <RequestCarBanner />
+                        </div>
 
-                        <section className="text-center mt-20">
-                            <h1 className="text-3xl font-bold text-gray-900 mb-4">All Japanese Used Cars</h1>
-                            <p className="text-xl text-gray-600 max-w-full mx-auto">
-                                Browse our up-to-date inventory of Japanese used cars ready for immediate shipping.
-                            </p>
-                        </section>
                         <SearchHeader
                             context={context}
                             totalCount={totalCount}
@@ -282,6 +285,7 @@ const CarStock = async ({ params, searchParams }) => {
                                 userEmail={userEmail}
                             />
                         </SearchHeader>
+                        <RequestCarBanner />
                     </div>
 
                 </div>

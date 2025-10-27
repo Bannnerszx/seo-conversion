@@ -36,28 +36,28 @@ const accentTextClassByType = {
 const requestIcons = [Car, Gauge, MapPin, Fuel, LoaderPinwheel, BadgeCheck]
 
 const slides = [
-  // {
-  //   id: "carRequest",
-  //   type: "request",
-  //   content: {
-  //     title: "🚗 Request a Vehicle",
-  //     subtitle: "Tell us what you need",
-  //     description:
-  //       "Can't find the unit you’re looking for? Send us your specs and we’ll search our network and notify you when we find a match.",
-  //     period: "Active now",
-  //     features: [
-  //       "Specs (Make/Model/Year)",
-  //       "Budget",
-  //       "Destination (Country/Port)",
-  //       "Prefs (Mileage/Trans/Fuel/Options)",
-  //     ],
-  //     // same assets as PayPal (per your request)
-  //     logo: "",
-  //     background: "/requestVehicle.webp",
-  //     // optional: link for CTA
-  //     cta: { label: "Open Request Form", href: "/request-form" },
-  //   },
-  // },
+  {
+    id: "carRequest",
+    type: "request",
+    content: {
+      title: "🚗 Request a Vehicle",
+      subtitle: "Tell us what you need",
+      description:
+        "Can't find the unit you’re looking for? Send us your specs and we’ll search our network and notify you when we find a match.",
+      period: "Active now",
+      features: [
+        "Specs (Make/Model/Year)",
+        "Budget",
+        "Destination (Country/Port)",
+        "Prefs (Mileage/Trans/Fuel/Options)",
+      ],
+      // same assets as PayPal (per your request)
+      logo: "",
+      background: "/requestVehicle.webp",
+      // optional: link for CTA
+      cta: { label: "Open Request Form", href: "/request-form" },
+    },
+  },
   {
     id: "paypal",
     type: "paypal",
