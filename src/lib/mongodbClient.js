@@ -34,7 +34,7 @@ import { MongoClient } from "mongodb";
 
 // ⚠️ For security, put this in an environment variable instead of hardcoding.
 const uri =
-  "mongodb://marcvan12:uEPndYYIpXDKLjbQYQhWq5KFYmOzArIrppILkF-hinB60xvF@1cb538ec-3061-46d9-b9da-8e12231c58c0.asia-northeast2.firestore.goog:443/mongodb?authSource=admin&loadBalanced=true&tls=true&authMechanism=SCRAM-SHA-256&retryWrites=false";
+  "mongodb://marcvan12:kvynkwKexyXac21LXOPjieGe9XZOB-0LhDpT6s1LmMRTdbpg@1cb538ec-3061-46d9-b9da-8e12231c58c0.asia-northeast2.firestore.goog:443/mongodb?authSource=admin&loadBalanced=true&tls=true&authMechanism=SCRAM-SHA-256&retryWrites=false";
 
 // let uri;
 
