@@ -71,6 +71,11 @@ export function CarCardSkeleton() {
   );
 }
 
+const toInt = (v, fallback = 0) => {
+  const n = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(n) ? Math.trunc(n) : fallback;
+}
+
 // Single car card display
 function CarCard({
   handleViewDetailsClick,
@@ -106,6 +111,11 @@ function CarCard({
   const href = qs.toString()
     ? `/product/${stockID}?${qs.toString()}`
     : `/product/${stockID}`;
+
+
+
+  const safeViews = toInt(views, 0);
+  const safeChatCount = toInt(chatCount, 0);
 
   const { profitMap, inspectionToggle, insuranceToggle } = useSort();
 
@@ -180,7 +190,7 @@ function CarCard({
 
           <div className="flex flex-col gap-2">
             <div className="flex items-start gap-2">
-              {chatCount > 3 && views > 7 && (
+              {safeChatCount  > 3 && safeViews  > 7 && (
                 <Badge variant="outline" className="gap-1.5 border-orange-200 bg-orange-50 text-orange-700">
                   <TrendingUp className="h-3 w-3" />
                   High Demand
@@ -189,7 +199,7 @@ function CarCard({
 
               <Badge variant="secondary" className="gap-1.5">
                 <Eye className="h-3 w-3" />
-                {views + 2} views today
+                {safeViews  + 2} views today
               </Badge>
             </div>
             <div className="p-1">
@@ -197,7 +207,7 @@ function CarCard({
 
                 <Users className="h-4 w-4 text-blue-600" />
                 <span className="text-sm font-bold text-blue-600">
-                  {chatCount + 2} {chatCount === 1 ? "person" : "people"} inquiring right now
+                  {safeChatCount  + 2} {safeChatCount  === 1 ? "person" : "people"} inquiring right now
                 </span>
                 <div className="flex gap-1">
                   <span className="inline-block h-2 w-2 animate-[blink_1.5s_ease-in-out_0s_infinite] rounded-full bg-blue-600"></span>
@@ -284,6 +294,7 @@ function CarCard({
   );
 }
 
+
 export default function CarListings({ resultsIsFavorited, products, currency, country, port, userEmail }) {
   const router = useRouter()
   const searchParams = useSearchParams();
@@ -309,6 +320,9 @@ export default function CarListings({ resultsIsFavorited, products, currency, co
       }
     }
   }
+
+
+
 
 
 
