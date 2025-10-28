@@ -119,7 +119,7 @@ export default function SearchHeader({
   }
 
   const PaginationButtons = () => (
-    <div className="flex gap-3 justify-end my-4">
+    <div className="flex gap-3 justify-center my-4">
       <Link
         href={currentPage > 1 ? `?${updatePageURL(prevPage)}` : '#'}
         aria-disabled={currentPage <= 1}

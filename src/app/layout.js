@@ -99,7 +99,6 @@ export default async function RootLayout({ children }) {
 
 
 
-
   // 7️⃣  Render the <html>… layout:
   //     • If hasOldSession but no valid session_v2 → we still treat as guest (no deletion here).
   //     • If session_v2 is invalid or missing → guest UI.
@@ -135,12 +134,7 @@ export default async function RootLayout({ children }) {
 
       </head>
 
-      <link
-        rel="preload"
-        as="image"
-        href="/samplebanner3.webp"
-        media="(max-width: 640px)"
-      />
+     
 
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
 
