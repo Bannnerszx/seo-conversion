@@ -5,7 +5,7 @@ import { functions } from "../../../../firebase/clientApp"
 import { httpsCallable } from 'firebase/functions'
 import { useState, useEffect, useCallback, useRef } from "react"
 import Image from "next/image"
-import { Download, Heart, ChevronLeft, ChevronRight, Loader2, UserPlus } from "lucide-react"
+import { Download, Heart, ChevronLeft, ChevronRight, Loader2, UserPlus, Users, TrendingUp, Eye } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
@@ -27,6 +27,7 @@ import AnimatedHeartButton from "@/app/stock/stockComponents/animatedHeart";
 import ImageViewer from "@/app/chats/chatComponents/imageViewer"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { SignUpButton } from "@/app/components/SignUpButton"
+import { Badge } from "@/components/ui/badge"
 const Dropdown = ({ placeholder, options, value, onChange, className = '' }) => {
     const [isHydrated, setIsHydrated] = useState(false);
 
@@ -102,10 +103,13 @@ async function handleCreateConversation(
     dropdownValuesLocations,
     setShakeCountry,
     setShakePort,
-    insuranceToggle,
+    insuranceSelected,
     ipInfo,
-    tokyoTimeData
+    tokyoTimeData,
+    inspectionSelected
 ) {
+
+    console.log(inspectionSelected, insuranceSelected)
     setLoadingChat(true);
 
     // 1) Make sure we have a user and an account
@@ -151,7 +155,7 @@ async function handleCreateConversation(
         // 4) Fetch IP info + Tokyo time in parallel
 
         const m = moment(tokyoTimeData.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');
-        const formattedTime = m.format('YYYY/MM/DD [at] HH:mm:ss');
+        const formattedTime = m.format('YYYY/MM/DD [at] HH:mm:ss.SSS');
         const docId = m.format('YYYY-MM');
         const dayField = m.format('DD');
 
@@ -179,8 +183,8 @@ async function handleCreateConversation(
             chatFieldCurrency: selectedCurrency.code,
             inspectionIsRequired: inspectionData.inspectionIsRequired,
             inspectionName: inspectionData.inspectionName,
-            toggle: inspectionData.toggle,
-            insurance: insuranceToggle,
+            toggle: inspectionSelected,
+            insurance: insuranceSelected,
             currency,
             profitMap: profitMap || 0,
             freightOrigPrice,
@@ -271,14 +275,15 @@ const getFileExtension = (url) => {
     return match ? match[1].toLowerCase() : null;
 };
 
-export default function CarProductPageCSR({ carData, countryArray, currency, useAuth, resultsIsFavorited, }) {
+export default function CarProductPageCSR({ chatCount, carData, countryArray, currency, useAuth, resultsIsFavorited, }) {
     const addChat = httpsCallable(functions, 'addChat')
 
-
+    const [agreed, setAgreed] = useState(false)
+    const [doorToDoorEnabled, setDoorToDoorEnabled] = useState(false);
+    const [zones, setZones] = useState(null)
     const router = useRouter();
-    const [insuranceToggle, setInsuranceToggle] = useState(false)
-    const { user } = useAuth();
 
+    const { user } = useAuth();
     const [shakeCountry, setShakeCountry] = useState(false);
     const [shakePort, setShakePort] = useState(false);
     const { setSelectedCurrency, selectedCurrency } = useCurrency();
@@ -358,7 +363,8 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
     const searchParams = useSearchParams();
     const country = searchParams.get("country");
     const port = searchParams.get("port");
-
+    const inspection = searchParams.get("inspection")
+    const insurance = searchParams.get("insurance")
     // Initialize state using the query parameters
     const [dropdownValuesLocations, setDropdownValuesLocations] = useState({
         "Select Country": country,
@@ -369,9 +375,12 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
     const [inspectionPrice, setInspectionPrice] = useState('')
     const { inspectionData } = useInspectionToggle(dropdownValuesLocations);
     const [inspectionToggle, setInspectionToggle] = useState(undefined);
-
-
-
+    const urlInspectionOn = inspection === '1';
+    const urlInsuranceOn = insurance === '1';
+    const [insuranceToggle, setInsuranceToggle] = useState(() => urlInsuranceOn);
+    const rule = inspectionData?.inspectionIsRequired; // "Required" | "Optional" | undefined
+    const isRequired = rule === "Required"
+    console.log(selectedCountry)
     useEffect(() => {
         if (!inspectionData?.inspectionName) {
             return;
@@ -388,24 +397,40 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
         getInspectionPrice();
     }, [inspectionData?.inspectionName, inspectionToggle]);
 
-    const isRequired = inspectionData?.inspectionIsRequired === "Required";
-    const checkedValue =
-        isRequired
-            ? true
-            : inspectionToggle !== undefined
-                ? inspectionToggle
-                : !!inspectionData?.toggle;
-    const finalPrice =
-        baseFinalPrice
-        + (checkedValue ? (inspectionPrice ?? 300) : 0)
-        + (insuranceToggle ? 50 : 0);
+    const inspectionAddOn = Number(inspectionPrice ?? 300) || 300;
+    const inspectionSelected =
+        isRequired ? true
+            : inspection !== null ? urlInspectionOn
+                : (inspectionToggle ?? !!inspectionData?.toggle);
 
+    const insuranceSelected = !!insuranceToggle;
+
+    const finalPrice =
+        baseFinalPrice +
+        (inspectionSelected ? inspectionAddOn : 0) +
+        (insuranceSelected ? 50 : 0);
 
     useEffect(() => {
-        if (!isRequired) {
-            setInspectionToggle(false);
-        }
-    }, [selectedCountry, isRequired]);
+        setInspectionToggle(prev => {
+            if (isRequired) return true;                      // rule wins
+            if (inspection !== null) return urlInspectionOn;  // URL wins if present
+            // otherwise, keep user choice if any; else config default; else false
+            return prev ?? (inspectionData?.toggle ?? false);
+        });
+        // also sync insurance from URL whenever it changes (user may navigate/back)
+        setInsuranceToggle(prev => (prev === urlInsuranceOn ? prev : urlInsuranceOn));
+    }, [
+        isRequired,
+        inspection, urlInspectionOn,
+        insurance, urlInsuranceOn,
+        inspectionData?.toggle,
+        selectedCountry, selectedPort
+    ]);
+    const disableInspection =
+        isRequired ||
+        inspectionData?.isToggleDisabled === true ||
+        carData?.stockStatus?.startsWith("Sold") ||
+        carData?.stockStatus === "Reserved";
 
     const [freightOrigPrice, setFreightOrigPrice] = useState('');
     useEffect(() => {
@@ -543,7 +568,10 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
             )
         ) ||
         carData?.stockStatus?.startsWith("Sold") ||
-        carData?.stockStatus?.startsWith("Reserved") || carData?.stockStatus === "Hidden";
+        carData?.stockStatus?.startsWith("Reserved") || carData?.stockStatus === "Hidden"
+        || !agreed;
+
+
     const src =
         Array.isArray(images) && images?.length > 0 && images[currentImageIndex]
             ? images[currentImageIndex]
@@ -610,6 +638,34 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
         default:
             watermarkColorClass = "";
     }
+
+
+    // useEffect(() => {
+    //     const fetchZones = async () => {
+
+    //         if (!selectedCountry) {
+    //             setZones({});
+    //             return;
+    //         }
+
+    //         // setIsDataLoading(true);
+    //         setDoorToDoorEnabled(false);
+
+    //         const callGetZones = httpsCallable(functions, 'getDeliveryZones');
+
+    //         try {
+    //             const result = await callGetZones({ countryName: selectedCountry });
+    //             const fetchedZones = result.data.zones;
+    //             setZones(fetchedZones || {});
+    //         } catch (err) {
+    //             console.error('Error calling getDeliveryZones function:', err);
+    //         }
+    //     };
+
+    //     fetchZones();
+    // }, [dropdownValuesLocations]);
+
+
     return (
         <div className=" mx-auto px-4 py-8 z-[9999]">
             <FloatingAlertPortal
@@ -674,6 +730,22 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
                             <div>
                                 <h1 className="text-3xl font-bold">{carData?.carName}</h1>
                                 <p className="text-sm text-muted-foreground">{carData?.carDescription}</p>
+                                <div className="flex items-start gap-2 mt-1">
+                                    {chatCount > 3 && carData?.views + 2 > 7 && (
+                                        <Badge className="gap-1.5 border-orange-200 bg-orange-50 text-orange-700 text-xs sm:text-sm">
+                                            <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5" />
+                                            <span>High Demand</span>
+                                        </Badge>
+                                    )}
+
+                                    <Badge variant="secondary" className="gap-1.5 text-xs sm:text-sm">
+                                        <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
+                                        <span className="truncate">{(carData?.views ?? 0) + 2} views today</span>
+                                    </Badge>
+
+
+                                </div>
+
                             </div>
                             <div className="flex gap-2">
                                 {user && (
@@ -809,58 +881,72 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
 
                     {/* Right side - buttons */}
                     <div className="w-full">
-                        <div className="flex justify-end items-center gap-3 mt-6">
-                            {!user && (
-                                <SignUpButton
-                                    href="/signup"
-                                    variant="contrast"
-                                    size="sm"
-                                    orientation="horizontal"
-                                    widthClass="w-40"
+                        <div className="flex flex-col gap-1">
+                            <div className="flex justify-end items-center gap-3 mt-6">
+                                {!user && (
+                                    <SignUpButton
+                                        href="/signup"
+                                        variant="contrast"
+                                        size="sm"
+                                        orientation="horizontal"
+                                        widthClass="w-40"
+                                    >
+                                        <UserPlus className="mr-2 h-6 w-6" />
+                                        Sign Up Free
+                                    </SignUpButton>
+                                )}
+                                <Select
+                                    defaultValue={selectedCurrency.code}
+                                    onValueChange={(value) => {
+                                        const currencyOptions = [
+                                            { code: "USD", symbol: "USD$", value: 1 },
+                                            { code: "EUR", symbol: "EUR€", value: currency.usdToEur },
+                                            { code: "JPY", symbol: "JPY¥", value: currency.usdToJpy },
+                                            { code: "CAD", symbol: "CAD$", value: currency.usdToCad },
+                                            { code: "AUD", symbol: "AUD$", value: currency.usdToAud },
+                                            { code: "GBP", symbol: "GBP£", value: currency.usdToGbp },
+                                            { code: "ZAR", symbol: "ZAR", value: currency.usdToZar },
+                                        ]
+                                        const selected = currencyOptions.find((curr) => curr.code === value)
+                                        if (selected) setSelectedCurrency(selected)
+                                    }}
                                 >
-                                    <UserPlus className="mr-2 h-6 w-6" />
-                                    Sign Up Free
-                                </SignUpButton>
-                            )}
-                            <Select
-                                defaultValue={selectedCurrency.code}
-                                onValueChange={(value) => {
-                                    const currencyOptions = [
-                                        { code: "USD", symbol: "USD$", value: 1 },
-                                        { code: "EUR", symbol: "EUR€", value: currency.usdToEur },
-                                        { code: "JPY", symbol: "JPY¥", value: currency.usdToJpy },
-                                        { code: "CAD", symbol: "CAD$", value: currency.usdToCad },
-                                        { code: "AUD", symbol: "AUD$", value: currency.usdToAud },
-                                        { code: "GBP", symbol: "GBP£", value: currency.usdToGbp },
-                                        { code: "ZAR", symbol: "ZAR", value: currency.usdToZar },
-                                    ]
-                                    const selected = currencyOptions.find((curr) => curr.code === value)
-                                    if (selected) setSelectedCurrency(selected)
-                                }}
-                            >
-                                <SelectTrigger className="w-[90px] h-9 px-3 [&_svg]:text-[#0000ff] [&_svg]:stroke-[#0000ff] mx-3 -my-2">
+                                    <SelectTrigger className="w-[90px] h-9 px-3 [&_svg]:text-[#0000ff] [&_svg]:stroke-[#0000ff] mx-3 -my-2">
 
-                                    <SelectValue placeholder="Currency" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {[
-                                        { code: "USD", symbol: "USD$", value: 1 },
-                                        { code: "EUR", symbol: "EUR€", value: currency.usdToEur },
-                                        { code: "JPY", symbol: "JPY¥", value: currency.usdToJpy },
-                                        { code: "CAD", symbol: "CAD$", value: currency.usdToCad },
-                                        { code: "AUD", symbol: "AUD$", value: currency.usdToAud },
-                                        { code: "GBP", symbol: "GBP£", value: currency.usdToGbp },
-                                        { code: "ZAR", symbol: "ZAR", value: currency.usdToZar },
-                                    ].map((curr) => (
-                                        <SelectItem key={curr.code} value={curr.code}>
-                                            {curr.code}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                                        <SelectValue placeholder="Currency" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {[
+                                            { code: "USD", symbol: "USD$", value: 1 },
+                                            { code: "EUR", symbol: "EUR€", value: currency.usdToEur },
+                                            { code: "JPY", symbol: "JPY¥", value: currency.usdToJpy },
+                                            { code: "CAD", symbol: "CAD$", value: currency.usdToCad },
+                                            { code: "AUD", symbol: "AUD$", value: currency.usdToAud },
+                                            { code: "GBP", symbol: "GBP£", value: currency.usdToGbp },
+                                            { code: "ZAR", symbol: "ZAR", value: currency.usdToZar },
+                                        ].map((curr) => (
+                                            <SelectItem key={curr.code} value={curr.code}>
+                                                {curr.code}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
 
+                            </div>
+                            <div className="mt-2 -mb-2">
+                                <div className="flex items-center gap-2">
+                                    <Users className="h-5 w-5 text-blue-600" />
+                                    <span className="text-sm font-bold text-blue-600">
+                                        {chatCount + 2} {chatCount === 1 ? "person" : "people"} inquiring right now
+                                    </span>
+                                    <div className="flex gap-1">
+                                        <span className="inline-block h-2 w-2 animate-[blink_1.5s_ease-in-out_0s_infinite] rounded-full bg-blue-600"></span>
+                                        <span className="inline-block h-2 w-2 animate-[blink_1.5s_ease-in-out_0.5s_infinite] rounded-full bg-blue-600"></span>
+                                        <span className="inline-block h-2 w-2 animate-[blink_1.5s_ease-in-out_1s_infinite] rounded-full bg-blue-600"></span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-
                         <Card className="my-6 relative overflow-visible">
                             {/* Watermark overlay */}
                             {showWatermark && (
@@ -883,27 +969,34 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
                             {/* Actual card content */}
                             <CardContent className="relative z-0 p-6">
                                 {/* Background stripe */}
-                                <div className="relative mb-6">
-                                    <div className="absolute -inset-6 bg-[#E5EBFD] rounded-t-md" />
-                                    <div className="relative grid grid-cols-2 gap-4 p-4">
-                                        <div>
-                                            <p className="text-sm text-muted-foreground">FOB Price</p>
-                                            <AnimatedCurrencyPrice
-                                                basePrice={basePrice}
-                                                selectedCurrency={{ symbol: selectedCurrency.symbol, value: selectedCurrency.value }}
-                                                duration={1000}
-                                                selectedPort={selectedPort}
-                                            />
+                                <div className="relative -mx-6 -mt-6 mb-6">
+                                    {/* background */}
+                                    <div className="absolute inset-0 bg-[#E5EBFD] rounded-t-xl" />
+                                    {/* restore inner spacing for the stripe content */}
+                                    <div className="relative px-6 pt-6">
+
+
+                                        <div className="relative grid grid-cols-1 sm:grid-cols-2 gap-4 p-4">
+                                            <div>
+                                                <p className="text-sm text-muted-foreground">FOB Price</p>
+                                                <AnimatedCurrencyPrice
+                                                    basePrice={basePrice}
+                                                    selectedCurrency={{ symbol: selectedCurrency.symbol, value: selectedCurrency.value }}
+                                                    duration={1000}
+                                                    selectedPort={selectedPort}
+                                                />
+                                            </div>
+                                            <div>
+                                                <p className="text-sm text-muted-foreground">Final Price</p>
+                                                <AnimatedCurrencyPrice
+                                                    basePrice={profitMap && selectedPort && selectedCountry ? finalPrice : 0}
+                                                    selectedCurrency={{ symbol: selectedCurrency.symbol, value: selectedCurrency.value }}
+                                                    duration={1000}
+                                                    selectedPort={selectedPort}
+                                                />
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="text-sm text-muted-foreground">Final Price</p>
-                                            <AnimatedCurrencyPrice
-                                                basePrice={profitMap && selectedPort && selectedCountry ? finalPrice : 0}
-                                                selectedCurrency={{ symbol: selectedCurrency.symbol, value: selectedCurrency.value }}
-                                                duration={1000}
-                                                selectedPort={selectedPort}
-                                            />
-                                        </div>
+
                                     </div>
                                 </div>
 
@@ -933,37 +1026,132 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
                                         <div className="grid grid-cols-2 gap-8 pt-4">
                                             <div className="flex items-center space-x-2">
                                                 <Switch
-
                                                     id="inspection"
-                                                    checked={checkedValue}
-                                                    disabled={inspectionData?.isToggleDisabled || isRequired || carData?.stockStatus?.startsWith("Sold") || carData?.stockStatus === "Reserved"}
-                                                    onCheckedChange={checked => {
-                                                        if (!isRequired) setInspectionToggle(checked);
+                                                    checked={!!inspectionSelected}
+                                                    disabled={disableInspection}
+                                                    onCheckedChange={(checked) => {
+                                                        if (isRequired) return; // cannot change
+
+                                                        // set local state
+                                                        setInspectionToggle(checked);
+
+                                                        // update URL immediately (push so Back/Forward keeps the action)
+                                                        const params = new URLSearchParams(window.location.search);
+                                                        if (checked) params.set('inspection', '1');
+                                                        else params.delete('inspection');
+
+                                                        const q = params.toString();
+                                                        router.push(q ? `${location.pathname}?${q}` : location.pathname, { scroll: false });
                                                     }}
                                                     className="data-[state=checked]:bg-[#7b9cff]"
                                                 />
+
                                                 <Label htmlFor="inspection">Inspection</Label>
                                             </div>
                                             <div className="flex items-center space-x-2">
-                                                <Switch id="insurance"
-                                                    onCheckedChange={checked => setInsuranceToggle(checked)}
-                                                    className="data-[state=checked]:bg-[#7b9cff]" />
+                                                <Switch
+                                                    id="insurance"
+                                                    checked={!!insuranceSelected}
+                                                    onCheckedChange={(checked) => {
+                                                        setInsuranceToggle(checked);
+
+                                                        // update URL immediately
+                                                        const params = new URLSearchParams(window.location.search);
+                                                        if (checked) params.set('insurance', '1');
+                                                        else params.delete('insurance');
+
+                                                        const q = params.toString();
+                                                        router.push(q ? `${location.pathname}?${q}` : location.pathname, { scroll: false });
+                                                    }}
+                                                    className="data-[state=checked]:bg-[#7b9cff]"
+                                                />
                                                 <Label htmlFor="insurance">Insurance</Label>
                                             </div>
                                         </div>
                                     </div>
+
+                                    {/* {selectedPort && (
+                                        <div className="mb-6 mx-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+                                            <div className="flex items-center space-x-3 mb-3">
+                                                <Truck className='h-5 w-5 text-green-600' />
+                                                <label className="text-sm font-medium text-green-800 cursor-pointer">
+                                                    Enable Door-to-Delivery
+                                                </label>
+                                                <Checkbox checked={doorToDoorEnabled} onCheckedChange={setDoorToDoorEnabled} />
+                                            </div>
+                                            {doorToDoorEnabled && (
+
+                                                <div className="space-y-2 oveflow-y-auto">
+                                                    <p className="text-xs font-medium text-green-700 flex items-center">
+                                                        <MapPin className="h-3 w-3" />
+                                                        Available delivery locations:
+                                                    </p>
+                                                    <div className="space-y-1 text-sm text-gray-700 max-h-36 overflow-y-auto">
+                                                        {Object.entries(zones).map(([name, price]) => (
+                                                            <div
+                                                                key={name}
+                                                                className={`flex items-center justify-between p-2 rounded text-xs cursor-pointer transition-colors ${'selected' === 'selected' ? "bg-green-100 border border-green-300 text-green-900" : "bg-white border border-gray-200 text-gray-700 hover:bg-green-50"}`}
+                                                            >
+                                                                <span className="font-medium">
+                                                                    {name}
+                                                                </span>
+                                                                <div className="flex items-center gap-1">
+                                                                    <DollarSignIcon className="h-3 w-3 text-green-600" />
+                                                                    <span className="font-bold text-green-600">{price}</span>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+
+                                                </div>
+
+                                            )}
+                                        </div>
+                                    )} */}
+
+
                                 </div>
+
+
 
                                 {/* Message & submit */}
                                 <div className="space-y-4 p-4">
                                     <Textarea placeholder="Write your message here" className="min-h-[120px]" ref={textareaRef} />
                                     <div className="flex items-start space-x-2">
-                                        <Checkbox id="terms" />
+                                        <Checkbox
+                                            id="terms"
+                                            checked={agreed}
+                                            onCheckedChange={(val) => setAgreed(val)}
+                                        />
+
                                         <Label htmlFor="terms" className="text-sm pt-0.5">
-                                            I agree to Privacy Policy and Terms of Agreement
+                                            I agree to{" "}
+                                            <a
+                                                href="/privacy-policy"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="underline underline-offset-2 hover:no-underline focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                                onClick={(e) => e.stopPropagation()}
+                                                onMouseDown={(e) => e.preventDefault()}
+                                            >
+                                                Privacy Policy
+                                            </a>{" "}
+                                            and{" "}
+                                            <a
+                                                href="/terms-of-use"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="underline underline-offset-2 hover:no-underline focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                                onClick={(e) => e.stopPropagation()}
+                                                onMouseDown={(e) => e.preventDefault()}
+                                            >
+                                                Terms of Agreement
+                                            </a>
+
                                         </Label>
                                     </div>
                                     <Button
+                                        id="rmj_inquiry_button"
                                         disabled={isButtonDisabled}
                                         onClick={() =>
                                             handleCreateConversation(
@@ -983,9 +1171,10 @@ export default function CarProductPageCSR({ carData, countryArray, currency, use
                                                 dropdownValuesLocations,
                                                 setShakeCountry,
                                                 setShakePort,
-                                                insuranceToggle,
+                                                insuranceSelected,
                                                 ipInfo,
-                                                tokyoTimeData
+                                                tokyoTimeData,
+                                                inspectionSelected
                                             )
                                         }
                                         className="w-full bg-blue-600 hover:bg-blue-700 py-6"

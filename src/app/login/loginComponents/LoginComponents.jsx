@@ -79,9 +79,9 @@ export default function LoginForm() {
         case "auth/user-disabled":
           setError("This account has been disabled.");
           break;
-          case "auth/missing-password":
-            setError("Password cannot be blank.");
-            break;
+        case "auth/missing-password":
+          setError("Password cannot be blank.");
+          break;
         default:
           setError(err.message || "An unexpected error occurred.");
       }

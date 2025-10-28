@@ -4,7 +4,7 @@ import { fetchCarDataAdmin, fetchCountries, fetchCurrency, fetchInspectionToggle
 import CarProductPageCSR from '../productComponents/CarProductPageCSR';
 import VehicleSpecifications from '../productComponents/VehicleSpecificationsCSR';
 import { useAuth } from '@/app/providers/AuthProvider';
-import { makeFavorite, isFavorited, getAccountData } from '@/app/actions/actions';
+import { makeFavorite, isFavorited, getAccountData, fetchChatCountForVehicle } from '@/app/actions/actions';
 import { admin } from '@/lib/firebaseAdmin';
 import { cookies } from "next/headers";
 import ClientAppCheck from '../../../../firebase/ClientAppCheck';
@@ -55,6 +55,22 @@ export default async function ProductPage({ params, searchParams }) {
 
   // call the loader, it will never throw
   const product = await fetchCarDataAdmin(id)
+  let chatCount = 0; // 1. Default to 0
+
+  try {
+    // 2. Try to get the real count
+    const count = await fetchChatCountForVehicle(id);
+
+    // 3. Make sure the result is a valid number
+    if (typeof count === 'number' && !isNaN(count)) {
+      chatCount = count;
+    }
+  } catch (error) {
+    // 4. If any part of the 'try' fails, chatCount just stays 0
+    console.error("Failed to fetch chat count, defaulting to 0:", error);
+  }
+
+
   if (!product) {
     notFound(); // renders the 404 page
   }
@@ -94,6 +110,7 @@ export default async function ProductPage({ params, searchParams }) {
                 carData={carData}
                 countryArray={countryArray}
                 useAuth={useAuth}
+                chatCount={chatCount}
               />
             </div>
             <div className='-mt-12'>
@@ -120,6 +137,7 @@ export default async function ProductPage({ params, searchParams }) {
               carData={carData}
               countryArray={countryArray}
               useAuth={useAuth}
+              chatCount={chatCount}
             />
             <div className='-mt-12'>
               <VehicleSpecifications carData={carData} />
@@ -161,6 +179,7 @@ export default async function ProductPage({ params, searchParams }) {
                 carData={carData}
                 countryArray={countryArray}
                 useAuth={useAuth}
+                chatCount={chatCount}
               />
 
 
@@ -185,6 +204,7 @@ export default async function ProductPage({ params, searchParams }) {
               carData={carData}
               countryArray={countryArray}
               useAuth={useAuth}
+              chatCount={chatCount}
             />
 
             <div className='-mt-12'>
@@ -206,6 +226,7 @@ export default async function ProductPage({ params, searchParams }) {
       <div className="z-10 mt-2">
         <div style={{ zoom: 0.8, transformOrigin: "top left" }} className='-mt-12'>
           <CarProductPageCSR
+            chatCount={chatCount}
             accountData={accountData}
             resultsIsFavorited={resultsIsFavorited}
             currency={currency}

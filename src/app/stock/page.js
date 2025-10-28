@@ -3,7 +3,6 @@ import { admin } from "@/lib/firebaseAdmin";
 import { cookies } from "next/headers";
 import CarListings from "./stockComponents/CarListings";
 import SearchHeader from "./stockComponents/Pagination";
-import CarSearch from "./stockComponents/SearchQuery";
 import {
     fetchCarMakes,
     fetchVehicleProductsByPage,
@@ -11,16 +10,14 @@ import {
     fetchCountries,
     fetchCurrency,
 } from "../../../services/fetchFirebaseData";
-import { isFavorited } from "../actions/actions";
+import { fetchChatCountForVehicle, isFavorited } from "../actions/actions";
 import { SortProvider } from "./stockComponents/sortContext";
-import FeaturedCarousel from "./stockComponents/featuredCarousel";
 import CarFilter from "./stockComponents/CarFilter";
-import { ScrollToTop } from "./stockComponents/scrollToTop";
-import { Sidebar } from "./stockComponents/SideBar";
+
 import { DynamicBreadcrumbs } from "../components/Breadcrumbs";
 import BannerAwareAside from "./stockComponents/BannerAwareAside";
 import BreadCrumbChild from "./stockComponents/BreadCrumbChild";
-
+import RequestCarBanner from "./stockComponents/request-car-banner";
 // In-memory cursor map (Note: not SSR-safe, use in client or persist elsewhere)
 export async function generateMetadata({ params, searchParams }) {
     // 1) fetch your look-ups in parallel
@@ -178,7 +175,17 @@ const CarStock = async ({ params, searchParams }) => {
         isRecommended,
         isOnSale,
     });
-
+    const chatCountPromises = products.map(product =>
+        fetchChatCountForVehicle(product.stockID)
+    );
+    const chatCounts = await Promise.all(chatCountPromises);
+    const productsWithChatCounts = products.map((product, index) => {
+        console.log(product.views, product.carName, 'car name')
+        return {
+            ...product, // Copy all existing product data
+            chatCount: chatCounts[index] || 0 // Add the specific count from the array
+        };
+    });
     const carFilters = { make: maker, model };
 
     const OLD_NAMES_ENV = process.env.OLD_SESSION_COOKIE_NAMES || "";
@@ -242,15 +249,18 @@ const CarStock = async ({ params, searchParams }) => {
                         <BreadCrumbChild>
                             <DynamicBreadcrumbs maxItems={5} />
                         </BreadCrumbChild>
+                        <div className="space-y-2">
+                            <section className="text-center mt-20">
+                                <h1 className="text-3xl font-bold text-gray-900 mb-4">All Japanese Used Cars</h1>
+                                <p className="text-xl text-gray-600 max-w-full mx-auto">
+                                    Browse our up-to-date inventory of Japanese used cars ready for immediate shipping.
+                                </p>
+                            </section>
+                            <RequestCarBanner />
+                        </div>
 
-                        <section className="text-center mt-20">
-                            <h1 className="text-3xl font-bold text-gray-900 mb-4">All Japanese Used Cars</h1>
-                            <p className="text-xl text-gray-600 max-w-full mx-auto">
-                                Browse our up-to-date inventory of Japanese used cars ready for immediate shipping.
-                            </p>
-                        </section>
                         <SearchHeader
-                        context={context}
+                            context={context}
                             totalCount={totalCount}
                             initialLimit={Number(limit)}
                             products={products}
@@ -266,14 +276,16 @@ const CarStock = async ({ params, searchParams }) => {
                             countryArray={countryArray}
                         >
                             <CarListings
+                                chatCountArray={chatCounts}
                                 resultsIsFavorited={resultsIsFavorited}
-                                products={products}
+                                products={productsWithChatCounts}
                                 currency={currency}
                                 country={country}
                                 port={port}
                                 userEmail={userEmail}
                             />
                         </SearchHeader>
+                        <RequestCarBanner />
                     </div>
 
                 </div>

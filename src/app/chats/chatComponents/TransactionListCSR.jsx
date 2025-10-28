@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { CreditCard, Heart, LogOut, MoreVertical, ShoppingBag, User, ChevronDown, MessageSquare } from "lucide-react"
+import UserIcon from "./userIcon"
 
 export function Ribbon({ stockStatus, className, children, userEmail, reservedTo }) {
   // Check if it's Reserved or Sold
@@ -104,7 +105,7 @@ export default function TransactionList({
     },
     [userEmail]
   )
-  const [imagesMap, setImagesMap] = useState({});
+  const [imagesMap, setThumbnailMap] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -113,54 +114,71 @@ export default function TransactionList({
     let cancelled = false;
 
     async function run() {
-      // no chats → clear state and stop loading
       if (!Array.isArray(chatList) || chatList.length === 0) {
-        setImagesMap({});
+        setThumbnailMap({});
         setLoading(false);
         return;
       }
 
       setLoading(true);
 
-      const map = {};
+      // 1. Create an initial map with null values for every chat ID.
+      // This tells the UI that everything is in a loading state.
+      const initialMap = {};
+      chatList.forEach(chat => {
+        const id = chat?.carData?.stockID;
+        if (id) {
+          initialMap[id] = null; // Use null to signify "loading"
+        }
+      });
+      // 2. Set this initial map immediately.
+      // This triggers a re-render and shows placeholders for all items.
+      setThumbnailMap(initialMap);
 
+      // 3. Now, proceed with fetching the actual image URLs.
+      const finalMap = {};
       await Promise.all(
         chatList.map(async (chat) => {
           const id = chat?.carData?.stockID;
           if (!id) return;
 
-          // 1) prefer embedded images if present
-          const embedded = chat?.carData?.images;
-          if (Array.isArray(embedded) && embedded.length > 0) {
-            map[id] = embedded;
-            // prime cache for consistency with /orders
-            C.set(id, { images: embedded, ts: Date.now() });
+          // Prefer embedded thumbnail
+          const embeddedThumbnail = chat?.carData?.thumbnailImage;
+          if (typeof embeddedThumbnail === 'string' && embeddedThumbnail) {
+            finalMap[id] = embeddedThumbnail;
+            C.set(id, { thumbnailUrl: embeddedThumbnail, ts: Date.now() });
             return;
           }
 
-          // 2) use cache if fresh
+          // Use cache if fresh
           const cached = C.get(id);
-          if (cached && Date.now() - cached.ts < TTL) {
-            map[id] = cached.images;
+          if (cached && cached.thumbnailUrl && Date.now() - cached.ts < TTL) {
+            finalMap[id] = cached.thumbnailUrl;
             return;
           }
 
-          // 3) fallback to API fetch
+          // Fallback to API
           try {
             const res = await fetch(`/api/car-images/${encodeURIComponent(id)}`);
-            if (!res.ok) throw new Error(`Error ${res.status}`);
+            if (!res.ok) {
+              finalMap[id] = ''; // On error, set empty string
+              C.set(id, { thumbnailUrl: '', ts: Date.now() });
+              return;
+            }
             const json = await res.json();
-            const imgs = Array.isArray(json.images) ? json.images : [];
-            map[id] = imgs;
-            C.set(id, { images: imgs, ts: Date.now() });
-          } catch {
-            map[id] = []; // on error, set empty like before
+            const url = typeof json.thumbnailUrl === 'string' ? json.thumbnailUrl : '';
+            finalMap[id] = url;
+            C.set(id, { thumbnailUrl: url, ts: Date.now() });
+          } catch (error) {
+            console.error(`Failed to fetch thumbnail for ID ${id}:`, error);
+            finalMap[id] = ''; // On any error, set an empty string
           }
         })
       );
 
+      // 4. Finally, update the state with the fully populated map.
       if (!cancelled) {
-        setImagesMap(map);
+        setThumbnailMap(finalMap);
         setLoading(false);
       }
     }
@@ -168,16 +186,18 @@ export default function TransactionList({
     run();
     return () => { cancelled = true; };
   }, [chatList]);
+  
 
   // map Firestore data to your UI shape
 
   const contacts = chatList.map((chat) => {
     const stock = chat?.carData?.stockID;
-    const imgs = imagesMap[stock] || [];           // grab the fetched array
+    const imgSrc = imagesMap[stock] ? imagesMap[stock] : "/placeholder.jpg";
+    // grab the fetched array
     return {
       id: chat.id,
       name: chat.carData?.carName || "Unknown Car",
-      avatar: imgs[0] || "/placeholder.jpg",         // first fetched image or placeholder
+      avatar: imgSrc ? imgSrc : "/placeholder.jpg",         // first fetched image or placeholder
       status: chat.status || "offline",
       lastMessage: chat.lastMessage || "",
       time: (() => {
@@ -188,15 +208,18 @@ export default function TransactionList({
 
         if (typeof raw === "string") {
           // Split date and time
-          let [datePart, timePart] = raw.split(" at ");
+          const parts = raw.split(" at ");
+          let datePart = parts[0] || "";
+          let timePart = parts[1] || "";
 
-          // If no “.” in the seconds, append “.000”
-          if (!timePart.includes(".")) {
+          // If timePart is present and has no fractional seconds, append ".000"
+          if (timePart && !timePart.includes(".")) {
             timePart += ".000";
           }
 
-          // Build an ISO-ish string and swap slashes for dashes
-          normalized = `${datePart} ${timePart}`.replace(/\//g, "-");
+          // Build an ISO-ish string and swap slashes for dashes. If timePart is
+          // missing, just use datePart (best-effort).
+          normalized = (timePart ? `${datePart} ${timePart}` : datePart).replace(/\//g, "-");
         } else {
           // Firestore timestamp
           const d = new Date(raw.seconds * 1000);
@@ -276,17 +299,23 @@ export default function TransactionList({
       ) : (
         <>
           <div className="p-4 border-b border-gray-200">
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center gap-4 w-full">
               <SideMenu isOpen={isOpen} setIsOpen={setIsOpen} />
+
               <DropdownMenu open={isOpenDropdown} onOpenChange={setIsOpenDropdown}>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center justify-between w-auto px-1 py-2 -mt-4">
+                  <Button
+                    variant="ghost"
+                    className="flex items-center gap-2 w-auto px-1 py-2 -mt-4"
+                  >
                     <h2 className="text-xl font-bold">Transactions</h2>
                     <ChevronDown
-                      className={`h-5 w-5 transition-transform duration-200 ${isOpenDropdown ? "rotate-180" : ""}`}
+                      className={`h-5 w-5 transition-transform duration-200 ${isOpenDropdown ? "rotate-180" : ""
+                        }`}
                     />
                   </Button>
                 </DropdownMenuTrigger>
+
                 <DropdownMenuContent align="start" className="w-48 z-[1000]">
                   <Link href="/profile">
                     <DropdownMenuItem>
@@ -319,8 +348,14 @@ export default function TransactionList({
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+
+              {/* Push this to the far right */}
+              <div className="ml-auto -mt-4 z-[100]">
+                <UserIcon email={userEmail} />
+              </div>
             </div>
-            <div className="relative">
+
+            <div className="relative z-2">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
               <Input
                 placeholder="Search makes, model ..."
@@ -338,7 +373,8 @@ export default function TransactionList({
                 <>
                   {contacts.map((contact, index) => {
                     const isLast = index === contacts.length - 1 // ✅ check if this is the last item
-                    const { stockStatus, reservedTo } = vehicleStatus[contact.stockID] || {};
+                    const hit = vehicleStatus.find(v => v.id === contact.stockID);
+                    const { stockStatus, reservedTo } = hit ?? {};
                     const isReservedOrSold = (stockStatus === "Reserved" || stockStatus === "Sold") && reservedTo !== userEmail;
 
                     return (
@@ -365,10 +401,11 @@ export default function TransactionList({
                           {/* avatar + status */}
                           <div className="relative flex-shrink-0">
                             <img
-                              src={contact?.avatar}
+                              src={contact.avatar}
                               alt={contact.name}
                               className="w-12 h-12 rounded-full"
                             />
+                            
                             {!contact.customerRead && (
                               <span
                                 className={`absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-white ${contact.customerRead === false

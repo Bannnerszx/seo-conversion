@@ -38,7 +38,7 @@ export default function FavoritesPageCSR({ dataVehicles, currency, accountData, 
     return (
         <div className="flex flex-col md:flex-row h-screen">
             {/* Sidebar */}
-            <Sidebar count={count} activePage="favorites" accountData={accountData} />
+            <Sidebar count={count} activePage="favorites" accountData={accountData} userEmail={userEmail} />
 
             {/* Main content */}
             <div className="flex-1 flex flex-col overflow-hidden">
@@ -67,7 +67,7 @@ export default function FavoritesPageCSR({ dataVehicles, currency, accountData, 
                 </div> */}
 
                 {/* Favorites list */}
-                <div className="flex-1 p-4 space-y-4 bg-gray-50 overflow-y-auto">
+                <div className="flex-1 p-4 space-y-4 bg-gray-50 overflow-y-auto -z-10">
                     {favoriteList.length > 0 ? (
                         favoriteList.map((favorite) => <FavoriteCard userEmail={userEmail} handleUnfavorite={handleUnfavorite} key={favorite.stockID} favorite={favorite} currency={currency} />)
                     ) : (

@@ -1,4 +1,6 @@
 "use client"
+import rmj from "../../../public/rmj.webp"
+import jumvea from "../../../public/jumvea.webp"
 import Link from "next/link"
 import { Menu, UserPlus, LogIn, MessageSquare, CircleUser, ChevronDown, TrendingUp, Tag, Package } from "lucide-react"
 import { useState, useEffect } from "react"
@@ -359,7 +361,7 @@ function MobileMenu({ isOpen, setIsOpen }) {
                                 className="block mt-4"
                             >
                                 <img
-                                    src="/jumvea.webp"
+                                    src={jumvea}
                                     alt="JUMVEA"
                                     width={120}
                                     height={39}
@@ -563,7 +565,7 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
                         <div className="flex items-center space-x-8 overflow-visible">
                             <Link href="/" className="h-auto overflow-hidden">
                                 <ImageHeader
-                                    src="/rmj.webp"
+                                    src={rmj}
                                     alt="REAL MOTOR JAPAN"
                                     width={250}
                                     height={65}
@@ -583,7 +585,7 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
                                     className="overflow-hidden"
                                 >
                                     <ImageHeader
-                                        src="/jumvea.webp"
+                                        src={jumvea}
                                         alt="REAL MOTOR JAPAN"
                                         width={80}
                                         height={39}
@@ -631,7 +633,7 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
                     <div className="flex items-center space-x-8 overflow-visible">
                         <Link href="/" className="flex items-center">
                             <ImageHeader
-                                src="/rmj.webp"
+                                src={rmj}
                                 alt="REAL MOTOR JAPAN"
                                 width={250}
                                 height={65}
@@ -658,7 +660,7 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
                                 className="overflow-hidden"
                             >
                                 <ImageHeader
-                                    src="/jumvea.webp"
+                                    src={jumvea}
                                     alt="REAL MOTOR JAPAN"
                                     width={100}
                                     height={39}

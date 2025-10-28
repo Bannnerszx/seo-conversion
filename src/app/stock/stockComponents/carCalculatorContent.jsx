@@ -11,23 +11,7 @@ import { usePathname } from "next/navigation"
 import { useRouter } from "@bprogress/next"
 import { useSort } from "./sortContext"
 import { useInspectionToggle } from "@/app/product/productComponents/inspectionToggle"
-/**
- * A reusable price calculator card.
- *
- * Props:
- * - title: string (heading text)
- * - Icon: React component (icon to display)
- * - dropdownGroups: array of dropdown group arrays
- * - dropdownValues: object mapping placeholder to selected value
- * - onDropdownChange: fn(placeholder: string, value: any)
- * - inspectionToggle: boolean
- * - onInspectionChange: fn(checked: boolean)
- * - insurance: boolean
- * - onInsuranceChange: fn(checked: boolean)
- * - inspectionData: object ({ isToggleDisabled: boolean })
- * - isRequired: boolean (forces inspection on)
- * - onSubmit: fn()
- */
+
 const Dropdown = ({ placeholder, options, value, onChange, containerRef }) => {
     return (
         <div className="relative inline-block w-full">
@@ -51,12 +35,16 @@ export default function PriceCalculatorCard({ countryArray, context, onClose }) 
     const [pendingUrlPort, setPendingUrlPort] = useState(null);
     const [pendingUrlInspection, setPendingUrlInspection] = useState(null);
     const [didHydrateInspectionFromUrl, setDidHydrateInspectionFromUrl] = useState(false);
+    const [pendingUrlInsurance, setPendingUrlInsurance] = useState(null);  // null | boolean
+    const [didHydrateInsuranceFromUrl, setDidHydrateInsuranceFromUrl] = useState(false);
 
+    const userSetInsuranceRef = useRef(false);
     const preferUrlInspectionRef = useRef(false);
+    const preferUrlInsuranceRef = useRef(false);
     const containerRef = useRef(null)
     const router = useRouter()
     const pathname = usePathname();
-    const { setProfitMap, setInspectionToggle, inspectionToggle } = useSort();
+    const { setProfitMap, setInspectionToggle, inspectionToggle, setInsuranceToggle, insuranceToggle } = useSort();
     const [ports, setPorts] = useState([])
     const [selectedCountry, setSelectedCountry] = useState('');
     const [dropdownValuesLocations, setDropdownValuesLocations] = useState({
@@ -166,7 +154,14 @@ export default function PriceCalculatorCard({ countryArray, context, onClose }) 
         // Only run the effect if component is mounted
         getPortInspection();
     }, [selectedPort])
-
+    // Add this useEffect to sync URL insurance to state
+    useEffect(() => {
+        // If URL has insurance value and we haven't hydrated yet, apply it
+        if (!didHydrateInsuranceFromUrl && pendingUrlInsurance !== null) {
+            setInsuranceToggle(!!pendingUrlInsurance);
+            setDidHydrateInsuranceFromUrl(true);
+        }
+    }, [pendingUrlInsurance, didHydrateInsuranceFromUrl, setInsuranceToggle]);
     const handleDropdownChangeLocation = (placeholder, value) => {
         // update the individual dropdown’s value
         setDropdownValuesLocations((prev) => ({
@@ -183,7 +178,7 @@ export default function PriceCalculatorCard({ countryArray, context, onClose }) 
             }))
         }
     };
-    const [insurance, setInsurance] = useState(false)
+
 
     const userSetInspectionRef = useRef(false);
     const handleSubmit = async (e) => {
@@ -209,6 +204,7 @@ export default function PriceCalculatorCard({ countryArray, context, onClose }) 
             localStorage.removeItem(k);
         };
 
+        // country
         if (result.country && result.country.toLowerCase() !== 'none') {
             params.set('country', result.country);
             setPersist('stock_country', result.country);
@@ -217,6 +213,7 @@ export default function PriceCalculatorCard({ countryArray, context, onClose }) 
             clearPersist('stock_country');
         }
 
+        // port
         if (result.port && result.port.toLowerCase() !== 'none') {
             params.set('port', result.port);
             setPersist('stock_port', result.port);
@@ -224,6 +221,8 @@ export default function PriceCalculatorCard({ countryArray, context, onClose }) 
             params.delete('port');
             clearPersist('stock_port');
         }
+
+        // inspection (required or user-toggled)
         if (isRequired || inspectionToggle) {
             params.set('inspection', '1');
             setPersist('stock_inspection', '1');
@@ -231,47 +230,66 @@ export default function PriceCalculatorCard({ countryArray, context, onClose }) 
             params.delete('inspection');
             clearPersist('stock_inspection');
         }
+
+        // 🔐 insurance (persist like inspection)
+        if (insuranceToggle) {
+            params.set('insurance', '1');
+            setPersist('stock_insurance', '1');
+        } else {
+            params.delete('insurance');
+            clearPersist('stock_insurance');
+        }
+
         const finalQuery = params.toString();
         const finalUrl = finalQuery ? `${pathname}?${finalQuery}` : pathname;
         router.replace(finalUrl, { scroll: false });
     };
+
     useEffect(() => {
         // already reading country/port...
         const urlCountry = searchParams?.get('country');
         const urlPortRaw = searchParams?.get('port');
-        const urlInspectionRaw = searchParams?.get('inspection'); // <-- NEW
+
+        const urlInspectionRaw = searchParams?.get('inspection');
+        const urlInsuranceRaw = searchParams?.get('insurance');  // <-- NEW
 
         // country (existing)
         if (urlCountry && urlCountry.toLowerCase() !== 'none') {
             setSelectedCountry(urlCountry);
-            setDropdownValuesLocations((prev) => ({ ...prev, 'Select Country': urlCountry }));
+            setDropdownValuesLocations(prev => ({ ...prev, 'Select Country': urlCountry }));
         } else if (urlCountry === 'none' || urlCountry === '' || urlCountry === null) {
             setSelectedCountry('');
-            setDropdownValuesLocations((prev) => ({ ...prev, 'Select Country': 'none' }));
+            setDropdownValuesLocations(prev => ({ ...prev, 'Select Country': 'none' }));
         }
 
         // port (existing)
         if (urlPortRaw && urlPortRaw.toLowerCase() !== 'none') {
             setPendingUrlPort(urlPortRaw);
         } else if (urlPortRaw === 'none' || urlPortRaw === '' || urlPortRaw === null) {
-            setDropdownValuesLocations((prev) => ({ ...prev, 'Select Port': 'none' }));
+            setDropdownValuesLocations(prev => ({ ...prev, 'Select Port': 'none' }));
         }
+
+        // ---- inspection (existing logic) ----
         if (urlInspectionRaw !== null) {
             const val = /^(1|true|on|yes)$/i.test(urlInspectionRaw);
             setPendingUrlInspection(val);
-            preferUrlInspectionRef.current = true;     // <-- add this
+            preferUrlInspectionRef.current = true;
+            setDidHydrateInspectionFromUrl(false);
         } else {
-            // param removed → stop preferring URL unless user toggled later
-            preferUrlInspectionRef.current = false;    // <-- add this
+            preferUrlInspectionRef.current = false;
         }
-        // inspection (NEW) — store temporarily until we know if the port requires inspection
-        if (urlInspectionRaw !== null) {
-            const val = /^(1|true|on|yes)$/i.test(urlInspectionRaw);
-            setPendingUrlInspection(val);
-            setDidHydrateInspectionFromUrl(false); // allow a one-time hydrate below
+
+        // ---- insurance (NEW: immediate hydrate) ----
+        if (urlInsuranceRaw !== null) {
+            const val = /^(1|true|on|yes)$/i.test(urlInsuranceRaw);
+            setPendingUrlInsurance(val);               // stage it
+            preferUrlInsuranceRef.current = true;
+            setDidHydrateInsuranceFromUrl(false);      // allow one-time hydrate
+        } else {
+            preferUrlInsuranceRef.current = false;
+            setPendingUrlInsurance(null);
         }
     }, [searchParams]);
-
 
     useEffect(() => {
         if (!pendingUrlPort) return;
@@ -367,8 +385,34 @@ export default function PriceCalculatorCard({ countryArray, context, onClose }) 
                             </Label>
                             <Switch
                                 id="insurance"
-                                checked={insurance}
-                                onCheckedChange={setInsurance}
+                                checked={!!insuranceToggle}        // keep it controlled
+                                onCheckedChange={(checked) => {
+                                    // 1) update state
+                                    setInsuranceToggle(checked);
+
+                                    // 2) persist to cookie + localStorage
+                                    const params = new URLSearchParams(window.location.search);
+                                    const setPersist = (k, v) => {
+                                        document.cookie = `${k}=${encodeURIComponent(v)}; path=/; max-age=31536000`;
+                                        localStorage.setItem(k, v);
+                                    };
+                                    const clearPersist = (k) => {
+                                        document.cookie = `${k}=; path=/; max-age=0`;
+                                        localStorage.removeItem(k);
+                                    };
+
+                                    if (checked) {
+                                        params.set('insurance', '1');      // 3) write to URL
+                                        setPersist('stock_insurance', '1');
+                                    } else {
+                                        params.delete('insurance');
+                                        clearPersist('stock_insurance');
+                                    }
+
+                                    // 4) push (not replace) so Back/Forward keeps the change
+                                    const q = params.toString();
+                                    router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
+                                }}
                                 className="data-[state=checked]:bg-blue-600"
                             />
                         </div>
@@ -456,8 +500,34 @@ export default function PriceCalculatorCard({ countryArray, context, onClose }) 
                             </Label>
                             <Switch
                                 id="insurance"
-                                checked={insurance}
-                                onCheckedChange={setInsurance}
+                                checked={!!insuranceToggle}        // keep it controlled
+                                onCheckedChange={(checked) => {
+                                    // 1) update state
+                                    setInsuranceToggle(checked);
+
+                                    // 2) persist to cookie + localStorage
+                                    const params = new URLSearchParams(window.location.search);
+                                    const setPersist = (k, v) => {
+                                        document.cookie = `${k}=${encodeURIComponent(v)}; path=/; max-age=31536000`;
+                                        localStorage.setItem(k, v);
+                                    };
+                                    const clearPersist = (k) => {
+                                        document.cookie = `${k}=; path=/; max-age=0`;
+                                        localStorage.removeItem(k);
+                                    };
+
+                                    if (checked) {
+                                        params.set('insurance', '1');      // 3) write to URL
+                                        setPersist('stock_insurance', '1');
+                                    } else {
+                                        params.delete('insurance');
+                                        clearPersist('stock_insurance');
+                                    }
+
+                                    // 4) push (not replace) so Back/Forward keeps the change
+                                    const q = params.toString();
+                                    router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
+                                }}
                                 className="data-[state=checked]:bg-blue-600"
                             />
                         </div>

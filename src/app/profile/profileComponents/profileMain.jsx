@@ -115,7 +115,7 @@ export default function ProfilePage({ userEmail, accountData, countryList }) {
 
     return (
         <div className="flex flex-col md:flex-row h-screen">
-            <Sidebar count={count} activePage="profile" accountData={accountData} />
+            <Sidebar count={count} activePage="profile" accountData={accountData} userEmail={userEmail} />
 
             <div className="flex-1 flex flex-col overflow-hidden">
                 <header className="bg-[#0000ff] text-white p-4 hidden md:flex md:justify-between md:items-center">

@@ -41,6 +41,7 @@ export default function SearchHeader({
   countryArray,
   context
 }) {
+  
   const params = useParams()
   // URLSearchParams for ?foo=bar
   const searchParams = useSearchParams()
@@ -118,7 +119,7 @@ export default function SearchHeader({
   }
 
   const PaginationButtons = () => (
-    <div className="flex gap-3 justify-end my-4">
+    <div className="flex gap-3 justify-center my-4">
       <Link
         href={currentPage > 1 ? `?${updatePageURL(prevPage)}` : '#'}
         aria-disabled={currentPage <= 1}
@@ -166,8 +167,7 @@ export default function SearchHeader({
   }
 
 
-  const onFilterClick = () => console.log("Filter clicked")
-  const onCalculatorClick = () => console.log("Calculator clicked")
+
   const hasQueryParams = Array.from(searchParams.keys()).length > 0
 
   const isPureStock = filters.length === 0 && !hasQueryParams

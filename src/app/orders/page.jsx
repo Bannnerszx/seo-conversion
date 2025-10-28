@@ -4,17 +4,18 @@ import { db } from "@/lib/firebaseAdmin";
 import MainOrderPage from "./orderComponents/orderMain";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { fetchNotificationCounts, getAccountData, checkUserExist } from "../actions/actions";
+import { getAccountData, checkUserExist } from "../actions/actions";
 import { fetchCurrency, } from "../../../services/fetchFirebaseData";
 import ClientAppCheck from "../../../firebase/ClientAppCheck";
-import { useUnreadCount } from "@/hooks/useUnreadCount";
 
 async function fetchPrefetchedData(userEmail) {
   try {
-    // 1) fetch 12 most recent chats
+    // 1) fetch 20 most recent chats across stepIndicator values >= 3
+    // Use `in` to filter specific step values so we can order by lastMessageDate only.
     const chatsSnapshot = await db
       .collection("chats")
       .where("participants.customer", "==", userEmail)
+      .where("stepIndicator.value", "in", [3, 4, 5, 6, 7])
       .orderBy("lastMessageDate", "desc")
       .limit(20)
       .get();
@@ -139,6 +140,7 @@ export default async function OrderPage() {
   const prefetchedData = await fetchPrefetchedData(userEmail);
 
   // 🔟 Render the protected order page
+
   return (
     <>
       <ClientAppCheck />

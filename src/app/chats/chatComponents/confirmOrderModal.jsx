@@ -1,7 +1,7 @@
 "use client"
 import { functions } from "../../../../firebase/clientApp"
 import { httpsCallable } from "firebase/functions"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, use } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { CheckCircle, AlertTriangle, X, Copy } from "lucide-react"
@@ -13,7 +13,7 @@ import { runTransaction, doc, increment } from "firebase/firestore"
 import { submitJackallClient, submitUserData } from "@/app/actions/actions";
 import { FloatingAlertPortal } from "./floatingAlert"
 
-export default function OrderButton({ ipInfo, tokyoTime, accountData, isOrderMounted, setIsOrderMounted, userEmail, chatId, selectedChatData, countryList, invoiceData }) {
+export default function OrderButton({ handlePreviewInvoiceModal, context, setIsHidden, ipInfo, tokyoTime, accountData, isOrderMounted, setIsOrderMounted, userEmail, chatId, selectedChatData, countryList, invoiceData }) {
     const [ordered, setOrdered] = useState(false)
     const [showAlert, setShowAlert] = useState(false);
     const [isLoading, setIsLoading] = useState(false)
@@ -74,42 +74,106 @@ export default function OrderButton({ ipInfo, tokyoTime, accountData, isOrderMou
         sales_pending: "1",
     });
 
-    // 3) Atomically allocate or retrieve salesInfoId
-    const processJackallSalesInfo = async (chatId) => {
-        const countsDocRef = doc(firestore, "counts", "jackall_ids");
-        const chatDocRef = doc(firestore, "chats", chatId);
+    const assignSalesInfoIdViaCallable = async (chatId) => {
+        const callable = httpsCallable(functions, 'processJackallSalesInfo');
+        const res = await callable({ chatId });
 
-        const { resultingId, wasNew } = await runTransaction(
-            firestore,
-            async (tx) => {
-                const countsSnap = await tx.get(countsDocRef);
-                const chatSnap = await tx.get(chatDocRef);
+        return res.data
+    }
 
-                if (!countsSnap.exists()) {
-                    throw new Error("counts/jackall_ids missing");
-                }
-                if (!chatSnap.exists()) {
-                    throw new Error(`Chat ${chatId} missing`);
-                }
+    const assignSalesInfoIdViaLocalTxn = async (chatId) => {
+        const countsDocRef = doc(firestore, 'counts', 'jackall_ids');
+        const chatDocRef = doc(firestore, 'chats', chatId);
+        const { resultindId, wasNew } = await runTransaction(firestore, async (tx) => {
+            const [countsSnap, chatSnap] = await Promise.all([
+                tx.get(countsDocRef),
+                tx.get(chatDocRef)
+            ]);
 
-                const chatData = chatSnap.data();
-                // already has one?
-                if (chatData.salesInfoId != null) {
-                    return { resultingId: chatData.salesInfoId, wasNew: false };
-                }
+            if (!chatSnap.exists()) throw new Error(`Chat ${chatId} missing`);
+            if (!countsSnap.exists()) throw new Error('counts/jackall_ids missing');
 
-                // allocate new
-                const currentId = countsSnap.data()["sales-info-id"];
-                const nextId = currentId + 1;
-                tx.update(chatDocRef, { salesInfoId: nextId });
-                tx.update(countsDocRef, { "sales-info-id": increment(1) });
-                return { resultingId: nextId, wasNew: true };
+            const chatData = chatSnap.data() || {};
+
+            if (chatData.salesInfoId != null) {
+                return { resultingId: chatData.salesInfoId, wasNew: false }
             }
-        );
 
+            const currentId = countsSnap.get('sales-info-id') ?? 0;
+            const nextId = currentId + 1;
 
-        return { resultingId, wasNew };
+            tx.update(chatDocRef, { salesInfoId: nextId })
+            tx.update(countsDocRef, { 'sales-info-id': increment(1) });
+
+            return { resultingId: nextId, wasNew: true }
+        })
+
+        return { resultindId, wasNew }
     };
+
+    const delay = (ms) => new Promise((r) => setTimeout(r, ms))
+
+    const getOrAssignedSalesInfoId = async (chatId) => {
+        const serverPromise = assignSalesInfoIdViaCallable(chatId);
+
+        const localPromise = (async () => {
+            await delay(150);
+            return assignSalesInfoIdViaLocalTxn(chatId)
+        })();
+
+        let winner;
+        try {
+            winner = await Promise.any([serverPromise, localPromise])
+        } catch (error) {
+            const [srv, loc] = await Promise.allSettled([serverPromise, localPromise]);
+            const srvErr = srv.status === 'rejected' ? srv.reason?.message : null;
+            const locErr = loc.status === 'rejected' ? loc.reason?.message : null;
+            throw new Error(
+                `Failed to assign salesInfoId (server: ${srvErr || 'ok'}, local: ${locErr || 'ok'})`
+            );
+        }
+
+        Promise.allSettled([serverPromise, localPromise]).catch(() => { });
+
+        return winner;
+    }
+
+    // 3) Atomically allocate or retrieve salesInfoId
+    // const processJackallSalesInfo = async (chatId) => {
+    //     const countsDocRef = doc(firestore, "counts", "jackall_ids");
+    //     const chatDocRef = doc(firestore, "chats", chatId);
+
+    //     const { resultingId, wasNew } = await runTransaction(
+    //         firestore,
+    //         async (tx) => {
+    //             const countsSnap = await tx.get(countsDocRef);
+    //             const chatSnap = await tx.get(chatDocRef);
+
+    //             if (!countsSnap.exists()) {
+    //                 throw new Error("counts/jackall_ids missing");
+    //             }
+    //             if (!chatSnap.exists()) {
+    //                 throw new Error(`Chat ${chatId} missing`);
+    //             }
+
+    //             const chatData = chatSnap.data();
+    //             // already has one?
+    //             if (chatData.salesInfoId != null) {
+    //                 return { resultingId: chatData.salesInfoId, wasNew: false };
+    //             }
+    //             // allocate new
+    //             const currentId = countsSnap.data()["sales-info-id"];
+    //             const nextId = currentId + 1;
+    //             tx.update(chatDocRef, { salesInfoId: nextId });
+    //             tx.update(countsDocRef, { "sales-info-id": increment(1) });
+    //             return { resultingId: nextId, wasNew: true };
+    //         }
+    //     );
+
+
+    //     return { resultingId, wasNew };
+    // };
+
     const deleteFromTcvBoth = async () => {
         const apis = ['https://asia-northeast2-real-motor-japan.cloudfunctions.net/uploadToTcvSalesF', 'https://asia-northeast2-real-motor-japan.cloudfunctions.net/uploadToTcvSales'];
 
@@ -256,16 +320,16 @@ export default function OrderButton({ ipInfo, tokyoTime, accountData, isOrderMou
     // const result = await setOrderItem(chatId, selectedChatData, userEmail)
     const navigatedToOrderedRef = useRef(false)
 
-    const handleOrder = async () => {
-        setIsLoading(true);
-        setOrdered(true);
-        setIsOrderMounted(true);
-        try {
-            // ---- STEP 1 Format date ----
-            const momentDate = moment(tokyoTime?.datetime, "YYYY/MM/DD HH:mm:ss.SSS");
-            const formattedSalesDate = momentDate.format('YYYY/MM/DD');
+    // performOrder contains the original order workflow but doesn't touch modal visibility.
+    // It can skip the reservation call when called with skipReservation=true so
+    // we can reserve quickly, navigate, and do the heavier work in background.
+    const performOrder = async (skipReservation = false) => {
+        // ---- STEP 1 Format date ----
+        const momentDate = moment(tokyoTime?.datetime, "YYYY/MM/DD HH:mm:ss.SSS");
+        const formattedSalesDate = momentDate.format('YYYY/MM/DD');
 
-            //3) allocate/retrieve salesInfoId
+        //3) Optionally reserve item (fast) — skipReservation true means caller already reserved
+        if (!skipReservation) {
             const { data } = await setOrderItemFunction({
                 chatId,
                 userEmail,
@@ -275,65 +339,89 @@ export default function OrderButton({ ipInfo, tokyoTime, accountData, isOrderMou
                 stockID: selectedChatData?.carData?.stockID
             });
             if (!data.success) {
-
                 throw new Error("The order could not be confirmed by the server.")
-            };
-            console.log('Item reserved successfully in Firestore. Proceeding...');
+            }
+        }
 
-            //----STEP 2: Proceed with other operations ONLY after successful reservation ----
-            const { resultingId, wasNew } = await processJackallSalesInfo(chatId);
-            await submitJackallClient({
+        //----STEP 2: Proceed with other operations ONLY after successful reservation ----
+        const { resultingId, wasNew } = await getOrAssignedSalesInfoId(chatId);
+        await submitJackallClient({
+            userEmail,
+            newClientId: accountData?.client_id,
+            firstName: accountData?.textFirst,
+            lastName: accountData?.textLast,
+            zip: accountData?.textZip,
+            street: accountData?.textStreet,
+            city: accountData?.city,
+            phoneNumber: accountData?.textPhoneNumber,
+            countryName: accountData?.country,
+            note: ''
+        })
+        const salesData = prepareSalesData(resultingId, formattedSalesDate, selectedChatData, accountData);
+        if (wasNew) {
+            await uploadJackallSalesInfoData([salesData]);
+        } else {
+            console.log("SalesInfo upload skipped; salesInfoId was already present.")
+        }
+
+        // --- STEP 3: Final cleanup ---
+        await deleteFromTcvBoth();
+
+        return true
+    }
+
+    // Called from the modal confirm button. Keeps the modal open while processing,
+    // disables the confirm button, then navigates to /chats/ordered/:chatId on success.
+
+
+    const handleConfirm = async () => {
+        // Prevent double submission
+        if (isLoading) return
+        setIsLoading(true)
+        try {
+            // Reserve the order quickly so we can navigate immediately.
+            const { data } = await setOrderItemFunction({
+                chatId,
                 userEmail,
-                newClientId: accountData?.client_id,
-                firstName: accountData?.textFirst,
-                lastName: accountData?.textLast,
-                zip: accountData?.textZip,
-                street: accountData?.textStreet,
-                city: accountData?.city,
-                phoneNumber: accountData?.textPhoneNumber,
-                countryName: accountData?.country,
-                note: ''
-            })
-            const salesData = prepareSalesData(resultingId, formattedSalesDate, selectedChatData, accountData);
-            if (wasNew) {
-                await uploadJackallSalesInfoData([salesData]);
-
-            } else {
-                console.log("SalesInfo upload skipped; salesInfoId was already present.")
+                ipInfo,
+                tokyoTime,
+                invoiceNumber: selectedChatData?.invoiceNumber,
+                stockID: selectedChatData?.carData?.stockID
+            });
+            if (!data.success) {
+                throw new Error("The order could not be reserved by the server.")
             }
 
-            // --- STEP 3: Final cleanup ---
-            await deleteFromTcvBoth();
+            // Mark UI state and close modal, then navigate fast
+            setOrdered(true)
+            setIsOrderMounted(false)
+            handlePreviewInvoiceModal(false)
 
-            // --- STEP 4: Update UI and navigate on FULL success ---
-            console.log("Full order process complete!");
-            setOrdered(true);
-            setIsOrderMounted(true);
-            // Perform a one-time navigation to /chats/ordered/:chatId to show ordered page
-            try {
-                if (typeof window !== 'undefined' && !navigatedToOrderedRef.current) {
-                    const targetPath = `/chats/ordered/${chatId}`
-                    const currentPath = window.location.pathname || ''
-                    if (!currentPath.startsWith(targetPath)) {
-                        navigatedToOrderedRef.current = true
-                        // use location.assign to force a full navigation and let middleware show ordered URL
-                        window.location.assign(targetPath)
-                    } else {
-                        navigatedToOrderedRef.current = true
-                    }
+            if (typeof window !== 'undefined' && !navigatedToOrderedRef.current) {
+                const targetPath = `/chats/ordered/${chatId}`
+                navigatedToOrderedRef.current = true
+                // navigate immediately so customer can view invoice
+                window.location.assign(targetPath)
+            }
+
+            // Perform the remaining heavier post-order tasks in background.
+            // We call performOrder with skipReservation=true to avoid duplicating the reservation call.
+            performOrder(true).catch((err) => {
+                console.error('Background order continuation failed:', err)
+                // If we're still mounted, show an alert; otherwise errors are logged server-side
+                try {
+                    setShowAlert(true)
+                } catch (e) {
+                    // component may be unmounted after navigation; ignore
                 }
-            } catch (navErr) {
-                console.error('Navigation to ordered failed:', navErr)
-            }
+            })
 
         } catch (error) {
-            console.log("Order process failed:", error.message);
-            setShowAlert(true);
-            setIsLoading(false);
-            setOrdered(false);
-            setIsOrderMounted(false);
+            console.log("Order reservation failed:", error?.message || error)
+            setShowAlert(true)
         } finally {
             setIsLoading(false)
+            // leave modal state to parent - parent may close it or navigation may occur
         }
     }
 
@@ -350,48 +438,126 @@ export default function OrderButton({ ipInfo, tokyoTime, accountData, isOrderMou
     }
 
     const selectedCurrencyCode = selectedChatData?.selectedCurrencyExchange;
+    const toNumber = (v, fallback = 0) => {
+        if (v == null) return fallback;
+        if (typeof v === 'number') return Number.isFinite(v) ? v : fallback;
+        if (typeof v === 'string') {
+            const n = parseFloat(v.replace(/[^\d.-]/g, ''));
+            return Number.isFinite(n) ? n : fallback;
+        }
+        return fallback;
+    };
+    const formatMoney = (amount, symbol) =>
+        Number.isFinite(amount) ? `${symbol} ${Math.trunc(amount).toLocaleString()}` : 'ASK';
+
+    // --- currency setup (USD pivot) ---
     const currencies = [
         { code: "USD", symbol: "USD$", value: 1 },
-        { code: "EUR", symbol: "€", value: selectedChatData?.currency.usdToEur },
-        { code: "JPY", symbol: "¥", value: selectedChatData?.currency.usdToJpy },
-        { code: "CAD", symbol: "CAD$", value: selectedChatData?.currency.usdToCad },
-        { code: "AUD", symbol: "AUD$", value: selectedChatData?.currency.usdToAud },
-        { code: "GBP", symbol: "GBP£", value: selectedChatData?.currency.usdToGbp },
-        { code: "ZAR", symbol: "R", value: selectedChatData?.currency.usdToZar },
+        { code: "EUR", symbol: "€", value: selectedChatData?.currency?.usdToEur },
+        { code: "JPY", symbol: "¥", value: selectedChatData?.currency?.usdToJpy },
+        { code: "CAD", symbol: "CAD$", value: selectedChatData?.currency?.usdToCad },
+        { code: "AUD", symbol: "AUD$", value: selectedChatData?.currency?.usdToAud },
+        { code: "GBP", symbol: "GBP£", value: selectedChatData?.currency?.usdToGbp },
+        { code: "ZAR", symbol: "R", value: selectedChatData?.currency?.usdToZar },
     ];
-    // 3) find the matching currency (fallback to USD if nothing matches)
-    const currency =
-        currencies.find((c) => c.code === selectedCurrencyCode)
-        || currencies[0];
 
-    // 4) do your price math with currency.value
-    const basePrice =
-        parseFloat(selectedChatData?.carData?.fobPrice)
-        * parseFloat(selectedChatData?.currency.jpyToUsd);
+    const pickCurrency = (code) =>
+        currencies.find(c => c.code === code) || currencies[0];
 
-    const baseFinalPrice = invoiceData?.paymentDetails.totalAmount ? parseFloat(invoiceData?.paymentDetails.totalAmount) - (selectedChatData?.inspection ? 300 : 0) :
-        basePrice
-        + parseFloat(selectedChatData?.carData?.dimensionCubicMeters)
-        * parseFloat(selectedChatData?.freightPrice);
+    const rates = {
+        USD: 1,
+        EUR: toNumber(selectedChatData?.currency?.usdToEur, NaN), // USD->EUR
+        JPY: toNumber(selectedChatData?.currency?.usdToJpy, NaN), // USD->JPY
+        CAD: toNumber(selectedChatData?.currency?.usdToCad, NaN),
+        AUD: toNumber(selectedChatData?.currency?.usdToAud, NaN),
+        GBP: toNumber(selectedChatData?.currency?.usdToGbp, NaN),
+        ZAR: toNumber(selectedChatData?.currency?.usdToZar, NaN),
+        jpyToUsd: toNumber(selectedChatData?.currency?.jpyToUsd, NaN), // JPY->USD for FOB
+    };
 
-    const inspectionSurcharge = selectedChatData?.inspection ? 300 * currency.value : 0;
-    const insuranceSurcharge = selectedChatData?.insurance ? 50 * currency.value : 0
-    const finalPrice = (baseFinalPrice * currency.value + inspectionSurcharge + insuranceSurcharge);
+    const fromUSD = (usdAmount, toCode = 'USD') => {
+        const usd = toNumber(usdAmount, NaN);
+        if (!Number.isFinite(usd)) return NaN;
+        const mul = rates[toCode] ?? 1;
+        return Number.isFinite(mul) ? usd * mul : NaN;
+    };
+
+    // --- core compute ---
+    // Fallback parts (all in USD)
+    const fobPriceUSD = toNumber(selectedChatData?.carData?.fobPrice) *
+        (Number.isFinite(rates.jpyToUsd) ? rates.jpyToUsd : 1);
+    const dimM3 = toNumber(selectedChatData?.carData?.dimensionCubicMeters);
+    const freightUSD = toNumber(selectedChatData?.freightPrice);
+    const fallbackUSD = (Number.isFinite(fobPriceUSD) ? fobPriceUSD : 0) +
+        (Number.isFinite(dimM3) ? dimM3 : 0) *
+        (Number.isFinite(freightUSD) ? freightUSD : 0);
+
+    // Invoice totals are ALWAYS USD in your system:
+    const invoiceTotalUSD = toNumber(invoiceData?.paymentDetails?.totalAmount, NaN);
+    const hasInvoiceTotal = Number.isFinite(invoiceTotalUSD);
+
+    // If invoice exists, display using the invoice’s chosen display currency,
+    // otherwise use the UI-selected currency.
+    const targetCurrencyCode = hasInvoiceTotal && invoiceData?.selectedCurrencyExchange
+        ? invoiceData.selectedCurrencyExchange
+        : pickCurrency(selectedCurrencyCode).code;
+
+    const targetCurrency = pickCurrency(targetCurrencyCode);
+
+    // Base (USD): invoice wins (authoritative); else fallback.
+    const baseFinalUSD = hasInvoiceTotal ? invoiceTotalUSD : fallbackUSD;
+
+    // Only add surcharges when using fallback (NOT when invoice exists)
+    let amountInTarget = fromUSD(baseFinalUSD, targetCurrencyCode);
+    if (!hasInvoiceTotal) {
+        const inspection = selectedChatData?.inspection ? fromUSD(300, targetCurrencyCode) : 0;
+        const insurance = selectedChatData?.insurance ? fromUSD(50, targetCurrencyCode) : 0;
+        amountInTarget = toNumber(amountInTarget, 0) + inspection + insurance;
+    }
+
+    // Final for render
+    const finalDisplay = formatMoney(amountInTarget, targetCurrency.symbol);
+
+
     return (
         <>
 
-            <Button id="rmj_order_confirm" size="sm" onClick={handleOrder} className="ml-2 font-medium bg-red-500 hover:bg-red-600 text-white">
-                Order Now
+            <Button
+                id="rmj_order_confirm"
+                type="button"
+                size={context === 'invoice' ? 'default' : 'sm'}
+                onClick={() => {
+                    setOrdered(false)
+                    setIsOrderMounted(true)
+                    setIsHidden(true)
+                }}
+                className={
+                    context === 'invoice'
+                        ? "ml-2 font-medium bg-red-600 hover:bg-red-700 text-white transition-colors duration-200"
+                        : "ml-2 font-medium bg-red-500 hover:bg-red-600 text-white"
+                }
+            >
+                {context === 'invoice' ? (
+                    <span className="flex items-center gap-2">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Order Now
+                    </span>
+                ) : (
+                    'Order Now'
+                )}
             </Button>
             <FloatingAlertPortal
                 show={showAlert}
                 onClose={() => setShowAlert(false)}
                 duration={5000} // 5 seconds
             />
-            {ordered && (
-                <Modal context={'order'} showModal={isOrderMounted} setShowModal={() => setIsOrderMounted(true)}>
+            {isOrderMounted && (
+                // For the 'order' context the Modal defaults to non-closable; only confirm will close it
+                <Modal context={'order'} showModal={isOrderMounted} setShowModal={setIsOrderMounted}>
                     {isLoading === false ? (
-                        <Card className="w-full max-w-lg border-4 border-red-500 shadow-2xl max-h-[95vh] overflow-y-auto">
+                        <Card className="w-full max-w-lg border-4 border-red-500 shadow-2xl max-h-[95vh] overflow-y-auto bg-blac">
                             <CardContent className="p-0">
                                 {/* Header */}
                                 <div className="bg-gradient-to-r from-red-500 to-red-600 text-white p-3 sm:p-4 flex items-center justify-between animate-pulse">
@@ -404,14 +570,7 @@ export default function OrderButton({ ipInfo, tokyoTime, accountData, isOrderMou
                                             <p className="text-red-100 text-xs sm:text-sm">Please read carefully before proceeding</p>
                                         </div>
                                     </div>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => setOrdered(false)}
-                                        className="text-white hover:bg-white/20 p-1 sm:p-2"
-                                    >
-                                        <X className="h-4 w-4" />
-                                    </Button>
+
                                 </div>
 
                                 {/* Content */}
@@ -435,7 +594,7 @@ export default function OrderButton({ ipInfo, tokyoTime, accountData, isOrderMou
                                             <code className="flex-1 bg-white border rounded px-3 py-2 font-mono text-lg font-bold text-blue-600">
                                                 RMJ-{selectedChatData?.invoiceNumber}
                                             </code>
-                                            <Button onClick={copyInvoiceNumber} variant="outline" size="sm">
+                                            <Button type="button" onClick={copyInvoiceNumber} variant="outline" size="sm">
                                                 {copied ? <CheckCircle className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
                                             </Button>
                                         </div>
@@ -448,7 +607,7 @@ export default function OrderButton({ ipInfo, tokyoTime, accountData, isOrderMou
                                             <li>
                                                 Transfer{" "}
                                                 <strong>
-                                                    {currency.symbol} {Math.ceil(finalPrice).toLocaleString()}
+                                                    {finalDisplay}
                                                 </strong>{" "}
                                                 to our account
                                             </li>
@@ -467,8 +626,9 @@ export default function OrderButton({ ipInfo, tokyoTime, accountData, isOrderMou
                                     </div>
 
                                     {/* Action Button */}
-                                    <Button onClick={() => setIsOrderMounted(false)} className="w-full bg-green-600 hover:bg-green-700">
-                                        <CheckCircle className="mr-2 h-4 w-4" />I Understand - Proceed
+                                    <Button type="button" onClick={handleConfirm} disabled={isLoading} className="w-full bg-green-600 hover:bg-green-700">
+                                        <CheckCircle className="mr-2 h-4 w-4" />
+                                        {isLoading ? 'Processing...' : 'I Understand - Proceed'}
                                     </Button>
                                 </div>
                             </CardContent>

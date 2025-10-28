@@ -1,6 +1,7 @@
 
 import Image from "next/image";
 import Car from "../components/Car";
+import samplebanner3 from "../../../public/samplebanner3.webp"
 export default function HeroBanner({ unsoldVehicleCount }) {
 
   return (
@@ -21,7 +22,7 @@ export default function HeroBanner({ unsoldVehicleCount }) {
       </div>
       <div className="relative w-full h-[720px]">
         <Image
-          src="/samplebanner3.webp"
+          src={samplebanner3}
           alt="Hero banner"
           width={1220}
           height={720}

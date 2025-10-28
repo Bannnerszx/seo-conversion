@@ -96,6 +96,9 @@ export default async function RootLayout({ children }) {
     }
   }
 
+
+
+
   // 7️⃣  Render the <html>… layout:
   //     • If hasOldSession but no valid session_v2 → we still treat as guest (no deletion here).
   //     • If session_v2 is invalid or missing → guest UI.
@@ -121,16 +124,20 @@ export default async function RootLayout({ children }) {
           as="script"
           crossOrigin="anonymous"
         />
+        <Script id="ms-clarity" strategy="afterInteractive">
+          {`(function(c,l,a,r,i,t,y){
+  c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+  t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+  y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+})(window, document, "clarity", "script", "jyynkqpjss");`}
+        </Script>
+
       </head>
 
-      <link
-        rel="preload"
-        as="image"
-        href="/samplebanner3.webp"
-        media="(max-width: 640px)"
-      />
+     
 
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
+
         <noscript>
           <iframe
             src="https://www.googletagmanager.com/ns.html?id=GTM-NJLD22H"

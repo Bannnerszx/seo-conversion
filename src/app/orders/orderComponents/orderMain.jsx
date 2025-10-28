@@ -10,6 +10,7 @@ import Link from "next/link"
 import { ShoppingBag } from "lucide-react"
 import Component from "./OrderList"
 import { useUnreadCount } from "@/hooks/useUnreadCount"
+import UserIcon from "@/app/chats/chatComponents/userIcon"
 let lastVisible = null;
 export function subscribeToChatList(userEmail, callback) {
   if (!userEmail) {
@@ -134,7 +135,7 @@ export default function MainOrderPage({ userEmail, currency, accountData, prefet
   return (
     <div className="flex flex-col md:flex-row h-screen">
       {/* Sidebar */}
-      <Sidebar count={count} accountData={accountData} />
+      <Sidebar count={count} accountData={accountData} userEmail={userEmail} />
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -183,6 +184,8 @@ export default function MainOrderPage({ userEmail, currency, accountData, prefet
 
       {/* Right side menu */}
       <SideMenu isOpen={isRightMenuOpen} setIsOpen={setIsRightMenuOpen} />
+
+  
     </div>
   )
 }

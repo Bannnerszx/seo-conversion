@@ -21,6 +21,7 @@ import {
     DropdownMenuTrigger,
     DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
+import UserIcon from "@/app/chats/chatComponents/userIcon"
 function useWindowSize() {
     const isClient = typeof window === "object"
 
@@ -48,7 +49,7 @@ function useWindowSize() {
     return windowSize
 }
 
-export default function Sidebar({ count, activePage = "orders", pageTitle, accountData }) {
+export default function Sidebar({ userEmail, count, activePage = "orders", pageTitle, accountData }) {
     const [profileOpen, setProfileOpen] = useState(false)
     const { width } = useWindowSize()
     const isMobile = width > 0 && width < 768
@@ -73,10 +74,10 @@ export default function Sidebar({ count, activePage = "orders", pageTitle, accou
     // Mobile header
     if (isMobile) {
         return (
-            <div className="w-full bg-[#0000ff] text-white p-4 flex items-center justify-between">
+            <div className="w-full bg-[#0000ff] text-white p-4 flex items-center">
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="text-white p-0 hover:bg-blue-800">
+                        <Button variant="ghost" className="text-white p-0 hover:bg-blue-800 ml-14">
                             <span className="font-bold text-lg mr-1">{getPageTitle()}</span>
                             <ChevronDown className="h-5 w-5" />
                         </Button>
@@ -110,6 +111,9 @@ export default function Sidebar({ count, activePage = "orders", pageTitle, accou
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
+                <div className="ml-auto">
+                    <UserIcon email={userEmail} context='order' />
+                </div>
             </div>
         )
     }
@@ -229,7 +233,7 @@ export default function Sidebar({ count, activePage = "orders", pageTitle, accou
 
             {/* Logout */}
             <div className="p-4">
-                <Button  onClick={logOut} className="w-full bg-[#0000ff] hover:bg-blue-800 h-10">
+                <Button onClick={logOut} className="w-full bg-[#0000ff] hover:bg-blue-800 h-10">
                     <LogOut className="mr-2 h-5 w-5" />
                     Log Out
                 </Button>

@@ -51,7 +51,7 @@ export default function ContactModal({ isOpen, setIsModalOpen }) {
   if (!isOpen) return null
 
   return (
-    <Modal context="order" showModal={isOpen} setShowModal={setIsModalOpen}>
+    <Modal context="footer" showModal={isOpen} setShowModal={setIsModalOpen}>
       {error && (
         <div className="text-red-600">
           {error}

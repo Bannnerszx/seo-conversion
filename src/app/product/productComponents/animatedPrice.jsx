@@ -53,7 +53,7 @@ export function AnimatedPrice({ value, duration = 1000, symbol = "", className =
             ) : (
                 <>
                     <span className="text-md">{symbol}</span>{" "}
-                    <span className="text-4xl">{Math.ceil(displayValue).toLocaleString()}</span>
+                    <span className="text-4xl">{Math.trunc(displayValue).toLocaleString()}</span>
 
                 </>
             )}

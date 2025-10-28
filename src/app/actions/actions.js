@@ -270,7 +270,7 @@ export async function setOrderItem(chatId, selectedChatData, userEmail) {
 
         // Format the time using moment
         const momentDate = moment(tokyoTime?.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');
-        const formattedTime = momentDate.format('YYYY/MM/DD [at] HH:mm:ss');
+        const formattedTime = momentDate.format('YYYY/MM/DD [at] HH:mm:ss.SSS');
 
         // console.log(formattedTime, ipInfo);
 
@@ -521,7 +521,7 @@ export async function docDelivery(form1Data, chatId, userEmail) {
 
     // Format the received Tokyo time using moment.js
     const momentDate = moment(tokyoTime?.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');
-    const formattedTime = momentDate.format('YYYY/MM/DD [at] HH:mm:ss');
+    const formattedTime = momentDate.format('YYYY/MM/DD [at] HH:mm:ss.SSS');
 
     // Combine the form data passed from the client with the server-side fetched data.
 
@@ -1205,7 +1205,7 @@ export async function handleSignUp(userEmail, userPassword) {
 export async function makeFavorite({ product, userEmail }) {
     const [tokyoTimeResponse] = await Promise.all([
         fetch('https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time', {
-            headers: { 'Origin': 'https://seo-conversion--real-motor-japan.asia-east1.hosted.app' }
+            headers: { 'Origin': 'https://www.realmotor.jp' }
         })
     ]);
 
@@ -1573,4 +1573,85 @@ export async function emailUs({ userName, userEmail, subject, message }) {
     console.log('Email sent');
     return { success: true, messageId: info.messageId }
 };
+
+export async function getVehicleStatuses(ids = []) {
+    const unique = Array.from(new Set(ids.filter(Boolean)));
+    if (unique.length === 0) return {};
+
+    const out = {};
+    const CHUNK = 10;
+    for (let i = 0; i < unique.length; i += CHUNK) {
+        const batch = unique.slice(i, i + CHUNK);
+        const snap = await db
+            .collection('VehicleProducts')
+            .where(FieldPath.documentId(), 'in', batch)
+            .select('reservedTo', 'stockStatus')
+            .get();
+
+        const seen = new Set();
+        snap.forEach((doc) => {
+            const d = doc.data() || {};
+            out[doc.id] = {
+                reservedTo: d.reservedTo ?? null,
+                stockStatus: d.stockStatus ?? null
+            };
+            seen.add(doc.id)
+        });
+
+        for (const id of batch) {
+            if (!seen.has(id)) out[id] = { reservedTo: null, stockStatus: null }
+        }
+    }
+    return out;
+}
+
+export async function getVehicleStatusByChatId(chatId) {
+    if (!chatId) return {};
+
+    const chatQ = await db
+        .collection('chats')
+        .where(FieldPath.documentId(), '==', String(chatId))
+        .select('carData.stockID')
+        .get();
+
+    const chatDoc = chatQ.docs[0];
+    const stockID = chatDoc?.get('carData.stockID');
+    if (!stockID) return {};
+
+    const statusQ = await db
+        .collection('VehicleProducts')
+        .where(FieldPath.documentId(), '==', (stockID))
+        .select('reservedTo', 'stockStatus')
+        .get()
+
+    const d = statusQ.docs[0]?.data() || {};
+    return {
+        [String(stockID)]: {
+            reservedTo: d.reservedTo ?? null,
+            stockStatus: d.stockStatus ?? null
+        }
+    }
+}
+
+
+export async function fetchChatCountForVehicle(stockID) {
+    if (!stockID) {
+        console.warn("Stock ID is missing.");
+        return 0
+    }
+    try {
+        const chatsRef = db.collection('chats');
+        const q = chatsRef.where('carData.stockID', '==', stockID);
+
+        const snapshot = await q.count().get();
+
+        const chatCount = snapshot.data().count;
+
+        console.log(`(Server Action) Chat count for ${stockID}:`, chatCount);
+        return chatCount;
+    } catch (err) {
+        console.error("Error fetching chat count (Admin SDK):", err);
+        return 0
+    }
+}
 

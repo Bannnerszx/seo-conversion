@@ -1,7 +1,7 @@
 'use client'
 import { ScrollToTop } from "./scrollToTop";
 import Image from "next/image";
-import { ShipWheel as SteeringWheel, Heart, Car, Gauge, Palette, Fuel, Eye } from "lucide-react";
+import { ShipWheel as SteeringWheel, Heart, Car, Gauge, Palette, Fuel, Eye, TrendingUp, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -10,9 +10,12 @@ import Link from "next/link";
 import { useCurrency } from "@/providers/CurrencyContext";
 import AnimatedHeartButton from "./animatedHeart";
 import { useSort } from "./sortContext";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import RecommendedBadge from "./recommendedBage";
 import SalesOffDisplay from "./salesOffDisplay";
+import { httpsCallable } from "firebase/functions";
+import { functions } from "../../../../firebase/clientApp";
+
 // Skeleton placeholder for loading
 export function CarCardSkeleton() {
   return (
@@ -68,9 +71,17 @@ export function CarCardSkeleton() {
   );
 }
 
+const toInt = (v, fallback = 0) => {
+  const n = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(n) ? Math.trunc(n) : fallback;
+}
+
 // Single car card display
 function CarCard({
-  images = [],
+  handleViewDetailsClick,
+  chatCount,
+  views,
+  thumbnailImage,
   carName,
   fobPrice,
   regYear,
@@ -88,16 +99,31 @@ function CarCard({
   resultsIsFavorited,
   isRecommended,
   router,
-  fobHistory
+  fobHistory,
+  insuranceParams,
+  inspectionParams
 }) {
+  const qs = new URLSearchParams();
+  if (countryParams) qs.set('country', countryParams);
+  if (portParams) qs.set('port', portParams);
+  if (inspectionParams === '1') qs.set('inspection', '1');
+  if (insuranceParams === '1') qs.set('insurance', '1');
+  const href = qs.toString()
+    ? `/product/${stockID}?${qs.toString()}`
+    : `/product/${stockID}`;
 
-  const { profitMap, inspectionToggle } = useSort();
+
+
+  const safeViews = toInt(views, 0);
+  const safeChatCount = toInt(chatCount, 0);
+
+  const { profitMap, inspectionToggle, insuranceToggle } = useSort();
 
   const { selectedCurrency } = useCurrency();
-  const imageUrl = images[0];
+  const imageUrl = thumbnailImage;
   const basePrice = parseFloat(fobPrice) * parseFloat(currency.jpyToUsd);
   const baseFinalPrice = (basePrice) + (parseFloat(dimensionCubicMeters) * parseFloat(profitMap));
-  const finalPrice = (((baseFinalPrice * selectedCurrency.value) + (inspectionToggle ? 300 : 0)));
+  const finalPrice = (((baseFinalPrice * selectedCurrency.value) + (inspectionToggle ? 300 : 0) + (insuranceToggle ? 50 : 0)));
 
   return (
     <Card key={stockID} className="w-full mx-auto border border-gray-200 rounded-lg shadow-lg">
@@ -119,6 +145,7 @@ function CarCard({
       "
         >
           <Link
+            onClick={() => handleViewDetailsClick(stockID)}
             href={
               countryParams && portParams
                 ? `/product/${stockID}?country=${countryParams}&port=${portParams}`
@@ -161,6 +188,38 @@ function CarCard({
             />
           </div>
 
+          <div className="flex flex-col gap-2">
+            <div className="flex items-start gap-2">
+              {safeChatCount  > 3 && safeViews  > 7 && (
+                <Badge variant="outline" className="gap-1.5 border-orange-200 bg-orange-50 text-orange-700">
+                  <TrendingUp className="h-3 w-3" />
+                  High Demand
+                </Badge>
+              )}
+
+              <Badge variant="secondary" className="gap-1.5">
+                <Eye className="h-3 w-3" />
+                {safeViews  + 2} views today
+              </Badge>
+            </div>
+            <div className="p-1">
+              <div className="flex items-center gap-2">
+
+                <Users className="h-4 w-4 text-blue-600" />
+                <span className="text-sm font-bold text-blue-600">
+                  {safeChatCount  + 2} {safeChatCount  === 1 ? "person" : "people"} inquiring right now
+                </span>
+                <div className="flex gap-1">
+                  <span className="inline-block h-2 w-2 animate-[blink_1.5s_ease-in-out_0s_infinite] rounded-full bg-blue-600"></span>
+                  <span className="inline-block h-2 w-2 animate-[blink_1.5s_ease-in-out_0.5s_infinite] rounded-full bg-blue-600"></span>
+                  <span className="inline-block h-2 w-2 animate-[blink_1.5s_ease-in-out_1s_infinite] rounded-full bg-blue-600"></span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+
           {/* This line changed: use max-[425px] instead of max-[1024px] */}
           <div className="mt-6 flex flex-row justify-between max-[425px]:flex-col max-[425px]:space-y-4">
             <div>
@@ -174,7 +233,6 @@ function CarCard({
                   </div>
                 </div>
                 <SalesOffDisplay currency={currency} selectedCurrency={selectedCurrency} fobHistory={fobHistory} fobPrice={fobPrice} />
-
               </div>
 
             </div>
@@ -188,7 +246,7 @@ function CarCard({
                   ) : (
                     <>
                       <span className="text-sm">{selectedCurrency.symbol}</span>{' '}
-                      {Math.ceil(finalPrice).toLocaleString()}
+                      {Math.trunc(finalPrice).toLocaleString()}
                     </>
                   )}
                 </div>
@@ -221,13 +279,7 @@ function CarCard({
 
           <div className="grid sm:w-full">
             <div className="mt-6 justify-self-stretch sm:justify-self-end">
-              <Link
-                href={
-                  countryParams && portParams
-                    ? `/product/${stockID}?country=${countryParams}&port=${portParams}`
-                    : `/product/${stockID}`
-                }
-              >
+              <Link href={href} onClick={() => handleViewDetailsClick(stockID)}>
                 <Button className="flex items-center w-full sm:w-auto bg-[#0000ff] hover:bg-[#0000dd] font-semibold" size="lg">
                   <Eye className="text-white w-5 h-5" />
                   View Details
@@ -242,13 +294,38 @@ function CarCard({
   );
 }
 
-export default function CarListings({ loadingSkeleton, resultsIsFavorited, products, currency, country, port, userEmail }) {
-  console.log(userEmail, 'carlistings')
+
+export default function CarListings({ resultsIsFavorited, products, currency, country, port, userEmail }) {
   const router = useRouter()
+  const searchParams = useSearchParams();
+  const inspectionParam = searchParams.get('inspection') === '1' ? '1' : undefined;
+  const insuranceParam = searchParams.get('insurance') === '1' ? '1' : undefined;
+
+
   const { withPhotosOnly } = useSort();
   const filtered = products
     ?.filter(car => car.fobPriceNumber)
     .filter(car => !withPhotosOnly || (car.images?.length ?? 0) > 0);
+  const incrementView = httpsCallable(functions, 'incrementViewCounter')
+  const handleViewDetailsClick = async (productId) => {
+    const viewLoggedKey = `viewed_${productId}`;
+
+    if (!sessionStorage.getItem(viewLoggedKey)) {
+      try {
+        incrementView({ docId: productId });
+
+        sessionStorage.setItem(viewLoggedKey, 'true');
+      } catch (error) {
+        console.error("Error incrementing view:", error)
+      }
+    }
+  }
+
+
+
+
+
+
   return (
     <div className="space-y-4 p-2 mx-auto w-full">
       <ScrollToTop />
@@ -256,7 +333,9 @@ export default function CarListings({ loadingSkeleton, resultsIsFavorited, produ
       {filtered && filtered.length > 0 ? (
         filtered.map((car, index) => (
           <CarCard
+            handleViewDetailsClick={handleViewDetailsClick}
             key={index}
+            chatCount={car.chatCount}
             {...car}
             router={router}
             product={car}
@@ -264,6 +343,8 @@ export default function CarListings({ loadingSkeleton, resultsIsFavorited, produ
             countryParams={country}
             portParams={port}
             userEmail={userEmail}
+            inspectionParams={inspectionParam}   // <-- NEW
+            insuranceParams={insuranceParam}
             resultsIsFavorited={resultsIsFavorited}
           />
         ))

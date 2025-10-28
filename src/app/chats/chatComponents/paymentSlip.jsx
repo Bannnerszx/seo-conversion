@@ -1,9 +1,10 @@
 "use client"
 import { format } from "date-fns"
+import { functions } from "../../../../firebase/clientApp"
 import { useState, useRef, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { X, Calendar as CalendarIcon, Upload, RefreshCw, Paperclip } from "lucide-react"
+import { X, Calendar as CalendarIcon, Upload, RefreshCw, Paperclip, AlertCircle } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Calendar } from "@/components/ui/calendar"
@@ -11,12 +12,12 @@ import { cn } from "@/lib/utils"
 import moment from "moment"
 import Modal from "@/app/components/Modal"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { updatePaymentNotifications } from "@/app/actions/actions"
 import WarningDialog from "./warningDialog"
+import { httpsCallable } from "firebase/functions"
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
 
 
-export default function PaymentSlip({ chatId, selectedChatData, userEmail, invoiceData }) {
+export default function PaymentSlip({ context = 'payment', chatId, selectedChatData, userEmail, invoiceData }) {
     const selectedCurrencyCode = selectedChatData?.selectedCurrencyExchange; // e.g. "JPY"
 
     const totalUSD = invoiceData?.paymentDetails?.totalAmount; // assume this is a Number
@@ -37,16 +38,11 @@ export default function PaymentSlip({ chatId, selectedChatData, userEmail, invoi
     const [payment, setPayment] = useState(false)
     const [paymentVisible, setPaymentVisible] = useState(false);
 
-    const handlePaymentSlip = async () => {
-        setPayment(true);
-        setPaymentVisible(true);
-        // try {
-        //     // const result = await setOrderItem(chatId, selectedChatData);
-        //     console.log('Order result:', result);
-        // } catch (error) {
-        //     console.error('Error setting order item:', error);
-        // }
-    };
+    const [isPreparing, setIsPreparing] = useState(false);
+    const [isReady, setIsReady] = useState(false);
+    const [isPreparingSlip, setIsPreparingSlip] = useState(false);
+
+
     // Define animation classes
     const animateScaleIn = "transition-all duration-500 animate-[scaleIn_0.5s_ease-out]"
     const animateFadeIn = "transition-all duration-500 animate-[fadeIn_0.6s_ease-out]"
@@ -59,6 +55,7 @@ export default function PaymentSlip({ chatId, selectedChatData, userEmail, invoi
     const [attachedFile, setAttachedFile] = useState(null);
     const [errors, setErrors] = useState({ name: false, date: false, file: false });
     const fileInputRef = useRef(null);
+    const [isDateOpen, setIsDateOpen] = useState(false);
     const [warningOpen, setWarningOpen] = useState(false)
     const [warningMessage, setWarningMessage] = useState("")
 
@@ -80,6 +77,12 @@ export default function PaymentSlip({ chatId, selectedChatData, userEmail, invoi
 
         setAttachedFile(file)
     }
+    // clear file error when user selects a file
+    useEffect(() => {
+        if (attachedFile && errors.file) {
+            setErrors((e) => ({ ...e, file: false }));
+        }
+    }, [attachedFile]);
     const handleDialogOpenChange = useCallback((open) => {
         if (!open) {
             // clear everything
@@ -91,14 +94,67 @@ export default function PaymentSlip({ chatId, selectedChatData, userEmail, invoi
             setWarningOpen(true)
         }
     }, [])
+    // set an error flag for a field and keep it until user corrects it
     const triggerError = (field) => {
         setErrors((e) => ({ ...e, [field]: true }));
-        setTimeout(() => setErrors((e) => ({ ...e, [field]: false })), 400);
     };
+
+    const clearError = (field) => {
+        setErrors((e) => ({ ...e, [field]: false }));
+    };
+
+    function fetchWithTimeout(url, ms = 5000) {
+        const ac = new AbortController();
+        const t = setTimeout(() => ac.abort(), ms);
+        return fetch(url, { signal: ac.signal }).finally(() => clearTimeout(t));
+    }
+
+    const prepareDependencies = useCallback(async () => {
+        if (isReady || isPreparing) return;
+        setIsPreparing(true);
+
+        try {
+            const [ipRes, timeRes] = await Promise.all([
+                fetchWithTimeout("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo"),
+                fetchWithTimeout("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time")
+            ]);
+            if (!ipRes.ok || !timeRes.ok) throw new Error("Prefetch failed");
+
+            const [freshIp, freshTime] = await Promise.all([ipRes.json(), timeRes.json()]);
+            setIpInfo(freshIp);
+            setTokyoTime(freshTime);
+            setIsReady(true)
+        } catch (_) {
+            setIsReady(false);
+
+        } finally {
+            setIsPreparing(false)
+        }
+    }, [isReady, isPreparing]);
+
+    useEffect(() => {
+        prepareDependencies();
+    }, [prepareDependencies])
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [ipInfo, setIpInfo] = useState(null);
     const [tokyoTime, setTokyoTime] = useState(null);
 
+    const handlePaymentSlip = async (e) => {
+        e?.preventDefault?.();
+
+        if (!isReady) {
+            setIsPreparingSlip(true);
+            try {
+                await prepareDependencies();
+            } finally {
+                setIsPreparingSlip(false);
+            }
+            if (!isReady) return;
+        }
+
+        setPayment(true);
+        setPaymentVisible(true);
+    }
 
 
     useEffect(() => {
@@ -119,38 +175,48 @@ export default function PaymentSlip({ chatId, selectedChatData, userEmail, invoi
         return () => { mounted = false; };
     }, []);
 
+    async function fileToBase64Payload(file) {
+        const arrayBuffer = await file.arrayBuffer();
 
+        let binary = "";
+        const bytes = new Uint8Array(arrayBuffer);
+        const chunk = 0x8000;
+        for (let i = 0; i < bytes.length; i += chunk) {
+            binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+        }
+        const base64 = btoa(binary);
+        return { name: file.name, type: file.type || "application/octet-stream", data: base64 };
+    }
 
-
+    const callUpdatePaymentNotifications = httpsCallable(functions, "updatePaymentNotifications");
 
     const handleSendMessage = async (e) => {
         e.preventDefault();
-        setPaymentVisible(false);
 
-        // ⏸️ 1) Don't do anything if we're already in-flight
         if (isSubmitting) return;
 
-        // clear previous field errors
-        setErrors({ name: false, date: false, file: false });
+        // validate all fields and set errors together so UI updates predictably
+        const nextErrors = { name: false, date: false, file: false };
+        let hasError = false;
 
-        // 2) validation
         if (!nameOfRemitter.trim()) {
-            triggerError("name");
-            return; // note: we haven't flipped isSubmitting yet, so no spinner lock
+            nextErrors.name = true;
+            hasError = true;
         }
         if (!date) {
-            triggerError("date");
-            return;
+            nextErrors.date = true;
+            hasError = true;
         }
         if (!attachedFile) {
-            triggerError("file");
-            return;
+            nextErrors.file = true;
+            hasError = true;
         }
 
-        // 3) safe to start submitting
+        setErrors(nextErrors);
+        if (hasError) return;
+
         setIsSubmitting(true);
         try {
-            // prepare your payload
             const calendarETD = format(date, "yyyy/MM/dd");
             const messageData = `Wire Date: ${calendarETD}
 
@@ -162,31 +228,22 @@ ${newMessage.trim()}
             let currentIpInfo = ipInfo;
             let currentTokyoTime = tokyoTime;
 
-            // Try to fetch fresh data with a timeout, but don't block if it fails
+            // quick refresh (non-blocking on failure)
             try {
                 const fetchPromise = Promise.all([
-                    fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo").then(r => r.json()),
-                    fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time").then(r => r.json()),
+                    fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo").then((r) => r.json()),
+                    fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time").then((r) => r.json()),
                 ]);
-
-                // Add a timeout to prevent hanging
-                const timeoutPromise = new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Timeout')), 5000)
-                );
-
+                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 5000));
                 const [freshIp, freshTime] = await Promise.race([fetchPromise, timeoutPromise]);
                 currentIpInfo = freshIp;
                 currentTokyoTime = freshTime;
-
-                // Update state with fresh data for next time
                 setIpInfo(freshIp);
                 setTokyoTime(freshTime);
-            } catch (fetchError) {
-                console.warn("Failed to fetch fresh data, using cached values:", fetchError);
-                // Continue with cached values
+            } catch {
+                // use cached values
             }
 
-            // If we still don't have any data (even cached), we need to handle this
             if (!currentIpInfo || !currentTokyoTime) {
                 throw new Error("No IP info or time data available");
             }
@@ -194,35 +251,36 @@ ${newMessage.trim()}
             const formattedTime = moment(currentTokyoTime.datetime, "YYYY/MM/DD HH:mm:ss.SSS")
                 .format("YYYY/MM/DD [at] HH:mm:ss");
 
-            // your core update call
-            await updatePaymentNotifications({
-                nameOfRemitter,
-                calendarETD,
-                selectedFile: attachedFile,
+            const selectedFilePayload = await fileToBase64Payload(attachedFile);
+
+            await callUpdatePaymentNotifications({
                 chatId,
                 userEmail,
                 messageValue: messageData,
-                ipInfo: currentIpInfo,
                 formattedTime,
+                ipInfo: currentIpInfo,
+                nameOfRemitter,
+                calendarETD,
+                selectedFile: selectedFilePayload,
             });
 
-            // clear form on success
+
             setNameOfRemitter("");
             setDate(null);
             setNewMessage("");
             setAttachedFile(null);
-
+            setIsSubmitting(false);
+            setPaymentVisible(false);
+            setPayment(false)
         } catch (err) {
             console.error(err);
-            // re-use your triggerError calls if you want to shake the fields
-            triggerError("name");
-            triggerError("date");
-            triggerError("file");
+            // indicate there was a problem with submission; user should re-check fields
+            setErrors({ name: true, date: true, file: true });
         } finally {
-            // 4) ALWAYS unlock the form
             setIsSubmitting(false);
         }
     };
+
     const currency =
         currencies.find((c) => c.code === selectedCurrencyCode)
         || currencies[0];
@@ -241,15 +299,27 @@ ${newMessage.trim()}
                 confirmText="OK"
             />
             <Button
+                type="button"
                 size="sm"
                 onClick={handlePaymentSlip}
+                onMouseEnter={() => { if (!isReady && !isPreparing) prepareDependencies(); }}
+                onFocus={() => { if (!isReady && !isPreparing) prepareDependencies(); }}
+                disabled={isPreparing || isPreparingSlip}
+                aria-busy={isPreparing || isPreparingSlip}
                 className="ml-2 font-medium text-green-600 border border-green-600 bg-white hover:bg-green-50"
             >
-                Payment Slip
+                {isPreparing || isPreparingSlip ? (
+                    <span className="flex items-center gap-2">
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-t-transparent border-green-600" />
+                        Preparing…
+                    </span>
+                ) : (
+                    "Payment Slip"
+                )}
             </Button>
 
             {payment && (
-                <Modal context={'order'} showModal={paymentVisible} setShowModal={setPaymentVisible}>
+                <Modal context={'payment'} showModal={paymentVisible} setShowModal={setPaymentVisible}>
                     <Card className="w-full !max-w-none relative animate-zoomIn bg-white">
                         <Button
                             variant="ghost"
@@ -270,7 +340,7 @@ ${newMessage.trim()}
                         </CardHeader>
 
                         <CardContent className="space-y-4">
-                            <Popover>
+                            <Popover open={isDateOpen} onOpenChange={setIsDateOpen}>
                                 <PopoverTrigger asChild>
                                     <Button
                                         variant="outline"
@@ -285,9 +355,12 @@ ${newMessage.trim()}
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0 z-[9999]" align="start">
-                                    <Calendar disabled={disableFutureDates} mode="single" selected={date} onSelect={setDate} initialFocus />
+                                    <Calendar disabled={disableFutureDates} mode="single" selected={date} onSelect={(d) => { setDate(d); if (errors.date) clearError('date'); setIsDateOpen(false); }} initialFocus />
                                 </PopoverContent>
                             </Popover>
+                            {errors.date && (
+                                <p className="text-sm text-red-600 mt-1">Please select wire date.</p>
+                            )}
 
                             <div>
                                 <Input
@@ -300,8 +373,11 @@ ${newMessage.trim()}
                                             : "border-gray-300"
                                     )}
                                     value={nameOfRemitter}
-                                    onChange={(e) => setNameOfRemitter(e.target.value)}
+                                    onChange={(e) => { setNameOfRemitter(e.target.value); if (errors.name) clearError('name'); }}
                                 />
+                                {errors.name && (
+                                    <p className="text-sm text-red-600 mt-1">Please enter remitter name.</p>
+                                )}
                             </div>
 
                             <div>
@@ -333,11 +409,32 @@ ${newMessage.trim()}
                                         </Button>
                                     </div>
                                 )}
-                                <Button className="bg-blue-600 hover:bg-blue-700 w-full" onClick={() => fileInputRef.current?.click()} disabled={isLoading}>
-                                    <Upload className="mr-2 h-4 w-4" />
-                                    Upload Payment Slip
+                                <Button
+                                    className={cn(
+                                        "w-full transition-all duration-200",
+                                        errors.file
+                                            ? "border-2 border-red-500 bg-red-500 hover:bg-red-600 text-white"
+                                            : "bg-blue-600 hover:bg-blue-700 text-white"
+                                    )}
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={isLoading}
+                                >
+                                    {errors.file ? (
+                                        <>
+                                            <AlertCircle className="mr-2 h-4 w-4" />
+                                            Upload Failed - Try Again
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Upload className="mr-2 h-4 w-4" />
+                                            Upload Payment Slip
+                                        </>
+                                    )}
                                 </Button>
                                 <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" aria-label="Upload file" />
+                                {errors.file && (
+                                    <p className="text-sm text-red-600 mt-1">Please upload a payment slip file.</p>
+                                )}
                                 <Button
                                     onClick={(e) => handleSendMessage(e)}
                                     disabled={isSubmitting}

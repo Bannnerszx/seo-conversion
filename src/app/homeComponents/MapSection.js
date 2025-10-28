@@ -1,8 +1,8 @@
 'use client'
-
+import Image from 'next/image'
 import dynamic from 'next/dynamic'
 import { MapPin } from 'lucide-react'
-
+import world from "../../../public/world.webp"
 // Dynamically load only motion.div when this component mounts
 const MotionDiv = dynamic(
   () => import('framer-motion').then(mod => mod.motion.div),
@@ -13,16 +13,14 @@ export default function WorldMapSection() {
   return (
     <section className="relative min-h-[600px] mx-auto max-w-7xl overflow-hidden bg-gradient-to-br from-purple-50 to-purple-100">
       {/* Background Map */}
-      <div
-        className="absolute inset-0 opacity-20"
-        style={{
-          backgroundImage: `url('/world.webp')`,
-          backgroundSize: 'contain',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
-        }}
+      <Image
+        src={world}
+        alt=""
+        fill
+        priority
+        sizes="100vw"
+        style={{ objectFit: 'contain', objectPosition: 'center', opacity: 0.2, pointerEvents: 'none' }}
       />
-
       {/* Content Container */}
       <div className="relative z-10 mx-auto max-w-7xl px-4 py-20">
         <MotionDiv

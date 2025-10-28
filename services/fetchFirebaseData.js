@@ -1,6 +1,8 @@
 import { db } from "@/lib/firebaseAdmin";
 import { getDb } from "@/lib/mongodbClient";
+import { FieldPath } from "firebase-admin/firestore";
 import { unstable_cache as cache } from "next/cache";
+import { comment } from "postcss";
 const dbMong = await getDb()
 const vehicleColl = dbMong.collection("VehicleProducts");
 
@@ -210,7 +212,7 @@ export const fetchNewVehicle = cache(
           'carName',
           'regYearNumber',
           'regMonth',
-          'images'
+          'thumbnailImage'
         )
         .where('imageCount', '>', 0)
         .where('stockStatus', '==', 'On-Sale')
@@ -228,7 +230,7 @@ export const fetchNewVehicle = cache(
           carName: data.carName,
           regYear: data.regYearNumber,
           regMonth: data.regMonth,
-          images: Array.isArray(data.images) ? data.images : [],
+          images: data.thumbnailImage ? data.thumbnailImage : '/placeholder.jpg',
         });
       });
 
@@ -241,7 +243,170 @@ export const fetchNewVehicle = cache(
   ['new-vehicles'], // 1. Unique cache key
   { revalidate: 60 } // 2. Options object with revalidate time
 );
+const toFirstName = (full) => {
+  const s = (full ?? "").trim();
+  if (!s) return "";
+  const first = s.split(/\s+/u)[0]; // first token only
+  // Capitalize first letter, lower-case the rest (Unicode-friendly)
+  return first.charAt(0).toLocaleUpperCase() + first.slice(1).toLocaleLowerCase();
+};
 
+const F = (...p) => new FieldPath(...p);
+
+
+export const fetchTestimonies = cache(
+  async () => {
+    const base = db.collection("Testimonies")
+      .where("visible", "==", true)
+      .select(
+        F("carData", "carName"),
+        F("carData", "images"),
+        "experienceRating",
+        "productRating",
+        "imageUrls",
+        "images",
+        F("consignee", "name"),
+        "comment",
+        "visible"
+      );
+
+    // 1) Total count
+    const agg = await base.count().get();
+    const total = agg.data().count || 0;
+    if (!total) return [];
+
+    // 2) Random offset in [0, total-1]
+    const limit = 12;
+    const skip = Math.floor(Math.random() * total);
+
+    // 3) Read slice; wrap if needed
+    const q1 = base.orderBy(FieldPath.documentId()).offset(skip).limit(limit);
+    let snap = await q1.get();
+    let docs = snap.docs;
+
+    if (docs.length < limit && total > docs.length) {
+      const q2 = base.orderBy(FieldPath.documentId()).offset(0).limit(limit - docs.length);
+      const snap2 = await q2.get();
+      docs = docs.concat(snap2.docs);
+    }
+
+    // ---- map like your original ----
+    const pickFirstImage = (d) => {
+      const arr = [
+        ...(Array.isArray(d?.carData?.images) ? d.carData.images : []),
+        ...(Array.isArray(d?.images) ? d.images : []),
+        ...(Array.isArray(d?.imageUrls) ? d.imageUrls : []),
+      ];
+      return arr.find((x) => typeof x === "string" && x.trim() !== "") || null;
+    };
+
+    const rows = docs.map((doc) => {
+      const d = doc.data() || {};
+      const ok =
+        typeof d?.carData?.carName === "string" && d.carData.carName.trim() &&
+        typeof d?.consignee?.name === "string" && d.consignee.name.trim() &&
+        typeof d?.experienceRating === "number" &&
+        typeof d?.productRating === "number" &&
+        typeof d?.comment === "string" && d.comment.trim() &&
+        !!pickFirstImage(d);
+
+      if (!ok) return null;
+
+      const avg = Math.round((d.experienceRating + d.productRating) / 2);
+      const rating = Math.max(1, Math.min(5, avg || 0));
+
+      return {
+        productImage: pickFirstImage(d) || "/placeholder.jpg",
+        rating,
+        quote: d.comment,
+        author: toFirstName(d.consignee.name),
+      };
+    }).filter(Boolean);
+
+    return rows.map((r, i) => ({ id: i + 1, ...r }));
+  },
+  ["testimonies-random-offset"],
+  { revalidate: 60, tags: ["testimonies"] } // no caching → new random slice each call
+);
+// export const fetchTestimonies = cache(
+//   async () => { i will have that butterfly knife emerald in dreams and nightmares case
+
+//     const q = db
+//       .collection("Testimonies")
+//       .where("visible", "==", true)
+//       .where("carData.carName", ">=", "")
+//       .where("carData.carName", "<=", "\uf8ff")
+//       .where("consignee.name", ">=", "")
+//       .where("consignee.name", "<=", "\uf8ff")
+//       .where("experienceRating", ">=", 0)
+//       .where("productRating", ">=", 0)
+//       .select(
+//         new FieldPath("carData", "carName"),
+//         new FieldPath("carData", "images"), // include nested images
+//         "experienceRating",
+//         "productRating",
+//         "imageUrls",
+//         "images",
+//         new FieldPath("consignee", "name"),
+//         "comment",
+//         "visible"
+//       );
+
+//     const snap = await q.get();
+//     if (snap.empty) return [];
+
+//     const pickFirstImage = (d) => {
+//       const arr = [
+//         ...(Array.isArray(d?.carData?.images) ? d.carData.images : []),
+//         ...(Array.isArray(d?.images) ? d.images : []),
+//         ...(Array.isArray(d?.imageUrls) ? d.imageUrls : []),
+//       ];
+//       const first = arr.find((x) => typeof x === "string" && x.trim() !== "");
+//       return first || null;
+//     };
+
+//     const rows = snap.docs
+//       .map((doc) => {
+//         const d = doc.data() || {};
+
+//         const hasCarName =
+//           typeof d?.carData?.carName === "string" && d.carData.carName.trim() !== "";
+//         const hasConsigneeName =
+//           typeof d?.consignee?.name === "string" && d.consignee.name.trim() !== "";
+//         const hasExp = typeof d?.experienceRating === "number";
+//         const hasProd = typeof d?.productRating === "number";
+//         const hasComment = typeof d?.comment === "string" && d.comment.trim() !== "";
+//         const firstImage = pickFirstImage(d);
+
+//         if (!(hasCarName && hasConsigneeName && hasExp && hasProd && hasComment && firstImage)) {
+//           return null;
+//         }
+
+//         // average the two ratings, clamp 1..5
+//         const avg = Math.round((d.experienceRating + d.productRating) / 2);
+//         const rating = Math.max(1, Math.min(5, avg || 0));
+
+//         return {
+//           productImage: firstImage || "/placeholder.jpg",
+//           rating,
+//           quote: d.comment,
+//           author: d.consignee.name,
+//         };
+//       })
+//       .filter(Boolean);
+
+//     // add 1-based id for UI
+//     return rows.map((r, i) => ({
+//       id: i + 1,
+//       productImage: r.productImage,
+//       rating: r.rating,
+//       quote: r.quote,
+//       author: toFirstName(r.author),
+//     }));
+//   },
+//   ["testimonies"], // cache key
+//   { revalidate: 60, tags: ["testimonies"] }
+// );
 
 // /services/fetch.js
 // services/fetchFirebaseData.js
@@ -313,7 +478,7 @@ const cursorCache = {};
 
 
 
-export const fetchVehicleProductsByPage = cache(
+export const fetchVehicleProductsByPage = 
   async ({
     searchKeywords = "",
     page = 1,
@@ -468,10 +633,11 @@ export const fetchVehicleProductsByPage = cache(
       exteriorColor: 1,
       transmission: 1,
       bodyType: 1,
+      images: 1,
       engineDisplacementNumber: 1,
       steering: 1,
       driveType: 1,
-      images: 1,
+      thumbnailImage: 1,
       carName: 1,
       fobPrice: 1,
       regYear: 1,
@@ -486,6 +652,7 @@ export const fetchVehicleProductsByPage = cache(
       fobHistory: 1,
       isSale: 1,
       subBodyType: 1,
+      views: 1
       // …and any feature flags you render in the UI…
     };
 
@@ -504,13 +671,9 @@ export const fetchVehicleProductsByPage = cache(
 
     const products = docs.map(({ _id, ...data }) => ({ id: _id, ...data }));
     return { products, totalCount: totalCount ?? -1, hasMore, currentPage: page };
-  },
-
-  {
-    revalidate: 60, // Keep the revalidation period
-    tags: ['products-by-page'], // Use a simple, static tag for this group of cached data
   }
-);
+
+
 
 // const color = 'Pearl'
 
@@ -530,34 +693,20 @@ export const fetchVehicleProductsByPage = cache(
 //   }
 // }
 
-export const fetchCarDataAdmin = cache(
-  async (carId) => {
-    console.log(`Cache MISS: Fetching carId ${carId} from Firestore.`); //Check logs
+export async function fetchCarDataAdmin(carId) {
+  console.log(`Fetching carId ${carId} from Firestore.`);
 
-    try {
-      const snapshot = await db.collection("VehicleProducts")
-        .doc(carId)
-        .get();
+  try {
+    const snapshot = await db.collection('VehicleProducts').doc(carId).get();
 
-      if (!snapshot.exists) {
-        return null;
-      }
+    if (!snapshot.exists) return null;
 
-      //Important: Return the ID along with the data
-      return { id: snapshot.id, ...snapshot.data() };
-    } catch (error) {
-      console.error('Error fetching vehicle data:', error);
-      //It's often better to return null or an empty object on error
-      //to prevent a cached error from breaking the page repeatedly
-      return null
-    }
-  },
-  {
-    revalidate: 200,
-    tags: ['products']
+    return { id: snapshot.id, ...snapshot.data() };
+  } catch (error) {
+    console.error('Error fetching vehicle data:', error);
+    return null;
   }
-)
-
+}
 // export async function fetchCurrency() {
 //   try {
 //     const currencyDocRef = db.collection('currency').doc('currency');

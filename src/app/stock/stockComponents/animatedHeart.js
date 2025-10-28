@@ -10,6 +10,7 @@ export default function AnimatedHeartButton({
   resultsIsFavorited = {},
   router   // lookup from parent
 }) {
+  
   // 1) Initialize local state from parent’s map
   const [isFavorite, setIsFavorite] = useState(
     !!resultsIsFavorited[product.stockID]

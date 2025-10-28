@@ -7,12 +7,12 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Modal from "@/app/components/Modal"
-import { getCities, updateInvoice } from "@/app/actions/actions"
+import {  getCities, updateInvoice } from "@/app/actions/actions"
 import { VirtualizedCombobox } from "@/app/components/VirtualizedCombobox"
 import { cn } from "@/lib/utils"
 // Sample customer data for demonstration
 
-export default function InvoiceAmendmentForm({ accountData, countryList, setOrderModal, chatId, userEmail }) {
+export default function InvoiceAmendmentForm({ context = 'invoiceAmend', accountData, countryList, setOrderModal, chatId, userEmail }) {
   // Initialize refs for form data
 
   // Customer sample data for form prefill
@@ -340,10 +340,10 @@ export default function InvoiceAmendmentForm({ accountData, countryList, setOrde
     try {
       const [ipResp, timeResp] = await Promise.all([
         fetch(
-          'https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo'
+          'https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo'
         ),
         fetch(
-          'https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time'
+          'https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time'
         ),
       ]);
       const [ipInfo, tokyoTime] = await Promise.all([
@@ -425,259 +425,130 @@ export default function InvoiceAmendmentForm({ accountData, countryList, setOrde
         <span>Amend Invoice</span>
       </Button>
 
-      <Modal showModal={amendVisible} setShowModal={setAmendVisible}>
-        <div className="max-h-[85vh] overflow-y-auto z-[9999]">
-          <form onSubmit={handleSubmit} className="container mx-auto py-6 px-4 max-w-3xl">
-
-            <Card className="mb-6">
-              <CardHeader className="border-b pb-3 sticky top-0 bg-white z-10">
-                <CardTitle className="text-center text-blue-600">
-                  Request Invoice Amendment
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <h2 className="text-lg font-semibold mb-2">Consignee Information</h2>
-
-                <div className="flex items-center mb-4">
-                  <Checkbox
-                    id="useCustomerInfo"
-                    checked={useCustomerInfo}
-                    onCheckedChange={handleUseCustomerInfo}
-                  />
-                  <Label htmlFor="useCustomerInfo" className="ml-2">
-                    Set as customer&apos;s information <span className="text-red-500">*</span>
-                  </Label>
-                </div>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="fullName">Full Name</Label>
-                    <Input
-                      id="fullName"
-                      placeholder="Enter full name"
-                      defaultValue=""
-                      ref={(el) => (form1Ref.current.fullName = el)}
-                      className={getInputClass(errors.fullName)}
-                      onBlur={handleBlur}
+      <Modal context={context} showModal={amendVisible} setShowModal={setAmendVisible}>
+        <div className="w-full max-w-none mx-auto bg-gray-50 overflow-hidden">
+          <div className="max-h-[min(90dvh,800px)] overflow-y-auto">
+            <form onSubmit={handleSubmit} className="w-full mx-auto py-4 px-4">
+              <Card className="mb-4 shadow-sm">
+                <CardHeader className="border-b pb-4 bg-white sticky top-0 z-10 rounded-t-lg">
+                  <CardTitle className="text-center text-blue-600 text-xl md:text-2xl">
+                    Request Invoice Amendment
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-6 space-y-5">
+                  <h2 className="text-lg font-semibold mb-3">
+                    Consignee Information
+                  </h2>
+                  <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg">
+                    <Checkbox
+                      id="useCustomerInfo"
+                      checked={useCustomerInfo}
+                      onCheckedChange={handleUseCustomerInfo}
+                      className="mt-0.5"
                     />
+                    <Label htmlFor="useCustomerInfo" className="text-sm leading-relaxed cursoer-pointer">
+                      Set as customer&apos;s information <span className="text-red-500">*</span>
+                    </Label>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+
+                  <div className="space-y-5">
                     <div>
-                      <Label htmlFor="country">Country</Label>
-                      <VirtualizedCombobox
-                        items={countryList}
-                        value={selectedCountry ? selectedCountry.isoCode : ""}
-                        onSelect={(c) => {
-                          handleCountrySelect(c);
-                          setErrors(prev => ({ ...prev, country: false }));
-                        }}
-                        placeholder="Select Country"
-                        valueKey="isoCode"
-                        labelKey="name"
-                        className={getErrorOnlyClass(errors.country)}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="city">City</Label>
-                      <VirtualizedCombobox
-                        items={cityList}
-                        value={selectedCity}
-                        onSelect={(c) => {
-                          handleCitySelect(c);
-                          setErrors(prev => ({ ...prev, city: false }));
-                        }}
-                        placeholder="Select City"
-                        className={getErrorOnlyClass(errors.city)}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="address">Address</Label>
-                    <Input
-                      id="address"
-                      placeholder="Enter full address"
-                      defaultValue=""
-                      ref={(el) => (form1Ref.current.address = el)}
-                      className={getInputClass(errors.address)}
-                      onBlur={handleBlur}
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <Label htmlFor="telephoneNumber">Telephone Number</Label>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8 text-blue-600 border-blue-600"
-                        onClick={() => setShowAdditionalPhone(true)}
-                      >
-                        + Add Telephone
-                      </Button>
-                    </div>
-                    <Input
-                      id="telephoneNumber"
-                      placeholder="Telephone Number 1"
-                      defaultValue=""
-                      ref={(el) => (form1Ref.current.telephoneNumber = el)}
-                      className={getInputClass(errors.telephoneNumber)}
-                      onBlur={handleBlur}
-                    />
-                    {showAdditionalPhone && (
-                      <div className="mt-2 relative">
-                        <Input
-                          placeholder="Telephone Number 2"
-                          ref={(el) => (form1Ref.current.telephoneNumber2 = el)}
-                          className="block w-full rounded-md border-gray-300 px-3 py-2 text-sm"
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6"
-                          onClick={() => setShowAdditionalPhone(false)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="faxNumber">Fax Number</Label>
-                    <Input
-                      id="faxNumber"
-                      placeholder="Enter fax number"
-                      defaultValue=""
-                      ref={(el) => (form1Ref.current.faxNumber = el)}
-                      className={getInputClass(errors.faxNumber)}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="email">E-mail</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="Enter full email"
-                      ref={(el) => (form1Ref.current.email = el)}
-                      defaultValue=""
-                      className={getInputClass(errors.email)}
-                      onBlur={handleBlur}
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Billing Information Form (Form 2) */}
-            <Card className="mb-6">
-              <CardContent className="pt-6">
-                <h2 className="text-lg font-semibold mb-2">Notify Party</h2>
-
-                <div className="flex items-center mb-4">
-                  <Checkbox
-                    id="copyFromForm1"
-                    checked={copyFromForm1}
-                    onCheckedChange={handleCopyFromForm1}
-                  />
-                  <Label htmlFor="copyFromForm1" className="ml-2">
-                    Same as consignee
-                  </Label>
-                </div>
-                {copyFromForm1 === false && (
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="fullName2">Full Name</Label>
+                      <Label htmlFor="fullName" className="text-sm font-medium mb-2 block">
+                        Full Name
+                      </Label>
                       <Input
-                        id="fullName2"
+                        id="fullName"
                         placeholder="Enter full name"
-                        ref={(el) => {
-                          if (el) form2Ref.current.fullName = el
-                        }}
                         defaultValue=""
-                        className={getInputClass(errors['form2_fullName'])}
-                        onBlur={copyFromForm1 ? undefined : handleBlur}
+                        ref={(el) => (form1Ref.current.fullName = el)}
+                        className={cn("h-11", getInputClass(errors.fullName))}
+                        onBlur={handleBlur}
                       />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <Label htmlFor="country2">Country</Label>
+                        <Label htmlFor="country" className="text-sm font-medium mb-2 block">
+                          Country
+                        </Label>
                         <VirtualizedCombobox
                           items={countryList}
-                          value={selectedBillingCountry ? selectedBillingCountry.isoCode : ""}
+                          value={selectedCountry ? selectedCountry.isoCode : ""}
                           onSelect={(c) => {
-                            handleBillingCountrySelect(c);
-                            setErrors(prev => ({ ...prev, form2_country: false }));
+                            handleCountrySelect(c)
+                            setErrors((prev) => ({ ...prev, country: false }))
                           }}
                           placeholder="Select Country"
                           valueKey="isoCode"
                           labelKey="name"
-                          className={getErrorOnlyClass(errors['form2_country'])}
+                          className={getErrorOnlyClass(errors.country)}
                         />
                       </div>
                       <div>
-                        <Label htmlFor="city2">City</Label>
+                        <Label htmlFor="city" className="text-sm font-medium mb-2 block">
+                          City
+                        </Label>
                         <VirtualizedCombobox
-                          items={billingCityList}
-                          value={selectedBillingCity}
-                          onSelect={(city) => {
-                            handleBillingCitySelect(city);
-                            setErrors(prev => ({ ...prev, form2_city: false }));
+                          items={cityList}
+                          value={selectedCity}
+                          onSelect={(c) => {
+                            handleCitySelect(c)
+                            setErrors((prev) => ({ ...prev, city: false }))
                           }}
-                          placeholder="Select City"
-                          className={getErrorOnlyClass(errors.form2_country)}
+                          placeholder="Select city"
+                          className={getErrorOnlyClass(errors.city)}
                         />
                       </div>
                     </div>
                     <div>
-                      <Label htmlFor="address2">Address</Label>
+                      <Label htmlFor="address" className="text-sm font-medium mb-2 block">
+                        Address
+                      </Label>
                       <Input
-                        id="address2"
+                        id="address"
                         placeholder="Enter full address"
-                        ref={(el) => {
-                          if (el) form2Ref.current.address = el
-                        }}
                         defaultValue=""
-                        className={getInputClass(errors['form2_address'])}
-                        onBlur={copyFromForm1 ? undefined : handleBlur}
+                        ref={(el) => (form1Ref.current.address = el)}
+                        className={cn("h-11", getInputClass(errors.address))}
+                        onBlur={handleBlur}
                       />
                     </div>
                     <div>
-                      <div className="flex justify-between items-center mb-2">
-                        <Label htmlFor="telephoneNumber2">Telephone Number</Label>
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-2">
+                        <Label htmlFor="telephoneNumber" className="text-sm font-medium">
+                          Telephone Number
+                        </Label>
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="h-8 text-blue-600 border-blue-600"
-                          onClick={() => setShowAdditionalPhone2(true)}
+                          className="h-9 text-blue-600 border-blue-600 hover:bg-blue-50 w-full sm:w-auto bg-transparent"
+                          onClick={() => setShowAdditionalPhone(true)}
                         >
                           + Add Telephone
                         </Button>
                       </div>
                       <Input
-                        id="telephoneNumber2"
+                        id="telephoneNumber"
                         placeholder="Telephone Number 1"
-                        ref={(el) => {
-                          if (el) form2Ref.current.telephoneNumber = el
-                        }}
                         defaultValue=""
-                        className={getInputClass(errors['form2_telephoneNumber'])}
-                        onBlur={copyFromForm1 ? undefined : handleBlur}
+                        ref={(el) => (form1Ref.current.telephoneNumber = el)}
+                        className={cn("h-11", getInputClass(errors.telephoneNumber))}
+                        onBlur={handleBlur}
                       />
-                      {showAdditionalPhone2 && (
-                        <div className="mt-2 relative">
+                      {showAdditionalPhone && (
+                        <div className="mt-3 relative">
                           <Input
                             placeholder="Telephone Number 2"
-                            ref={(el) => {
-                              if (el) form2Ref.current.telephoneNumber2 = el
-                            }}
+                            ref={(el) => (form1Ref.current.telephoneNumber2 = el)}
+                            className="h-11 pr-10"
+
                           />
                           <Button
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6"
-                            onClick={() => setShowAdditionalPhone2(false)}
+                            className="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9"
+                            onClick={() => setShowAdditionalPhone(false)}
                           >
                             <X className="h-4 w-4" />
                           </Button>
@@ -685,64 +556,247 @@ export default function InvoiceAmendmentForm({ accountData, countryList, setOrde
                       )}
                     </div>
                     <div>
-                      <Label htmlFor="faxNumber2">Fax Number</Label>
+                      <Label htmlFor="faxNumber" className="text-sm font-medium mb-2 block">
+                        Fax Number
+                      </Label>
                       <Input
-                        id="faxNumber2"
+                        id="faxNumber"
                         placeholder="Enter fax number"
-                        ref={(el) => {
-                          if (el) form2Ref.current.faxNumber = el
-                        }}
-                        defaultValue=""
+                        defaultValue={""}
+                        ref={(el) => (form1Ref.current.faxNumber = el)}
+                        className={cn("h-11", getInputClass(errors.faxNumber))}
                       />
                     </div>
+
                     <div>
-                      <Label htmlFor="email2">E-mail</Label>
+                      <Label htmlFor="email" className="text-sm font-medium mb-2 block">
+                        E-mail
+                      </Label>
                       <Input
-                        id="email2"
+                        id="email"
                         type="email"
-                        placeholder="Enter email"
-                        ref={(el) => {
-                          if (el) form2Ref.current.email = el
-                        }}
-                        defaultValue=""
-                        className={getInputClass(errors['form2_email'])}
-                        onBlur={copyFromForm1 ? undefined : handleBlur}
+                        placeholder="Enter full email"
+                        ref={(el) => (form1Ref.current.email = el)}
+                        defaultValue={""}
+                        className={cn("h-11", getInputClass(errors.email))}
+                        onBlur={handleBlur}
                       />
                     </div>
                   </div>
-                )}
+                </CardContent>
+              </Card>
 
-              </CardContent>
-            </Card>
 
-            <div className="flex items-center mb-6">
-              <Checkbox
-                id="agreeToTerms"
-                checked={agreeToTerms}
-                onCheckedChange={(checked) => setAgreeToTerms(checked === true)}
-              />
-              <Label htmlFor="agreeToTerms" className="ml-2">
-                I agree to Privacy Policy and Terms of Agreement
-              </Label>
-            </div>
+              <Card className="mb-4 shadow-sm">
+                <CardContent className="pt-6 space-y-5">
+                  <h2 className="text-lg font-semibold mb-3">
+                    Notify Party
+                  </h2>
+                  <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg">
+                    <Checkbox
+                      id="copyFromForm1"
+                      checked={copyFromForm1}
+                      onCheckedChange={handleCopyFromForm1}
+                      className="mt-0.5"
+                    />
+                    <Label htmlFor="copyFromForm1" className="text-sm leading-relaxed cursor-pointer">
+                      Same as consignee
+                    </Label>
+                  </div>
+                  {copyFromForm1 === false && (
+                    <div className="space-y-5">
+                      <div>
+                        <Label
+                          htmlFor="fullName2"
+                          className="text-sm font-medium mb-2 block"
+                        >
+                          Full Name
+                        </Label>
+                        <Input
+                          id="fullName2"
+                          placeholder="Enter full name"
+                          ref={(el) => {
+                            if (el) form2Ref.current.fullName = el
+                          }}
+                          defaultValue=""
+                          className={cn("h-11", getInputClass(errors["form2_fullName"]))}
+                          onBlur={copyFromForm1 ? undefined : handleBlur}
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="country2" className="text-sm font-medium mb-2 block">
+                            Country
+                          </Label>
+                          <VirtualizedCombobox
+                            items={countryList}
+                            value={selectedBillingCountry ? selectedBillingCountry.isoCode : ""}
+                            onSelect={(c) => {
+                              handleBillingCountrySelect(c)
+                              setErrors((prev) => ({ ...prev, form2_country: false }))
+                            }}
+                            placeholder="Select Country"
+                            valueKey="isoCode"
+                            labelKey="name"
+                            className={getErrorOnlyClass(errors["form2_country"])}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="city2" className="text-sm font-medium mb-2 block">
+                            City
+                          </Label>
+                          <VirtualizedCombobox
+                            items={billingCityList}
+                            value={selectedBillingCity}
+                            onSelect={(city) => {
+                              handleBillingCitySelect(city)
+                              setErrors((prev) => ({ ...prev, form2_city: false }))
+                            }}
+                            placeholder="Select City"
+                            className={getErrorOnlyClass(errors.form2_country)}
+                          />
+                        </div>
+                      </div>
 
-            <div className="grid grid-cols-2 gap-4 sticky bottom-0 bg-white py-4">
-              <Button disabled={isSubmitting} type="cancel" variant="outline" className="w-full" onClick={() => setAmendVisible(false)}>
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSubmit}
-                type="submit"
-                className={cn(
-                  'w-full',
-                  isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
-                )}
-                disabled={isSubmitting}               // ← DISABLED
-              >
-                {isSubmitting ? 'Submitting…' : 'Confirm'}
-              </Button>
-            </div>
-          </form>
+                      <div>
+                        <Label htmlFor="address2" className="text-sm font-medium mb-2 block">
+                          Address
+                        </Label>
+                        <Input
+                          id="address2"
+                          placeholder="Enter full address"
+                          ref={(el) => {
+                            if (el) form2Ref.current.address = el
+                          }}
+                          defaultValue=""
+                          className={cn("h-11", getInputClass(errors["form2_address"]))}
+                          onBlur={copyFromForm1 ? undefined : handleBlur}
+                        />
+                      </div>
+
+                      <div>
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-2">
+                          <Label htmlFor="telephoneNumber2" className="text-sm font-medium">
+                            Telephone Number
+                          </Label>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-9 text-blue-600 border-blue-600 hover:bg-blue-50 w-full sm:w-auto bg-transparent"
+                            onClick={() => setShowAdditionalPhone2(true)}
+                          >
+                            + Add Telephone
+                          </Button>
+                        </div>
+                        <Input
+                          id="telephoneNumber2"
+                          placeholder="Telephone Number 1"
+                          ref={(el) => {
+                            if (el) form2Ref.current.telephoneNumber = el
+                          }}
+                          defaultValue={""}
+                          className={cn("h-11", getInputClass(errors["form2_telephoneNumber"]))}
+                          onBlur={copyFromForm1 ? undefined : handleBlur}
+                        />
+                        {showAdditionalPhone2 && (
+                          <div className="mt-3 relative">
+                            <Input
+                              placeholder="Telephone Number 2"
+                              ref={(el) => {
+                                if (el) form2Ref.current.telephoneNumber2 = el
+                              }}
+                              className="h-11 pr-10"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9"
+                              onClick={() => setShowAdditionalPhone2(false)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <Label htmlFor="faxNumber2" className="text-sm font-medium mb-2 block">
+                          Fax Number
+                        </Label>
+                        <Input
+                          id="faxNumber2"
+                          placeholder="Enter fax number"
+                          ref={(el) => {
+                            if (el) form2Ref.current.faxNumber = el
+                          }}
+                          defaultValue=""
+                          className="h-11"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="email2" className="text-sm font-medium mb-2 block">
+                          E-mail
+                        </Label>
+                        <Input
+                          id="email2"
+                          type="email"
+                          placeholder="Enter email"
+                          ref={(el) => {
+                            if (el) form2Ref.current.email = el
+                          }}
+                          defaultValue={""}
+                          className={cn("h-11", getInputClass(errors["form2_email"]))}
+                          onBlur={copyFromForm1 ? undefined : handleBlur}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <div className="flex items-start gap-3 mb-6 p-3 bg-gray-100 rounded-lg">
+                <Checkbox
+                  id="agreeToTerms"
+                  checked={agreeToTerms}
+                  onCheckedChange={(checked) => setAgreeToTerms(checked === true)}
+                  className="mt-0.5"
+                />
+                <Label htmlFor="agreeToTerms" className="text-sm leading-relaxed cursor-pointer">
+                  I agree to Privacy Policy and Terms of Agreement
+                </Label>
+              </div>
+
+              <div className="container mx-auto max-w-3xl px-4 py-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <Button
+                    disabled={isSubmitting}
+                    type="button"
+                    variant="outline"
+                    className="w-full h-11 font-medium bg-transparent"
+                    onClick={() => setAmendVisible(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSubmit}
+                    type="submit"
+                    className={cn(
+                      "w-full h-11 font-medium",
+                      isSubmitting ? "bg-gray-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700",
+                    )}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? "Submitting…" : "Confirm"}
+                  </Button>
+                </div>
+              </div>
+
+            </form>
+
+
+          </div>
         </div>
       </Modal>
     </>
