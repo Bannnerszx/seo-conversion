@@ -33,9 +33,10 @@
 import { MongoClient } from "mongodb";
 
 // ⚠️ For security, put this in an environment variable instead of hardcoding.
-// const URI =
-//   "mongodb://marcvan12:uEPndYYIpXDKLjbQYQhWq5KFYmOzArIrppILkF-hinB60xvF@1cb538ec-3061-46d9-b9da-8e12231c58c0.asia-northeast2.firestore.goog:443/mongodb?authSource=admin&loadBalanced=true&tls=true&authMechanism=SCRAM-SHA-256&retryWrites=false";
-let uri;
+const uri =
+  "mongodb://marcvan12:uEPndYYIpXDKLjbQYQhWq5KFYmOzArIrppILkF-hinB60xvF@1cb538ec-3061-46d9-b9da-8e12231c58c0.asia-northeast2.firestore.goog:443/mongodb?authSource=admin&loadBalanced=true&tls=true&authMechanism=SCRAM-SHA-256&retryWrites=false";
+
+// let uri;
 
 // 1. Check for the local development variable first.
 if (process.env.NEXT_PUBLIC_MONGODB_URI) {
