@@ -35,40 +35,36 @@ import { MongoClient } from "mongodb";
 // ⚠️ For security, put this in an environment variable instead of hardcoding.
 const uri =
   "mongodb://marcvan12:kvynkwKexyXac21LXOPjieGe9XZOB-0LhDpT6s1LmMRTdbpg@1cb538ec-3061-46d9-b9da-8e12231c58c0.asia-northeast2.firestore.goog:443/mongodb?authSource=admin&loadBalanced=true&tls=true&authMechanism=SCRAM-SHA-256&retryWrites=false";
-
+const DB_NAME = "mongodb";
 // let uri;
 
-// 1. Check for the local development variable first.
-if (process.env.NEXT_PUBLIC_MONGODB_URI) {
-  uri = process.env.NEXT_PUBLIC_MONGODB_URI;
-}
-// 2. If it's not found, check for the production variable and clean it.
-else if (process.env.API_KEY) {
-  uri = process.env.API_KEY.trim();
-}
-if (!uri) {
-  throw new Error("Missing MongoDB connection string.");
-}
+let client;
+let clientPromise;
 
-const DB_NAME = "mongodb";
-
-// Use a cached connection in dev to prevent multiple connections during hot reloads
-
-//the quick brown
-let cached = global._mongoClientPromise;
-
-if (!cached) {
-  const client = new MongoClient(uri, {
+if (process.env.NODE_ENV === "development") {
+  // Reuse the client across hot reloads in dev
+  if (!global._mongoClientPromise) {
+    client = new MongoClient(uri, {
+      maxPoolSize: 10,
+      minPoolSize: 0,
+      serverSelectionTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
+    });
+    global._mongoClientPromise = client.connect();
+  }
+  clientPromise = global._mongoClientPromise;
+} else {
+  // New client in production
+  client = new MongoClient(uri, {
     maxPoolSize: 10,
     minPoolSize: 0,
     serverSelectionTimeoutMS: 10000,
     socketTimeoutMS: 45000,
   });
-  cached = client.connect();
-  global._mongoClientPromise = cached;
+  clientPromise = client.connect();
 }
 
 export async function getDb() {
-  const client = await cached;
-  return client.db(DB_NAME);
+  const c = await clientPromise;
+  return c.db(DB_NAME);
 }
