@@ -120,7 +120,7 @@ export default async function RootLayout({ children }) {
         />
         <link
           rel="preload"
-          href="https://real-motor-japan.firebaseapp.com/__/auth/iframe.js"
+          href="https://samplermj.firebaseapp.com/__/auth/iframe.js"
           as="script"
           crossOrigin="anonymous"
         />
@@ -177,7 +177,7 @@ export default async function RootLayout({ children }) {
 
         <Script
           id="firebase-auth-iframe"
-          src="https://real-motor-japan.firebaseapp.com/__/auth/iframe.js"
+          src="https://samplermj.firebaseapp.com/__/auth/iframe.js"
           strategy="afterInteractive"
         />
       </body>

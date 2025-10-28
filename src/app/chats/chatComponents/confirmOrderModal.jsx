@@ -28,7 +28,7 @@ export default function OrderButton({ handlePreviewInvoiceModal, context, setIsH
     const uploadJackallSalesInfoData = async (salesArray) => {
         try {
             const response = await fetch(
-                "https://asia-northeast2-real-motor-japan.cloudfunctions.net/uploadJackallSalesInfo",
+                "https://asia-northeast2-samplermj.cloudfunctions.net/uploadJackallSalesInfo",
                 {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -175,7 +175,7 @@ export default function OrderButton({ handlePreviewInvoiceModal, context, setIsH
     // };
 
     const deleteFromTcvBoth = async () => {
-        const apis = ['https://asia-northeast2-real-motor-japan.cloudfunctions.net/uploadToTcvSalesF', 'https://asia-northeast2-real-motor-japan.cloudfunctions.net/uploadToTcvSales'];
+        const apis = ['https://asia-northeast2-samplermj.cloudfunctions.net/uploadToTcvSalesF', 'https://asia-northeast2-samplermj.cloudfunctions.net/uploadToTcvSales'];
 
         const payload = [{
             ItemType: 'Car',

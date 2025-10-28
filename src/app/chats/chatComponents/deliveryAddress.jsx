@@ -227,10 +227,10 @@ export default function DeliveryAddress({ accountData, countryList, setOrderModa
         setIsSubmitting(true);
         const [ipResp, timeResp] = await Promise.all([
             fetch(
-                "https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo"
+                "https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo"
             ),
             fetch(
-                "https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time"
+                "https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time"
             ),
         ]);
         const [ipInfo, tokyoTime] = await Promise.all([

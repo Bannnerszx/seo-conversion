@@ -115,8 +115,8 @@ export default function PaymentSlip({ context = 'payment', chatId, selectedChatD
 
         try {
             const [ipRes, timeRes] = await Promise.all([
-                fetchWithTimeout("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo"),
-                fetchWithTimeout("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time")
+                fetchWithTimeout("https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo"),
+                fetchWithTimeout("https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time")
             ]);
             if (!ipRes.ok || !timeRes.ok) throw new Error("Prefetch failed");
 
@@ -160,8 +160,8 @@ export default function PaymentSlip({ context = 'payment', chatId, selectedChatD
     useEffect(() => {
         let mounted = true;
         Promise.all([
-            fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo").then(r => r.json()),
-            fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time").then(r => r.json()),
+            fetch("https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo").then(r => r.json()),
+            fetch("https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time").then(r => r.json()),
         ])
             .then(([ip, time]) => {
                 if (!mounted) return;
@@ -231,8 +231,8 @@ ${newMessage.trim()}
             // quick refresh (non-blocking on failure)
             try {
                 const fetchPromise = Promise.all([
-                    fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo").then((r) => r.json()),
-                    fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time").then((r) => r.json()),
+                    fetch("https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo").then((r) => r.json()),
+                    fetch("https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time").then((r) => r.json()),
                 ]);
                 const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 5000));
                 const [freshIp, freshTime] = await Promise.race([fetchPromise, timeoutPromise]);

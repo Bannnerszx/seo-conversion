@@ -17,7 +17,7 @@ const cars = [
         location: "Tokyo, Japan",
         rating: 4.8,
         reviews: 24,
-        images: ["https://firebasestorage.googleapis.com/v0/b/real-motor-japan.firebasestorage.app/o/vehicle%2F2024100038%2F0.jpg?alt=media&token=e90e4d48-b68b-4472-b321-e49e7d4d0c01"],
+        images: ["https://firebasestorage.googleapis.com/v0/b/samplermj.firebasestorage.app/o/vehicle%2F2024100038%2F0.jpg?alt=media&token=e90e4d48-b68b-4472-b321-e49e7d4d0c01"],
         featured: true,
         condition: "Excellent",
         bodyType: "Van",

@@ -5,7 +5,7 @@ import { db, admin, storage, auth } from "@/lib/firebaseAdmin";
 import { FieldValue, FieldPath } from "firebase-admin/firestore";
 import nodemailer from 'nodemailer';
 
-////https://seo-conversion--real-motor-japan.asia-east1.hosted.app
+////https://seo-conversion--samplermj.asia-east1.hosted.app
 // function setCorsHeaders(response) {
 //     response.headers.set('Access-Control-Allow-Origin', '*');
 //     response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -249,11 +249,11 @@ export async function setOrderItem(chatId, selectedChatData, userEmail) {
 
         // Use node-fetch or a server-side compatible fetch method
         const [ipInfoResponse, tokyoTimeResponse] = await Promise.all([
-            fetch('https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo', {
-                headers: { 'Origin': 'https://seo-conversion--real-motor-japan.asia-east1.hosted.app' } // Removed trailing slash
+            fetch('https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo', {
+                headers: { 'Origin': 'https://seo-conversion--samplermj.asia-east1.hosted.app' } // Removed trailing slash
             }),
-            fetch('https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time', {
-                headers: { 'Origin': 'https://seo-conversion--real-motor-japan.asia-east1.hosted.app' }
+            fetch('https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time', {
+                headers: { 'Origin': 'https://seo-conversion--samplermj.asia-east1.hosted.app' }
             })
         ]);
 
@@ -504,11 +504,11 @@ export async function docDelivery(form1Data, chatId, userEmail) {
     });
     // Perform external fetch calls
     const [ipInfoResponse, tokyoTimeResponse] = await Promise.all([
-        fetch('https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo', {
-            headers: { 'Origin': 'https://seo-conversion--real-motor-japan.asia-east1.hosted.app' }
+        fetch('https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo', {
+            headers: { 'Origin': 'https://seo-conversion--samplermj.asia-east1.hosted.app' }
         }),
-        fetch('https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time', {
-            headers: { 'Origin': 'https://seo-conversion--real-motor-japan.asia-east1.hosted.app' }
+        fetch('https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time', {
+            headers: { 'Origin': 'https://seo-conversion--samplermj.asia-east1.hosted.app' }
         })
     ]);
 
@@ -602,7 +602,7 @@ export async function updateCustomerFiles({ chatId, selectedFile, userEmail, mes
 
 
         // 4. Prepare storage reference using the Firebase Admin SDK
-        const bucket = storage.bucket('real-motor-japan.firebasestorage.app');
+        const bucket = storage.bucket('samplermj.firebasestorage.app');
         const filePath = `ChatFiles/${chatId}/${selectedFile.name}`;
         const fileRef = bucket.file(filePath);
 
@@ -704,7 +704,7 @@ export async function updatePaymentNotifications({ nameOfRemitter, calendarETD, 
     try {
 
         // 4. Prepare storage reference using the Firebase Admin SDK
-        const bucket = storage.bucket('real-motor-japan.firebasestorage.app');
+        const bucket = storage.bucket('samplermj.firebasestorage.app');
         const filePath = `ChatFiles/${chatId}/${selectedFile.name}`;
         const fileRef = bucket.file(filePath);
 
@@ -1048,8 +1048,8 @@ export async function getCurrentFtpId() {
 export async function fetchServerTime() {
     try {
         const [tokyoTimeResponse] = await Promise.all([
-            fetch('https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time', {
-                headers: { 'Origin': 'https://seo-conversion--real-motor-japan.asia-east1.hosted.app' }
+            fetch('https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time', {
+                headers: { 'Origin': 'https://seo-conversion--samplermj.asia-east1.hosted.app' }
             })
         ]);
         const tokyoTime = await tokyoTimeResponse.json();
@@ -1093,7 +1093,7 @@ export async function submitJackallClient({
 
     // 2) send it to your Cloud Function
     const response = await fetch(
-        "https://asia-northeast2-real-motor-japan.cloudfunctions.net/uploadJackallClients",
+        "https://asia-northeast2-samplermj.cloudfunctions.net/uploadJackallClients",
         {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -1204,7 +1204,7 @@ export async function handleSignUp(userEmail, userPassword) {
 
 export async function makeFavorite({ product, userEmail }) {
     const [tokyoTimeResponse] = await Promise.all([
-        fetch('https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time', {
+        fetch('https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time', {
             headers: { 'Origin': 'https://www.realmotor.jp' }
         })
     ]);
