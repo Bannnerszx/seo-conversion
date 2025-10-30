@@ -8,7 +8,7 @@ import { doc, updateDoc } from "firebase/firestore"
 import { subscribeToChatDoc } from "./chatSubscriptions"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Paperclip, Send, X, Download, CheckCircle, Loader, Loader2 } from "lucide-react"
+import { Paperclip, Send, X, Download, CheckCircle, Loader, Loader2, CreditCard } from "lucide-react"
 import { toast } from 'sonner';
 import { Textarea } from "@/components/ui/textarea"
 import CarDetails from "./carDetails"
@@ -20,6 +20,7 @@ import ChatMessage from "./messageLinks"
 import WarningDialog from "./warningDialog"
 import ProductReview from "./ProductReview"
 import TransactionCSRLoader from "./TransactionCSRLoader"
+
 // import { AssistiveTouch } from "./AssistiveTouch"
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
 // Network helpers to improve reliability on slow (3G) networks
@@ -277,6 +278,56 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
     }, [chatId, isDetailView]);
 
 
+
+    //web crypto
+    const rand = () =>
+        (typeof crypto !== 'undefined' && crypto.randomUUID)
+            ? crypto.randomUUID()
+            : `r_${Data.now()}_${Math.random().toString(36).slice(2)}`;
+
+    async function hashFile(file) {
+        try {
+            const buf = await file.arrayBuffer();
+            const digest = await crypto.subtle.digest('SHA-256', buf);
+            return Array.from(new Uint8Array(digest))
+                .map(b => b.toString(16).padStart(2, '0'))
+                .join('');
+        } catch (error) {
+            return `${file.name}|${file.size}|${file.lastModified}`;
+        }
+    }
+
+    async function hashText(text) {
+        try {
+            const enc = new TextEncoder().encode(text);
+            const digest = await crypto.subtle.digest('SHA-256', enc);
+            return Array.from(new Uint8Array(digest))
+                .map(b => b.toString(16).padStart(2, '0'))
+                .join('');
+        } catch (error) {
+            return `${text.length}|${text.slice(0, 16)}`
+        }
+    }
+
+    // Persist a key so a page refresh uses the same idempotencyKey during auto-retry
+    function saveIdem(key, meta = {}) {
+        try { localStorage.setItem(`idem:${key}`, JSON.stringify({ status: 'pending', ...meta })); } catch { }
+    }
+    function completeIdem(key, meta = {}) {
+        try { localStorage.setItem(`idem:${key}`, JSON.stringify({ status: 'completed', ...meta })); } catch { }
+    }
+
+    function isCompletedIdem(key) {
+        try {
+            const v = localStorage.getItem(`idem:${key}`);
+            if (!v) return false;
+            const j = JSON.parse(v);
+            return j.status === 'completed';
+        } catch (error) {
+            return false;
+        }
+    }
+
     const handleSendMessage = async (e) => {
         if (loadingSent || isLoading || (!newMessage.trim() && !attachedFile)) {
             return;
@@ -284,54 +335,68 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
         setLoadingSent(true);
         e.preventDefault();
 
-        if (!newMessage.trim() && !attachedFile) return;
+        if (!newMessage.trim() && !attachedFile) {
+            setLoadingSent(false);
+            return;
+        }
+
+        let idempotencyKey = null;
+        try {
+            if (attachedFile) {
+                const fileHash = await hashFile(attachedFile);
+                idempotencyKey = `file:${chatId}:${userEmail}:${fileHash}:${rand()}`;
+            } else {
+                const text = newMessage.trim();
+                const textHash = await hashText(text || 'File attached.');
+                idempotencyKey = `text:${chatId}:${userEmail}:${textHash}:${rand()}`;
+            }
+        } catch (err) {
+            idempotencyKey = `fallback:${chatId}:${userEmail}:${Date.now()}:${Math.random()}`;
+        }
+
+        if (isCompletedIdem(idempotencyKey)) {
+            setLoadingSent(false);
+            return;
+        }
+        saveIdem(idempotencyKey, { chatId, type: attachedFile ? 'file' : 'text' });
 
         try {
             let currentIpInfo = ipInfo;
             let currentTokyoTime = tokyoTime;
 
-            // Try to fetch fresh data with a timeout, but don't block if it fails
             try {
-                // If the client reports a slow connection, try a warm up to prime TCP/DNS before heavy upload
                 const connection = typeof navigator !== 'undefined' && navigator.connection ? navigator.connection : null;
                 const effective = connection && connection.effectiveType ? connection.effectiveType : null;
                 if (effective && (effective.includes('3g') || effective.includes('2g'))) {
-                    // warm network quickly but don't block send for too long
                     warmUpNetwork().catch(() => { });
                 }
                 const fetchJson = (url) => () => fetch(url).then(r => {
                     if (!r.ok) throw new Error('Network response was not ok');
                     return r.json();
-                });
+                })
 
-                const [freshIp, freshTime] = await Promise.all([
+                const [freshIp, fresTime] = await Promise.all([
                     retryableCall(fetchJson("https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo")),
-                    retryableCall(fetchJson("https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time")),
+                    retryableCall(fetchJson("https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time"))
                 ]);
+
                 currentIpInfo = freshIp;
-                currentTokyoTime = freshTime;
-
-                // Update state with fresh data for next time
+                currentTokyoTime = fresTime;
                 setIpInfo(freshIp);
-                setTokyoTime(freshTime);
-            } catch (fetchError) {
-                console.warn("Failed to fetch fresh data, using cached values:", fetchError);
-                // Continue with cached values
+                setTokyoTime(fresTime);
+            } catch (error) {
+                console.warn("Failed to fetch fresh data, using cached values:", error);
             }
 
-            // If we still don't have any data (even cached), we need to handle this
             if (!currentIpInfo || !currentTokyoTime) {
-                throw new Error("No IP info or time data available");
+                throw new Error("No IP infor or time data available");
             }
 
-            // Format the time
             const formattedTime = formatTokyoLocal(currentTokyoTime?.datetime);
-            // Extract IP info details
             const ip = currentIpInfo.ip;
             const ipCountry = currentIpInfo.country_name;
             const ipCountryCode = currentIpInfo.country_code;
 
-            // Rest of your existing logic...
 
             if (attachedFile) {
                 const fileData = {
@@ -340,22 +405,19 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
                     userEmail,
                     messageValue: newMessage.trim() ? newMessage : "File attached.",
                     ipInfo: currentIpInfo,
-                    formattedTime: formattedTime
-                }
+                    formattedTime,
+                    idempotencyKey,
+                };
 
-                // use retryableCall to reduce chance of transient network/firebase timeout errors
                 let result;
                 try {
                     result = await retryableCall(updateCustomerFiles, fileData, { retries: 3, timeout: 20000, backoff: 1500 });
                     console.log("Function returned successfully [file upload function]:", result);
-                    if (!result) {
-                        throw new Error("Failed to send message via function API");
-                    }
-                } catch (fnErr) {
-                    // store payload and start auto-retry
-                    const pending = { type: 'file', payload: fileData };
+                    if (!result) throw new Error("Failed to send message via function API");
+                } catch (error) {
+                    const pending = { type: 'file', payload: { ...fileData, idempotencyKey } };
                     startAutoRetry(pending, { maxAttempts: 5, baseDelay: 3000 });
-                    throw fnErr; // rethrow so outer catch handles loading state
+                    throw error
                 }
             } else if (newMessage.trim()) {
                 const bodyData = {
@@ -366,31 +428,31 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
                     ip,
                     ipCountry,
                     ipCountryCode,
+                    idempotencyKey,
                 };
 
                 try {
                     const result = await retryableCall(sendMessage, bodyData, { retries: 2, timeout: 15000 });
                     console.log("Function returned successfully:", result);
-                    if (!result) {
-                        throw new Error("Failed to send message via function API");
-                    }
-                } catch (fnErr) {
-                    const pending = { type: 'text', payload: bodyData };
+                    if (!result) throw new Error("Failed to send message via function API");
+                } catch (error) {
+                    const pending = { type: 'text', payload: { ...bodyData, idempotencyKey } };
                     startAutoRetry(pending, { maxAttempts: 4, baseDelay: 2000 });
-                    throw fnErr;
+                    throw error
                 }
             }
+            completeIdem(idempotencyKey, { finishedAt: Date.now() });
 
-            setNewMessage("");
+            setNewMessage('');
             setAttachedFile(null);
-            // clear the hidden file input so re-selecting the same file triggers onChange
             if (fileInputRef && fileInputRef.current) fileInputRef.current.value = "";
             setLoadingSent(false);
         } catch (error) {
             console.error("Error sending message:", error);
             setLoadingSent(false);
         }
-    };
+    }
+
 
     // automatic retry is handled by startAutoRetry; no manual retry handler required
 
@@ -682,9 +744,11 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
                                 <div className={`flex w-full ${message.sender === userEmail ? "justify-end" : "justify-start"}`}>
 
                                     <div
-                                        className={`max-w-[75%] p-3 rounded-lg ${message.sender === userEmail
-                                            ? "bg-blue-500 text-white rounded-br-none"
-                                            : "bg-white text-gray-800 rounded-bl-none"
+                                        className={`max-w-[75%] p-3 rounded-lg ${message.messageType === "paypalPayment"
+                                            ? "bg-white text-inherit w-[355px]"
+                                            : message.sender === userEmail
+                                                ? "bg-blue-500 text-white rounded-br-none"
+                                                : "bg-white text-gray-800 rounded-bl-none"
                                             }`}
                                     >
 
@@ -747,6 +811,35 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
                                                 </p>
                                                 <div className={`mt-2 flex justify-${message.sender === userEmail ? "end" : "start"}`}>
                                                     <DeliveryAddress accountData={accountData} countryList={countryList} chatId={chatId} userEmail={userEmail} />
+                                                </div>
+                                            </>
+
+                                        )}
+                                        {message.messageType === 'paypalPayment' && (
+                                            <>
+                                                <p
+                                                    style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+                                                    className={message.sender === userEmail ? "text-white" : "text-gray-800"}
+                                                >
+                                                    {renderTextWithLinks(message.text)}
+                                                </p>
+                                                <div className="w-full py-3">
+
+                                                    <div className="text-center text-xs text-slate-600 mb-2">
+                                                        Pay securely with
+                                                    </div>
+                                                    <Button
+                                                        variant="paypal"
+                                                        className="w-full min-h-[52px] font-bold text-base rounded-20 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl flex items-center justify-center gap-3 bg-[#ffd140] hover:bg-[#f7c600] border-0"
+                                                    >
+                                                        <img src={'/paypal-button.png'} alt="PayPal" className="h-5" />
+                                                    </Button>
+                                                    <p className="text-xs text-center text-slate-500 mt-2 flex items-center justify-center gap-1.5">
+                                                        <svg className="w-3.5 h-3.5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                                                        </svg>
+                                                        Fast & secure checkout
+                                                    </p>
                                                 </div>
                                             </>
 
