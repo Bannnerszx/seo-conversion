@@ -984,6 +984,7 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
                                                     selectedCurrency={{ symbol: selectedCurrency.symbol, value: selectedCurrency.value }}
                                                     duration={1000}
                                                     selectedPort={selectedPort}
+                                                    roundMethod="ceil"
                                                 />
                                             </div>
                                             <div>
@@ -993,6 +994,7 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
                                                     selectedCurrency={{ symbol: selectedCurrency.symbol, value: selectedCurrency.value }}
                                                     duration={1000}
                                                     selectedPort={selectedPort}
+                                                    roundMethod="trunc"
                                                 />
                                             </div>
                                         </div>

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 
-export function AnimatedPrice({ value, duration = 1000, symbol = "", className = "font-bold", selectedPort }) {
+export function AnimatedPrice({ value, duration = 1000, symbol = "", className = "font-bold", selectedPort, roundMethod = 'trunc' }) {
     // Start at 0 to force an animation on mount.
     const [displayValue, setDisplayValue] = useState(0);
     // Keep track of the previous value; initially 0.
@@ -53,7 +53,7 @@ export function AnimatedPrice({ value, duration = 1000, symbol = "", className =
             ) : (
                 <>
                     <span className="text-md">{symbol}</span>{" "}
-                    <span className="text-4xl">{Math.trunc(displayValue).toLocaleString()}</span>
+                    <span className="text-4xl">{(Math[roundMethod] ? Math[roundMethod](displayValue) : Math.trunc(displayValue)).toLocaleString()}</span>
 
                 </>
             )}
@@ -62,7 +62,7 @@ export function AnimatedPrice({ value, duration = 1000, symbol = "", className =
     );
 }
 
-export function AnimatedCurrencyPrice({ selectedPort, basePrice, selectedCurrency, duration = 1000, className = "font-bold" }) {
+export function AnimatedCurrencyPrice({ selectedPort, basePrice, selectedCurrency, duration = 1000, className = "font-bold", roundMethod = 'trunc' }) {
     const computedPrice = (basePrice) * selectedCurrency.value;
 
     return (
@@ -72,6 +72,7 @@ export function AnimatedCurrencyPrice({ selectedPort, basePrice, selectedCurrenc
             duration={duration}
             symbol={selectedCurrency.symbol}
             className={className}
+            roundMethod={roundMethod}
         />
     );
 }
