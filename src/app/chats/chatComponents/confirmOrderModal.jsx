@@ -407,7 +407,7 @@ export default function OrderButton({ handlePreviewInvoiceModal, context, setIsH
             // Perform the remaining heavier post-order tasks in background.
             // We call performOrder with skipReservation=true to avoid duplicating the reservation call.
             performOrder(true).catch((err) => {
-                console.error('Background order continuation failed:', err)
+                console.error('c', err)
                 // If we're still mounted, show an alert; otherwise errors are logged server-side
                 try {
                     setShowAlert(true)
