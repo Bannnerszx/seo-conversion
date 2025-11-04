@@ -130,16 +130,16 @@ function CarCard({
     <Card key={stockID} className="w-full mx-auto border border-gray-200 rounded-lg shadow-lg">
       <div className="flex max-[650px]:flex-col flex-col min-[1170px]:flex-row max-[1023px]:flex-row">
 
+        {/* 1. REMOVED all 'h-[...]' and 'h-auto' classes from this div.
+         Its height will now be set by the image inside it.
+    */}
         <div
           className="
         relative
         w-full
-        h-[450px] 
-        max-[650px]:w-full max-[650px]:h-[320px]               
-        min-[1170px]:w-[28rem]       
-        min-[1170px]:h-auto     
-        max-[1023px]:w-[26rem]       
-        max-[1023px]:h-auto      
+        max-[650px]:w-full        
+        min-[1170px]:w-[28rem]         
+        max-[1023px]:w-[26rem]      
         flex-shrink-0
       "
         >
@@ -154,14 +154,29 @@ function CarCard({
             <Image
               src={imageUrl ? imageUrl : '/placeholder.jpg'}
               alt={carName}
-              fill
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              className="object-cover"
+
+      
+              width={1200}  /* Example: 1200 */
+              height={800} /* Example: 800 */
+
+              sizes="(max-width: 650px) 100vw, (max-width: 1023px) 26rem, 28rem"
+              className="
+            object-contain 
+            rounded-t-lg 
+            min-[1170px]:rounded-l-lg 
+            min-[1170px]:rounded-tr-none
+            
+            /* 4. ADDED 'w-full' and 'h-auto' 
+               This makes the image 100% wide and automatically adjust its height.
+            */
+            w-full
+            h-auto
+          "
               priority
             />
           </Link>
 
-
+          {/* These badges will still work because the parent div is 'relative' */}
           <Badge variant="secondary" className="absolute left-4 top-4 bg-white/90 font-medium">
             <SteeringWheel className="mr-2 h-4 w-4" />
             {referenceNumber}
