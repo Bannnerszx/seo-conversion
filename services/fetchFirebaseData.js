@@ -478,7 +478,7 @@ const cursorCache = {};
 
 
 
-export const fetchVehicleProductsByPage = 
+export const fetchVehicleProductsByPage =
   async ({
     searchKeywords = "",
     page = 1,
@@ -652,7 +652,8 @@ export const fetchVehicleProductsByPage =
       fobHistory: 1,
       isSale: 1,
       subBodyType: 1,
-      views: 1
+      views: 1,
+      carDescription: 1,
       // …and any feature flags you render in the UI…
     };
 

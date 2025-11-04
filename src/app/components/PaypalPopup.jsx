@@ -66,7 +66,7 @@ const slides = [
       subtitle: "0%",
       description:
         "Pay for your units via PayPal and enjoy zero transaction fees—secure, fast, and hassle-free payments.",
-      period: "Campaign period: August to October",
+      period: "Active now",
       features: ["Secure", "Fast", "Hassle-free"],
       logo: "/paypal-logo.png",
       background: "/banner-background.jpeg",

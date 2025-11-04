@@ -28,7 +28,7 @@ export function CarCardSkeleton() {
             <Skeleton className="w-12 h-4" />
           </Badge>
         </div>
-        <div className="flex flex-1 flex-col p-6">
+        <div className="flex flex-1 flex-col p-6 min-w-0">
           <div className="flex items-start justify-between gap-6">
             <Skeleton className="h-6 w-40" />
             <Button variant="outline" size="sm" className="shrink-0" disabled>
@@ -101,7 +101,8 @@ function CarCard({
   router,
   fobHistory,
   insuranceParams,
-  inspectionParams
+  inspectionParams,
+  carDescription
 }) {
   const qs = new URLSearchParams();
   if (countryParams) qs.set('country', countryParams);
@@ -132,16 +133,14 @@ function CarCard({
         <div
           className="
         relative
-       
         w-full
         h-[450px] 
         max-[650px]:w-full max-[650px]:h-[320px]               
-        min-[1170px]:w-[26rem]       
+        min-[1170px]:w-[28rem]       
         min-[1170px]:h-auto     
         max-[1023px]:w-[26rem]       
         max-[1023px]:h-auto      
         flex-shrink-0
-
       "
         >
           <Link
@@ -190,7 +189,7 @@ function CarCard({
 
           <div className="flex flex-col gap-2">
             <div className="flex items-start gap-2">
-              {safeChatCount  > 3 && safeViews  > 7 && (
+              {safeChatCount > 3 && safeViews > 7 && (
                 <Badge variant="outline" className="gap-1.5 border-orange-200 bg-orange-50 text-orange-700">
                   <TrendingUp className="h-3 w-3" />
                   High Demand
@@ -199,7 +198,7 @@ function CarCard({
 
               <Badge variant="secondary" className="gap-1.5">
                 <Eye className="h-3 w-3" />
-                {safeViews  + 2} views today
+                {safeViews + 2} views today
               </Badge>
             </div>
             <div className="p-1">
@@ -207,7 +206,7 @@ function CarCard({
 
                 <Users className="h-4 w-4 text-blue-600" />
                 <span className="text-sm font-bold text-blue-600">
-                  {safeChatCount  + 2} {safeChatCount  === 1 ? "person" : "people"} inquiring right now
+                  {safeChatCount + 2} {safeChatCount === 1 ? "person" : "people"} inquiring right now
                 </span>
                 <div className="flex gap-1">
                   <span className="inline-block h-2 w-2 animate-[blink_1.5s_ease-in-out_0s_infinite] rounded-full bg-blue-600"></span>
@@ -276,6 +275,13 @@ function CarCard({
               <span className="font-medium">{engineDisplacement}cc</span>
             </div>
           </div>
+
+          <div className="mt-4 space-y-1 w-[85%]">
+            <p className="text-sm text-red-400 font-semibold italic line-clamp-4 text-left overflow-hidden w-full break-all">
+              {carDescription}
+            </p>
+          </div>
+
 
           <div className="grid sm:w-full">
             <div className="mt-6 justify-self-stretch sm:justify-self-end">
