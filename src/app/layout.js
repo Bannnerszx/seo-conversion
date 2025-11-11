@@ -18,6 +18,7 @@ import { IpInfoProvider } from "@/providers/IpInfoContext";
 import ZambiaChecker from "./components/ZambiaChecker"
 import SafeCssScanner from "./components/SafeCssScanner"
 import PayPalBanner from "./components/PaypalPopup"
+import PayPalProvider from "./providers/PayPalProvider"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -134,7 +135,7 @@ export default async function RootLayout({ children }) {
 
       </head>
 
-     
+
 
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
 
@@ -166,8 +167,9 @@ export default async function RootLayout({ children }) {
                   currency={currency}
                 >
                   <BannerProvider>
-
-                    {children}
+                    <PayPalProvider>
+                      {children}
+                    </PayPalProvider>
                   </BannerProvider>
                 </ClientLayoutWrapper>
               </CurrencyProvider>

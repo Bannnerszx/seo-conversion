@@ -25,6 +25,10 @@ export default function OrderButton({ handlePreviewInvoiceModal, context, setIsH
 
     //jackall payment section (disable first since it is not prod mode)
 
+
+    // add jackall clients here every order customer
+
+
     const uploadJackallSalesInfoData = async (salesArray) => {
         try {
             const response = await fetch(

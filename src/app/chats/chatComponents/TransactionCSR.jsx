@@ -20,6 +20,7 @@ import ChatMessage from "./messageLinks"
 import WarningDialog from "./warningDialog"
 import ProductReview from "./ProductReview"
 import TransactionCSRLoader from "./TransactionCSRLoader"
+import PayPalInvoiceBlock from "./PayPalInvoiceBlock"
 
 // import { AssistiveTouch } from "./AssistiveTouch"
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
@@ -327,7 +328,7 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
             return false;
         }
     }
-
+    const sanitizeForDocId = (s) => String(s).replaceAll("/", "-").replaceAll("\\", "-").trim();
     const handleSendMessage = async (e) => {
         if (loadingSent || isLoading || (!newMessage.trim() && !attachedFile)) {
             return;
@@ -344,14 +345,14 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
         try {
             if (attachedFile) {
                 const fileHash = await hashFile(attachedFile);
-                idempotencyKey = `file:${chatId}:${userEmail}:${fileHash}:${rand()}`;
+                idempotencyKey = sanitizeForDocId(`file:${chatId}:${userEmail}:${fileHash}`)
             } else {
                 const text = newMessage.trim();
                 const textHash = await hashText(text || 'File attached.');
-                idempotencyKey = `text:${chatId}:${userEmail}:${textHash}:${rand()}`;
+                idempotencyKey = sanitizeForDocId(`text:${chatId}:${userEmail}:${textHash}`)
             }
         } catch (err) {
-            idempotencyKey = `fallback:${chatId}:${userEmail}:${Date.now()}:${Math.random()}`;
+            idempotencyKey = sanitizeForDocId(`fallback:${chatId}:${userEmail}`);
         }
 
         if (isCompletedIdem(idempotencyKey)) {
@@ -565,6 +566,43 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
     const inspectionSurcharge = contact?.inspection === true ? 300 * currencyInside.value : 0;
     const insuranceSurcharge = contact?.insurance === true ? 50 * currencyInside.value : 0
     const finalPrice = (baseFinalPrice * currencyInside.value + inspectionSurcharge + insuranceSurcharge);
+
+
+
+
+    async function createAndSendInvoice() {
+        const res = await fetch("/api/paypal/invoice", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                customer: { name: "John Doe", email: "zambiaperson@personal.example.com" },
+                currency: "USD",
+                memo: "RMJ Order #12345",
+                invoiceNumber: "RMJ-12345-3",
+                terms: "Payment due on receipt.",
+                due_date: "2025-12-31",
+                send: true,
+                items: [
+                    { name: "Toyota Prius 2018", quantity: 1, unitAmount: "8500.00" },
+                    { name: "Shipping", quantity: 1, unitAmount: "1200.00" },
+                ],
+            }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+            console.error("Invoice error:", data);
+            alert("Invoice failed: " + (data?.error?.message || data?.error || "unknown"));
+            return;
+        }
+
+        // ✅ With the updated API you should have id + payer_view
+        console.log("Invoice created:", data.id, data.payer_view);
+        if (data.payer_view) window.open(data.payer_view, "_blank");
+    }
+
+
+
 
     return (
         isLoadingTransaction ? <TransactionCSRLoader /> : (
@@ -815,7 +853,7 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
                                             </>
 
                                         )}
-                                        {message.messageType === 'paypalPayment' && (
+                                        {message.messageType === "paypalPayment" && (
                                             <>
                                                 <p
                                                     style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
@@ -823,24 +861,7 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
                                                 >
                                                     {renderTextWithLinks(message.text)}
                                                 </p>
-                                                <div className="w-full py-3">
-
-                                                    <div className="text-center text-xs text-slate-600 mb-2">
-                                                        Pay securely with
-                                                    </div>
-                                                    <Button
-                                                        variant="paypal"
-                                                        className="w-full min-h-[52px] font-bold text-base rounded-20 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl flex items-center justify-center gap-3 bg-[#ffd140] hover:bg-[#f7c600] border-0"
-                                                    >
-                                                        <img src={'/paypal-button.png'} alt="PayPal" className="h-5" />
-                                                    </Button>
-                                                    <p className="text-xs text-center text-slate-500 mt-2 flex items-center justify-center gap-1.5">
-                                                        <svg className="w-3.5 h-3.5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                                                            <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                                                        </svg>
-                                                        Fast & secure checkout
-                                                    </p>
-                                                </div>
+                                                <PayPalInvoiceBlock chatId={chatId} invoiceNumber={contact?.invoiceNumber} carData={contact?.carData} invoiceData={invoiceData} renderTextWithLinks={renderTextWithLinks} message={message} userEmail={userEmail} />
                                             </>
 
                                         )}

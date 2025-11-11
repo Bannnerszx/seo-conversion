@@ -14,6 +14,7 @@ import Modal from "@/app/components/Modal"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import WarningDialog from "./warningDialog"
 import { httpsCallable } from "firebase/functions"
+import PayPalInvoiceBlock from "./PayPalInvoiceBlock"
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
 
 
@@ -245,7 +246,11 @@ export default function PaymentSlip({ context = 'payment', chatId, selectedChatD
             return false;
         }
     }
-
+    const sanitizeForDocId = (s) =>
+        String(s)
+            .replaceAll("/", "-")     // avoid Firestore path splits
+            .replaceAll("\\", "-")    // just in case
+            .trim();
 
     const handleSendMessage = async (e) => {
         e.preventDefault();
@@ -278,8 +283,12 @@ export default function PaymentSlip({ context = 'payment', chatId, selectedChatD
 
             const fileId = await hashFileId(attachedFile);
             const nameId = await hashTextId(nameOfRemitter.trim());
+
+            // KEEP calendarETD as-is (even if it's yyyy/MM/dd)
             const keyBase = `pay:${chatId}:${userEmail}:${calendarETD}:${nameId}:${fileId}`;
-            const idempotencyKey = keyBase;
+
+            // Only sanitize the final id used for Firestore
+            const idempotencyKey = sanitizeForDocId(keyBase);
             if (isIdemDone(idempotencyKey)) {
                 setIsSubmitting(false);
                 return;
@@ -557,7 +566,7 @@ ${newMessage.trim()}
                                     <span className="block text-center text-xs">or</span>
 
                                     {/* PayPal section - compact */}
-                                    <div className="w-full pt-1 flex flex-col items-center">
+                                    {/* <div className="w-full pt-1 flex flex-col items-center">
                                         <div className="text-center text-[11px] text-slate-600 mb-1.5">
                                             Pay securely with
                                         </div>
@@ -581,7 +590,9 @@ ${newMessage.trim()}
                                             </svg>
                                             Fast &amp; secure checkout
                                         </p>
-                                    </div>
+                                    </div> */}
+
+                                    <PayPalInvoiceBlock chatId={chatId} invoiceNumber={selectedChatData?.invoiceNumber} carData={selectedChatData?.carData} renderTextWithLinks={''} message={''}  invoiceData={invoiceData} userEmail={userEmail} />
                                 </div>
                             </div>
                         </CardContent>

@@ -11,6 +11,7 @@ import { getVehicleStatusByChatId, loadMoreMessages } from "@/app/actions/action
 import { SortProvider } from "@/app/stock/stockComponents/sortContext"
 import TransactionCSRLoader from "./TransactionCSRLoader"
 import { getVehicleStatuses } from "@/app/actions/actions"
+import { PayPalScriptProvider } from "@paypal/react-paypal-js"
 
 // import { SurveyModal } from "@/app/components/SurveyModal"
 const PAGE_SIZE = 12
@@ -683,113 +684,115 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
     }, [selectedContact?.invoiceNumber, userEmail])
 
     return (
-        <SortProvider>
-            <div className="flex h-screen bg-gray-50">
-                {/* LIST PANE */}
-                <aside
-                    className={`
+
+            <SortProvider>
+                <div className="flex h-screen bg-gray-50">
+                    {/* LIST PANE */}
+                    <aside
+                        className={`
                         ${!isDetail ? 'block' : 'hidden'}
                         md:block
                         w-full md:w-[350px]
                         border-r border-gray-200
                         overflow-y-auto
                     `}
-                >
-                    <TransactionList
-                        searchQuery={searchQuery}
-                        setSearchQuery={setSearchQuery}
-                        makeTrueRead={makeTrueRead}
-                        loadingMore={loadingMore}
-                        hasMore={hasMore}
-                        bookingData={bookingData}
-                        setSelectedContact={setSelectedContact}
-                        selectedContact={selectedContact}
-                        onSelectContact={handleSelectContact}
-                        chatId={chatId}
-                        setChatId={setChatId} // Pass setChatId as a prop
-                        loadMore={loadMore}
-                        userEmail={userEmail}
-                        setChatList={setChatList}
-                        chatList={chatList}
-                        vehicleStatus={vehicleStatuses}
-                    />
-                </aside>
+                    >
+                        <TransactionList
+                            searchQuery={searchQuery}
+                            setSearchQuery={setSearchQuery}
+                            makeTrueRead={makeTrueRead}
+                            loadingMore={loadingMore}
+                            hasMore={hasMore}
+                            bookingData={bookingData}
+                            setSelectedContact={setSelectedContact}
+                            selectedContact={selectedContact}
+                            onSelectContact={handleSelectContact}
+                            chatId={chatId}
+                            setChatId={setChatId} // Pass setChatId as a prop
+                            loadMore={loadMore}
+                            userEmail={userEmail}
+                            setChatList={setChatList}
+                            chatList={chatList}
+                            vehicleStatus={vehicleStatuses}
+                        />
+                    </aside>
 
-                {/* DETAIL PANE */}
-                {isLoadingTransaction ? (
-                    isMobileView ? (
-                        <div className="h-screen w-screen">
-                            <TransactionCSRLoader />
-                        </div>
-                    ) : (
-                        <div className="
+                    {/* DETAIL PANE */}
+                    {isLoadingTransaction ? (
+                        isMobileView ? (
+                            <div className="h-screen w-screen">
+                                <TransactionCSRLoader />
+                            </div>
+                        ) : (
+                            <div className="
                     md:block
                     flex-1
                     h-full
                     overflow-y-auto">
 
-                            <TransactionCSRLoader />
-                        </div>
-                    )
-                ) : (
-                    <main
-                        className={`
+                                <TransactionCSRLoader />
+                            </div>
+                        )
+                    ) : (
+                        <main
+                            className={`
                     ${isDetail ? 'block' : 'hidden'}
                     md:block
                     flex-1
                     h-full
                     overflow-y-auto
                 `}
-                    >
-                        {isDetail ? (
-                            <TransactionCSR
-                                loadingBooking={loadingBooking}
-                                vehicleStatus={vehicleStatuses}
-                                accountData={accountData}
-                                isMobileView={true}
-                                isDetailView={isDetail}
-                                handleBackToList={handleBackToList}
-                                bookingData={bookingData}
-                                countryList={countryList}
-                                currency={currency}
-                                dueDate={invoiceData?.formattedDate}
-                                handleLoadMore={handleLoadMore}
-                                invoiceData={invoiceData?.invoiceData}
-                                chatId={chatId}
-                                userEmail={userEmail}
-                                chatMessages={chatMessages}
-                                contact={selectedContact}
-                                messages={messages}
-                                onSendMessage={sendMessage}
-                                isLoading={isLoading}
-                                isLoadingTransaction={isLoadingTransaction} // Pass the prop
-                            />
-                        ) : chatList.length > 0 ? (
-                            <div className="flex flex-col items-center justify-center h-full text-center p-8">
-                                <h3 className="text-xl font-medium text-gray-600">Select a transaction</h3>
-                            </div>
-                        ) : (
-                            <div className="flex flex-col items-center justify-center h-full text-center p-8">
-                                <h3 className="text-xl font-medium text-gray-600">
-                                    No orders yet
-                                </h3>
-                                <p className="mt-2 text-gray-500">
-                                    Browse our car stock and add vehicles to your order list.
-                                </p>
-                                <Link
-                                    href="/stock"
-                                    className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                                >
-                                    Browse Car Stock
-                                </Link>
-                            </div>
-                        )}
-                    </main>
-                )}
-                {/* <SurveyModal isOpen={isSurveyOpen} onClose={() => setIsSurveyOpen(false)} /> */}
+                        >
+                            {isDetail ? (
+                                <TransactionCSR
+                                    loadingBooking={loadingBooking}
+                                    vehicleStatus={vehicleStatuses}
+                                    accountData={accountData}
+                                    isMobileView={true}
+                                    isDetailView={isDetail}
+                                    handleBackToList={handleBackToList}
+                                    bookingData={bookingData}
+                                    countryList={countryList}
+                                    currency={currency}
+                                    dueDate={invoiceData?.formattedDate}
+                                    handleLoadMore={handleLoadMore}
+                                    invoiceData={invoiceData?.invoiceData}
+                                    chatId={chatId}
+                                    userEmail={userEmail}
+                                    chatMessages={chatMessages}
+                                    contact={selectedContact}
+                                    messages={messages}
+                                    onSendMessage={sendMessage}
+                                    isLoading={isLoading}
+                                    isLoadingTransaction={isLoadingTransaction} // Pass the prop
+                                />
+                            ) : chatList.length > 0 ? (
+                                <div className="flex flex-col items-center justify-center h-full text-center p-8">
+                                    <h3 className="text-xl font-medium text-gray-600">Select a transaction</h3>
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center h-full text-center p-8">
+                                    <h3 className="text-xl font-medium text-gray-600">
+                                        No orders yet
+                                    </h3>
+                                    <p className="mt-2 text-gray-500">
+                                        Browse our car stock and add vehicles to your order list.
+                                    </p>
+                                    <Link
+                                        href="/stock"
+                                        className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                                    >
+                                        Browse Car Stock
+                                    </Link>
+                                </div>
+                            )}
+                        </main>
+                    )}
+                    {/* <SurveyModal isOpen={isSurveyOpen} onClose={() => setIsSurveyOpen(false)} /> */}
 
 
-            </div>
-        </SortProvider>
+                </div>
+            </SortProvider>
+   
     );
 }

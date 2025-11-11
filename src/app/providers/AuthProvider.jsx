@@ -1,4 +1,5 @@
 'use client'
+import { PayPalScriptProvider } from "@paypal/react-paypal-js";
 import { createContext, useState, useContext, useEffect } from "react";
 
 const AuthContext = createContext({
@@ -16,7 +17,7 @@ export default function AuthProvider({ children, decodedToken }) {
 
   const [counts, setCounts] = useState(0)
 
-  
+
 
   useEffect(() => {
     if (!decodedToken) {
@@ -59,7 +60,8 @@ export default function AuthProvider({ children, decodedToken }) {
   return (
     <AuthContext.Provider value={{ user, setLoading, loading, logOut, counts }}>
 
-      {children}
+        {children}
+
     </AuthContext.Provider>
   );
 };
