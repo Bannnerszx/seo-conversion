@@ -30,6 +30,19 @@ env:
       
   - variable: NEXT_PUBLIC_MAINTENANCE_MODE
     value: "false"
+
+  - variable: NEXT_PUBLIC_PAYPAL_SANDBOX_CLIENT_ID
+    value: "AV-7FuRgECaAvA3otp-gv25WgtdXz6SBWUEJr-vBnwaZG8iYtIIsryuXXait3dKUDw8rplHf2s83hGmG"
+
+  - variable: PAYPAL_SECRET
+    value: "EPa7ja3LmyNwwKY5RQv2WGO-ca647IIQc-_MlcxEP0W-gapXjt-B-t7Gz-RVnxwdQNvfm0XSlz1WgwQW"
+
+  - variable: PAYPAL_BASE
+    value: "https://api-m.sandbox.paypal.com"
+
+
+
+  
     
   # 5-1) prod mode
   # - variable: API_KEY
