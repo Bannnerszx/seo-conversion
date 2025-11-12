@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 
+
 export function ReviewStep({
     paymentData,
     onBack,
@@ -190,11 +191,8 @@ export function ReviewStep({
                             </Button>
                         </div>
                     </div>
-
                 </div>
             </div>
-
-
         </div>
     );
 }
