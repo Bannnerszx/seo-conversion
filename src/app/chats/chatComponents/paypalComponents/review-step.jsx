@@ -159,24 +159,38 @@ export function ReviewStep({
                     </div>
 
 
-                    {/* Sticky actions */}
-                    <div className="flex gap-3 pt-1 sticky bottom-0 bg-background">
-                        <Button
-                            variant="outline"
-                            onClick={onBack}
-                            disabled={isSubmitting}
-                            className="flex-1 h-12 font-semibold bg-transparent"
-                        >
-                            Back
-                        </Button>
-                        <Button
-                            onClick={confirm}
-                            disabled={!allChecked || isSubmitting}
-                            className="flex-1 h-12 bg-[#0070BA] hover:bg-[#005EA6] text-white font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
-                        >
-                            {isSubmitting ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-t-transparent border-white" /> : "Confirm Payment"}
-                        </Button>
+                    {/* Sticky actions (mobile-friendly) */}
+                    <div className="sticky inset-x-0 bottom-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t border-border pt-3 pb-[calc(env(safe-area-inset-bottom)+12px)]">
+                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                            <Button
+                                variant="outline"
+                                onClick={onBack}
+                                disabled={isSubmitting}
+                                aria-label="Go back"
+                                className="w-full sm:flex-1 h-14 sm:h-12 text-base sm:text-sm font-semibold bg-transparent
+                 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0070BA] focus-visible:ring-offset-2"
+                            >
+                                Back
+                            </Button>
+
+                            <Button
+                                onClick={confirm}
+                                disabled={!allChecked || isSubmitting}
+                                aria-label="Confirm payment"
+                                className="w-full sm:flex-1 h-14 sm:h-12 text-base sm:text-sm bg-[#0070BA] hover:bg-[#005EA6] text-white font-semibold
+                 disabled:opacity-60 disabled:cursor-not-allowed
+                 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0070BA] focus-visible:ring-offset-2
+                 inline-flex items-center justify-center"
+                            >
+                                {isSubmitting ? (
+                                    <span className="h-5 w-5 animate-spin rounded-full border-2 border-t-transparent border-white" />
+                                ) : (
+                                    "Confirm Payment"
+                                )}
+                            </Button>
+                        </div>
                     </div>
+
                 </div>
             </div>
 
