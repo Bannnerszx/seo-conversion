@@ -193,7 +193,11 @@ export default function PaymentModal({ invoiceNumber, carData, chatId, invoiceDa
         <Dialog
             open={isOpen}
             onOpenChange={(open) => {
-                if (!open) handleClose()
+                // prevent closing the modal while a submit is in progress
+                if (!open) {
+                    if (isSubmitting) return;
+                    handleClose();
+                }
             }}
         >
             <DialogContent className="max-w-lg p-0 gap-0 max-h-[90vh] overflow-hidden">

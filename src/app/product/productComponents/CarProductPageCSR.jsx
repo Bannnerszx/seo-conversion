@@ -5,7 +5,7 @@ import { functions } from "../../../../firebase/clientApp"
 import { httpsCallable } from 'firebase/functions'
 import { useState, useEffect, useCallback, useRef } from "react"
 import Image from "next/image"
-import { Download, Heart, ChevronLeft, ChevronRight, Loader2, UserPlus, Users, TrendingUp, Eye } from "lucide-react"
+import { Download, Heart, ChevronLeft, ChevronRight, Loader2, UserPlus, Users, TrendingUp, Eye, ChevronDown, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
@@ -60,9 +60,9 @@ const Dropdown = ({ placeholder, options, value, onChange, className = '' }) => 
 
     // Render the Select component after hydration
     return (
-        <div className={`relative inline-block w-full ${className}`} style={{ zoom: 1.25, transformOrigin: "top left" }}>
+        <div className={`relative inline-block w-full ${className} `} style={{ zoom: 1.25, transformOrigin: "top left" }}>
             <Select value={decodeURIComponent(value)} onValueChange={onChange}>
-                <SelectTrigger className={`bg-white ${className}`}>
+                <SelectTrigger className={`bg-white border-[#155DFC] ${className}`}>
                     <SelectValue placeholder={placeholder} />
                 </SelectTrigger>
                 <SelectContent
@@ -665,6 +665,11 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
     //     fetchZones();
     // }, [dropdownValuesLocations]);
 
+    const [clearingEnabled, setClearingEnabled] = useState(false);
+    const [deliveryEnabled, setDeliveryEnabled] = useState(false);
+    const [showDeliveryModal, setShowDeliveryModal] = useState(false);
+    const [deliveryCity, setDeliveryCity] = useState('');
+    const [deliveryAddress, setDeliveryAddress] = useState('');
 
     return (
         <div className=" mx-auto px-4 py-8 z-[9999]">
@@ -947,243 +952,439 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
                                 </div>
                             </div>
                         </div>
-                        <Card className="my-6 relative overflow-visible">
+
+                        <Card className="my-6 relative overflow-visible border-[3px] border-[#155DFC] bg-background">
                             {/* Watermark overlay */}
                             {showWatermark && (
                                 <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none">
                                     <span
                                         className={`
-        text-[85px]
-        max-[426px]:text-[25px]
-        font-bold
-        transform -rotate-45
-        select-none
-        ${watermarkColorClass}
-      `}
+          text-[85px]
+          max-[426px]:text-[25px]
+          font-bold
+          transform -rotate-45
+          select-none
+          ${watermarkColorClass}
+        `}
                                     >
                                         {status}
                                     </span>
                                 </div>
                             )}
 
-                            {/* Actual card content */}
-                            <CardContent className="relative z-0 p-6">
-                                {/* Background stripe */}
-                                <div className="relative -mx-6 -mt-6 mb-6">
-                                    {/* background */}
-                                    <div className="absolute inset-0 bg-[#E5EBFD] rounded-t-xl" />
-                                    {/* restore inner spacing for the stripe content */}
-                                    <div className="relative px-6 pt-6">
+                            <CardContent className="relative z-0 p-6 md:p-8">
+                                {/* =========================
+        Pricing Section (Top)
+       ========================= */}
+                                <div className="mb-8 rounded-lg border-2 border-[#155DFC] bg-[#F3FAFF] p-4">
+                                    {/* <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-foreground">
+                                        Pricing Generated: <span className="text-primary">Estimate*</span>
+                                    </div> */}
 
-
-                                        <div className="relative grid grid-cols-1 sm:grid-cols-2 gap-4 p-4">
-                                            <div>
-                                                <p className="text-sm text-muted-foreground">FOB Price</p>
+                                    <div className="grid gap-4 md:grid-cols-2">
+                                        {/* FOB Price */}
+                                        <div className="rounded-md border-2 border-[#155DFC] bg-card p-4">
+                                            <p className="text-sm font-medium text-foreground mb-1">FOB Price</p>
+                                            <div className="text-3xl font-bold text-foreground">
                                                 <AnimatedCurrencyPrice
                                                     basePrice={basePrice}
-                                                    selectedCurrency={{ symbol: selectedCurrency.symbol, value: selectedCurrency.value }}
+                                                    selectedCurrency={{
+                                                        symbol: selectedCurrency.symbol,
+                                                        value: selectedCurrency.value,
+                                                    }}
                                                     duration={1000}
                                                     selectedPort={selectedPort}
                                                 />
                                             </div>
-                                            <div>
-                                                <p className="text-sm text-muted-foreground">Final Price</p>
+                                        </div>
+
+                                        {/* Final Price */}
+                                        <div className="rounded-md border-2 border-[#155DFC] bg-card p-4">
+                                            <p className="text-sm font-medium text-foreground mb-1">Final Price</p>
+                                            <div className="text-3xl font-bold text-primary">
                                                 <AnimatedCurrencyPrice
                                                     basePrice={profitMap && selectedPort && selectedCountry ? finalPrice : 0}
-                                                    selectedCurrency={{ symbol: selectedCurrency.symbol, value: selectedCurrency.value }}
+                                                    selectedCurrency={{
+                                                        symbol: selectedCurrency.symbol,
+                                                        value: selectedCurrency.value,
+                                                    }}
                                                     duration={1000}
                                                     selectedPort={selectedPort}
                                                 />
                                             </div>
                                         </div>
-
                                     </div>
                                 </div>
 
-                                {/* Dropdowns & switches */}
-                                <div className="relative mb-6 z-[9999]">
-                                    <div className="absolute -inset-6 bg-[#F2F5FE] -z-10" />
-                                    <div className="space-y-2 max-w-full relative z-10 p-4">
-                                        {dropdownGroupsLocations.map((group, gi) => (
-                                            <div key={gi} className="grid gap-4 sm:grid-cols-2">
-                                                {group.map((dd, i) => {
-                                                    const shake = (dd.placeholder === "Select Country" && shakeCountry)
-                                                        || (dd.placeholder === "Select Port" && shakePort);
-                                                    return (
-                                                        <Dropdown
-                                                            key={i}
-                                                            placeholder={dd.placeholder}
-                                                            options={dd.options}
-                                                            value={dropdownValuesLocations[dd.placeholder] || ""}
-                                                            onChange={v => handleDropdownChangeLocation(dd.placeholder, v)}
-                                                            className={shake ? "animate-shake border-red-500" : ""}
-                                                        />
-                                                    );
-                                                })}
-                                            </div>
-                                        ))}
-
-                                        <div className="grid grid-cols-2 gap-8 pt-4">
-                                            <div className="flex items-center space-x-2">
-                                                <Switch
-                                                    id="inspection"
-                                                    checked={!!inspectionSelected}
-                                                    disabled={disableInspection}
-                                                    onCheckedChange={(checked) => {
-                                                        if (isRequired) return; // cannot change
-
-                                                        // set local state
-                                                        setInspectionToggle(checked);
-
-                                                        // update URL immediately (push so Back/Forward keeps the action)
-                                                        const params = new URLSearchParams(window.location.search);
-                                                        if (checked) params.set('inspection', '1');
-                                                        else params.delete('inspection');
-
-                                                        const q = params.toString();
-                                                        router.push(q ? `${location.pathname}?${q}` : location.pathname, { scroll: false });
-                                                    }}
-                                                    className="data-[state=checked]:bg-[#7b9cff]"
-                                                />
-
-                                                <Label htmlFor="inspection">Inspection</Label>
-                                            </div>
-                                            <div className="flex items-center space-x-2">
-                                                <Switch
-                                                    id="insurance"
-                                                    checked={!!insuranceSelected}
-                                                    onCheckedChange={(checked) => {
-                                                        setInsuranceToggle(checked);
-
-                                                        // update URL immediately
-                                                        const params = new URLSearchParams(window.location.search);
-                                                        if (checked) params.set('insurance', '1');
-                                                        else params.delete('insurance');
-
-                                                        const q = params.toString();
-                                                        router.push(q ? `${location.pathname}?${q}` : location.pathname, { scroll: false });
-                                                    }}
-                                                    className="data-[state=checked]:bg-[#7b9cff]"
-                                                />
-                                                <Label htmlFor="insurance">Insurance</Label>
-                                            </div>
+                                {/* =========================
+        Step 1: Select Destination
+       ========================= */}
+                                <div className="mb-6">
+                                    <div className="mb-4 flex items-center gap-2">
+                                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#155DFC] text-sm font-bold text-primary-foreground">
+                                            1
                                         </div>
+                                        <h2 className="text-lg font-bold text-foreground">Select Destination</h2>
                                     </div>
 
-                                    {/* {selectedPort && (
-                                        <div className="mb-6 mx-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
-                                            <div className="flex items-center space-x-3 mb-3">
-                                                <Truck className='h-5 w-5 text-green-600' />
-                                                <label className="text-sm font-medium text-green-800 cursor-pointer">
-                                                    Enable Door-to-Delivery
-                                                </label>
-                                                <Checkbox checked={doorToDoorEnabled} onCheckedChange={setDoorToDoorEnabled} />
-                                            </div>
-                                            {doorToDoorEnabled && (
+                                    <div>
+                                        <div className="space-y-4 max-w-full">
+                                            {dropdownGroupsLocations.map((group, gi) => (
+                                                <div key={gi} className="grid gap-4 sm:grid-cols-2">
+                                                    {group.map((dd, i) => {
+                                                        const shake =
+                                                            (dd.placeholder === 'Select Country' && shakeCountry) ||
+                                                            (dd.placeholder === 'Select Port' && shakePort);
 
-                                                <div className="space-y-2 oveflow-y-auto">
-                                                    <p className="text-xs font-medium text-green-700 flex items-center">
-                                                        <MapPin className="h-3 w-3" />
-                                                        Available delivery locations:
-                                                    </p>
-                                                    <div className="space-y-1 text-sm text-gray-700 max-h-36 overflow-y-auto">
-                                                        {Object.entries(zones).map(([name, price]) => (
-                                                            <div
-                                                                key={name}
-                                                                className={`flex items-center justify-between p-2 rounded text-xs cursor-pointer transition-colors ${'selected' === 'selected' ? "bg-green-100 border border-green-300 text-green-900" : "bg-white border border-gray-200 text-gray-700 hover:bg-green-50"}`}
-                                                            >
-                                                                <span className="font-medium">
-                                                                    {name}
-                                                                </span>
-                                                                <div className="flex items-center gap-1">
-                                                                    <DollarSignIcon className="h-3 w-3 text-green-600" />
-                                                                    <span className="font-bold text-green-600">{price}</span>
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-
+                                                        return (
+                                                            <Dropdown
+                                                                key={i}
+                                                                placeholder={dd.placeholder}
+                                                                options={dd.options}
+                                                                value={dropdownValuesLocations[dd.placeholder] || ''}
+                                                                onChange={v => handleDropdownChangeLocation(dd.placeholder, v)}
+                                                                className={shake ? 'animate-shake border-red-500' : ''}
+                                                            />
+                                                        );
+                                                    })}
                                                 </div>
-
-                                            )}
+                                            ))}
                                         </div>
-                                    )} */}
-
-
+                                    </div>
                                 </div>
 
+                                {/* =========================
+        Step 2: Choose Services (Pills)
+       ========================= */}
+                                <div className="mb-6">
+                                    <div className="mb-4 flex items-center gap-2">
+                                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#155DFC] text-sm font-bold text-primary-foreground">
+                                            2
+                                        </div>
+                                        <h2 className="text-lg font-bold text-foreground">Choose Services</h2>
+                                    </div>
+
+                                    <div className="rounded-lg  border-primary bg-card">
+                                        <div className="flex flex-wrap gap-3">
+                                            {/* Inspection pill */}
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    if (disableInspection || isRequired) return;
+
+                                                    const next = !inspectionSelected;
+                                                    setInspectionToggle(next);
+
+                                                    // update URL
+                                                    const params = new URLSearchParams(window.location.search);
+                                                    if (next) params.set('inspection', '1');
+                                                    else params.delete('inspection');
+
+                                                    const q = params.toString();
+                                                    router.push(q ? `${location.pathname}?${q}` : location.pathname, {
+                                                        scroll: false,
+                                                    });
+                                                }}
+                                                disabled={disableInspection || isRequired}
+                                                className={`relative rounded-full border-2 px-6 py-2.5 text-sm font-semibold transition-all ${inspectionSelected
+                                                    ? 'border-[#155DFC] bg-[#155DFC] text-primary-foreground'
+                                                    : disableInspection || isRequired
+                                                        ? 'border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed'
+                                                        : 'border-[#155DFC] bg-card text-foreground hover:bg-[#155DFC] hover:text-primary-foreground'
+                                                    }`}
+                                            >
+                                                Inspection
+                                            </button>
 
 
-                                {/* Message & submit */}
-                                <div className="space-y-4 p-4">
-                                    <Textarea placeholder="Write your message here" className="min-h-[120px]" ref={textareaRef} />
-                                    <div className="flex items-start space-x-2">
-                                        <Checkbox
-                                            id="terms"
-                                            checked={agreed}
-                                            onCheckedChange={(val) => setAgreed(val)}
+                                            {/* Insurance pill */}
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const next = !insuranceSelected;
+                                                    setInsuranceToggle(next);
+
+                                                    // update URL
+                                                    const params = new URLSearchParams(window.location.search);
+                                                    if (next) params.set('insurance', '1');
+                                                    else params.delete('insurance');
+
+                                                    const q = params.toString();
+                                                    router.push(q ? `${location.pathname}?${q}` : location.pathname, {
+                                                        scroll: false,
+                                                    });
+                                                }}
+                                                className={`relative rounded-full border-2 px-6 py-2.5 text-sm font-semibold transition-all ${insuranceSelected
+                                                    ? 'border-[#155DFC] bg-[#155DFC] text-primary-foreground'
+                                                    : 'border-[#155DFC] bg-card text-foreground hover:bg-[#155DFC] hover:text-primary-foreground'
+                                                    }`}
+                                            >
+                                                Insurance
+                                            </button>
+
+
+                                            {/* Clearing pill */}
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const next = !clearingEnabled;
+                                                    setClearingEnabled(next);
+
+                                                    // If turning off clearing, also turn off delivery + clear details
+                                                    if (!next) {
+                                                        setDeliveryEnabled(false);
+                                                        setDeliveryCity('');
+                                                        setDeliveryAddress('');
+                                                    }
+                                                }}
+                                                className={`relative rounded-full border-2 px-6 py-2.5 text-sm font-semibold transition-all ${clearingEnabled
+                                                    ? 'border-[#155DFC] bg-[#155DFC] text-primary-foreground'
+                                                    : 'border-[#155DFC] text-foreground hover:bg-[#155DFC] hover:text-white'
+                                                    }`}
+                                            >
+                                                Clearing
+                                            </button>
+
+                                            {/* Delivery pill */}
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    if (!clearingEnabled) return;
+
+                                                    if (deliveryEnabled) {
+                                                        // turning off delivery
+                                                        setDeliveryEnabled(false);
+                                                        setDeliveryCity('');
+                                                        setDeliveryAddress('');
+                                                    } else {
+                                                        setShowDeliveryModal(true);
+                                                    }
+                                                }}
+                                                disabled={!clearingEnabled}
+                                                className={`relative rounded-full border-2 px-6 py-2.5 text-sm font-semibold transition-all ${!clearingEnabled
+                                                    ? 'border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed'
+                                                    : deliveryEnabled
+                                                        ? 'border-[#155DFC] bg-[#155DFC] text-primary-foreground'
+                                                        : 'border-[#155DFC] bg-card text-foreground hover:bg-[#155DFC] hover:text-primary-foreground'
+                                                    }`}
+                                            >
+                                                Delivery
+                                            </button>
+                                        </div>
+
+                                        {!clearingEnabled && (
+                                            <p className="mt-2 text-xs text-muted-foreground">
+                                                *Delivery requires Clearing service to be enabled
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {/* Delivery summary when enabled */}
+                                    {deliveryEnabled && deliveryCity && deliveryAddress && (
+                                        <div className="mt-4 rounded-lg border-2 border-primary bg-primary/5 p-4">
+                                            <div className="mb-2 text-sm font-semibold text-foreground">
+                                                Delivery Information:
+                                            </div>
+                                            <div className="space-y-1 text-sm text-foreground">
+                                                <div>
+                                                    <span className="font-medium">City:</span> {deliveryCity}
+                                                </div>
+                                                <div>
+                                                    <span className="font-medium">Address:</span> {deliveryAddress}
+                                                </div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowDeliveryModal(true)}
+                                                className="mt-3 text-xs font-semibold text-primary hover:underline"
+                                            >
+                                                Edit Delivery Details
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* =========================
+        Step 3: Additional Information
+       ========================= */}
+                                <div className="mb-6">
+                                    <div className="mb-4 flex items-center gap-2">
+                                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#155DFC] text-sm font-bold text-primary-foreground">
+                                            3
+                                        </div>
+                                        <h2 className="text-lg font-bold text-foreground">Additional Information</h2>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <Textarea
+                                            placeholder="Write your message here"
+                                            className="min-h-[120px] rounded-md border-2 border-input bg-card px-4 py-3"
+                                            ref={textareaRef}
                                         />
 
-                                        <Label htmlFor="terms" className="text-sm pt-0.5">
-                                            I agree to{" "}
-                                            <a
-                                                href="/privacy-policy"
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="underline underline-offset-2 hover:no-underline focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                                                onClick={(e) => e.stopPropagation()}
-                                                onMouseDown={(e) => e.preventDefault()}
-                                            >
-                                                Privacy Policy
-                                            </a>{" "}
-                                            and{" "}
-                                            <a
-                                                href="/terms-of-use"
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="underline underline-offset-2 hover:no-underline focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                                                onClick={(e) => e.stopPropagation()}
-                                                onMouseDown={(e) => e.preventDefault()}
-                                            >
-                                                Terms of Agreement
-                                            </a>
-
-                                        </Label>
+                                        <div className="flex items-start space-x-2">
+                                            <Checkbox
+                                                id="terms"
+                                                checked={agreed}
+                                                onCheckedChange={val => setAgreed(val)}
+                                                className="mt-1 border-2 border-input data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                                            />
+                                            <Label htmlFor="terms" className="text-sm pt-0.5">
+                                                I agree to{' '}
+                                                <a
+                                                    href="/privacy-policy"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="underline underline-offset-2 hover:no-underline focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                                    onClick={e => e.stopPropagation()}
+                                                    onMouseDown={e => e.preventDefault()}
+                                                >
+                                                    Privacy Policy
+                                                </a>{' '}
+                                                and{' '}
+                                                <a
+                                                    href="/terms-of-use"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="underline underline-offset-2 hover:no-underline focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                                    onClick={e => e.stopPropagation()}
+                                                    onMouseDown={e => e.preventDefault()}
+                                                >
+                                                    Terms of Agreement
+                                                </a>
+                                                .
+                                            </Label>
+                                        </div>
                                     </div>
-                                    <Button
-                                        id="rmj_inquiry_button"
-                                        disabled={isButtonDisabled}
-                                        onClick={() =>
-                                            handleCreateConversation(
-                                                addChat,
-                                                router,
-                                                setLoadingChat,
-                                                setShowAlert,
-                                                textareaRef,
-                                                freightOrigPrice,
-                                                profitMap,
-                                                selectedCurrency,
-                                                currency,
-                                                inspectionPrice,
-                                                inspectionData,
-                                                carData,
-                                                user,
-                                                dropdownValuesLocations,
-                                                setShakeCountry,
-                                                setShakePort,
-                                                insuranceSelected,
-                                                ipInfo,
-                                                tokyoTimeData,
-                                                inspectionSelected
-                                            )
-                                        }
-                                        className="w-full bg-blue-600 hover:bg-blue-700 py-6"
-                                    >
-                                        Send Inquiry
-                                    </Button>
                                 </div>
+
+                                {/* =========================
+        Send Inquiry Button
+       ========================= */}
+                                <Button
+                                    id="rmj_inquiry_button"
+                                    disabled={isButtonDisabled}
+                                    onClick={() =>
+                                        handleCreateConversation(
+                                            addChat,
+                                            router,
+                                            setLoadingChat,
+                                            setShowAlert,
+                                            textareaRef,
+                                            freightOrigPrice,
+                                            profitMap,
+                                            selectedCurrency,
+                                            currency,
+                                            inspectionPrice,
+                                            inspectionData,
+                                            carData,
+                                            user,
+                                            dropdownValuesLocations,
+                                            setShakeCountry,
+                                            setShakePort,
+                                            insuranceSelected,
+                                            ipInfo,
+                                            tokyoTimeData,
+                                            inspectionSelected
+                                        )
+                                    }
+                                    className="w-full rounded-md bg-primary py-6 text-lg font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Send Inquiry
+                                </Button>
                             </CardContent>
                         </Card>
+
+
+                        {showDeliveryModal && (
+                            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
+                                <Card className="w-full max-w-md border-[3px] border-primary bg-background">
+                                    <CardContent className="p-6">
+                                        <div className="mb-6 flex items-center justify-between">
+                                            <h3 className="text-xl font-bold text-foreground">Delivery Details</h3>
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowDeliveryModal(false)}
+                                                className="rounded-full p-1 hover:bg-gray-100"
+                                            >
+                                                <X className="h-5 w-5 text-foreground" />
+                                            </button>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            <div>
+                                                <Label
+                                                    htmlFor="delivery-city"
+                                                    className="mb-2 block text-sm font-semibold text-foreground"
+                                                >
+                                                    CITY:
+                                                </Label>
+                                                <div className="relative">
+                                                    <select
+                                                        id="delivery-city"
+                                                        value={deliveryCity}
+                                                        onChange={e => setDeliveryCity(e.target.value)}
+                                                        className="w-full appearance-none rounded-md border-2 border-input bg-card px-4 py-3 pr-10 text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                                                    >
+                                                        <option value="">Select a city</option>
+                                                        <option value="city1">City 1</option>
+                                                        <option value="city2">City 2</option>
+                                                        <option value="city3">City 3</option>
+                                                    </select>
+                                                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-foreground" />
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <Label
+                                                    htmlFor="delivery-address"
+                                                    className="mb-2 block text-sm font-semibold text-foreground"
+                                                >
+                                                    ADDRESS:
+                                                </Label>
+                                                <Textarea
+                                                    id="delivery-address"
+                                                    value={deliveryAddress}
+                                                    onChange={e => setDeliveryAddress(e.target.value)}
+                                                    placeholder="Enter your delivery address"
+                                                    className="min-h-[100px] resize-none rounded-md border-2 border-input bg-card px-4 py-3 text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-6 flex gap-3">
+                                            <Button
+                                                type="button"
+                                                onClick={() => {
+                                                    // If no info, make sure delivery stays off
+                                                    if (!deliveryCity && !deliveryAddress) {
+                                                        setDeliveryEnabled(false);
+                                                    }
+                                                    setShowDeliveryModal(false);
+                                                }}
+                                                variant="outline"
+                                                className="flex-1 border-2 border-input text-foreground hover:bg-accent hover:text-accent-foreground"
+                                            >
+                                                Cancel
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                onClick={() => {
+                                                    if (!deliveryCity || !deliveryAddress) return;
+                                                    setDeliveryEnabled(true);
+                                                    setShowDeliveryModal(false);
+                                                }}
+                                                disabled={!deliveryCity || !deliveryAddress}
+                                                className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                Confirm
+                                            </Button>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        )}
+
 
                     </div>
                 </div>

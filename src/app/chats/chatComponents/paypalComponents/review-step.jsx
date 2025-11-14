@@ -76,12 +76,13 @@ export function ReviewStep({
 
                     {/* Master consent */}
                     <div className="rounded-lg border border-[#0070BA]/40 bg-[#0070BA]/5 p-4 space-y-3">
-                        <div className="flex items-start gap-3">
-                            <Checkbox
-                                id="allConsent"
-                                checked={masterChecked}
-                                onCheckedChange={onToggleAll}
-                            />
+                            <div className="flex items-start gap-3">
+                                <Checkbox
+                                    id="allConsent"
+                                    checked={masterChecked}
+                                    onCheckedChange={isSubmitting ? undefined : onToggleAll}
+                                    disabled={isSubmitting}
+                                />
                             <Label htmlFor="allConsent" className="text-sm leading-5 font-semibold">
                                 I consent to everything listed below.
                             </Label>
@@ -92,7 +93,8 @@ export function ReviewStep({
                                 <Checkbox
                                     id="deliveryScope"
                                     checked={consent.deliveryScope}
-                                    onCheckedChange={onToggle("deliveryScope")}
+                                    onCheckedChange={isSubmitting ? undefined : onToggle("deliveryScope")}
+                                    disabled={isSubmitting}
                                 />
                                 <Label htmlFor="deliveryScope" className="text-sm leading-5">
                                     Delivery ends at <span className="font-medium">Port of Dar es Salaam, Tanzania</span>.
@@ -104,7 +106,8 @@ export function ReviewStep({
                                 <Checkbox
                                     id="conditionAccept"
                                     checked={consent.conditionAccept}
-                                    onCheckedChange={onToggle("conditionAccept")}
+                                    onCheckedChange={isSubmitting ? undefined : onToggle("conditionAccept")}
+                                    disabled={isSubmitting}
                                 />
                                 <Label htmlFor="conditionAccept" className="text-sm leading-5">
                                     I reviewed the specs/photos and accept the vehicle’s described condition.
@@ -115,7 +118,8 @@ export function ReviewStep({
                                 <Checkbox
                                     id="refundFx"
                                     checked={consent.refundFx}
-                                    onCheckedChange={onToggle("refundFx")}
+                                    onCheckedChange={isSubmitting ? undefined : onToggle("refundFx")}
+                                    disabled={isSubmitting}
                                 />
                                 <Label htmlFor="refundFx" className="text-sm leading-5">
                                     I understand the refund policy. Refunds (if any) return to the original funding source
@@ -127,7 +131,8 @@ export function ReviewStep({
                                 <Checkbox
                                     id="noAddressChange"
                                     checked={consent.noAddressChange}
-                                    onCheckedChange={onToggle("noAddressChange")}
+                                    onCheckedChange={isSubmitting ? undefined : onToggle("noAddressChange")}
+                                    disabled={isSubmitting}
                                 />
                                 <Label htmlFor="noAddressChange" className="text-sm leading-5">
                                     I agree not to request any change of delivery address after payment.
@@ -138,7 +143,8 @@ export function ReviewStep({
                                 <Checkbox
                                     id="eSign"
                                     checked={consent.eSign}
-                                    onCheckedChange={onToggle("eSign")}
+                                    onCheckedChange={isSubmitting ? undefined : onToggle("eSign")}
+                                    disabled={isSubmitting}
                                 />
                                 <Label htmlFor="eSign" className="text-sm leading-5">
                                     I consent to use of electronic records and electronic signatures.
