@@ -92,7 +92,8 @@ export default function PaymentModal({ invoiceNumber, carData, chatId, invoiceDa
                     deliveryScope: port,
                     vin: carData?.chassisNumber || null,
                     model: carData?.carName || null,
-                    stockId: carData?.stockID || null, 
+                    stockId: carData?.stockID || null,
+                    consigneeEmail: invoiceData?.consignee?.email
                 },
                 signatureDataUrl: paymentData.signature || undefined,
                 clientYear,
