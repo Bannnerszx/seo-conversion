@@ -87,6 +87,7 @@ const Dropdown = ({ placeholder, options, value, onChange, className = '' }) => 
     );
 };
 async function handleCreateConversation(
+    acceptPaypal,
     addChat,
     router,
     setLoadingChat,
@@ -198,6 +199,7 @@ async function handleCreateConversation(
                 carName: carData.carName,
                 referenceNumber: carData.referenceNumber,
             },
+            paypalPayment: acceptPaypal
         };
 
         if (exists && (!missingFields || missingFields.length === 0)) {
@@ -277,7 +279,7 @@ const getFileExtension = (url) => {
 
 export default function CarProductPageCSR({ chatCount, carData, countryArray, currency, useAuth, resultsIsFavorited, }) {
     const addChat = httpsCallable(functions, 'addChat')
-
+    const [acceptPaypal, setAcceptPaypal] = useState(false)
     const [agreed, setAgreed] = useState(false)
     const [doorToDoorEnabled, setDoorToDoorEnabled] = useState(false);
     const [zones, setZones] = useState(null)
@@ -1016,6 +1018,11 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
                                     </div>
                                 </div>
 
+
+
+
+
+
                                 {/* =========================
         Step 1: Select Destination
        ========================= */}
@@ -1204,6 +1211,24 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
                                     )}
                                 </div>
 
+
+
+                                <div className="flex items-center gap-3 rounded-lg border-2 border-blue-500 bg-white p-3 -mt-3 mb-2">
+                                    <Checkbox
+                                        id="paypal"
+                                        checked={acceptPaypal}
+                                        onCheckedChange={(checked) => setAcceptPaypal(checked)}
+                                        className="mt-1 border-2 border-input data-[state=checked]:bg-[#155dfc] data-[state=checked]:border-[#155dfc]"
+                                    />
+                                    <Label
+                                        htmlFor="paypal"
+                                        className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer"
+                                    >
+                                        <img src={'/paypal-button.png'} alt="PayPal" className="h-5" />
+                                        Accept PayPal Payment
+                                    </Label>
+                                </div>
+
                                 {/* =========================
         Step 3: Additional Information
        ========================= */}
@@ -1266,6 +1291,7 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
                                     disabled={isButtonDisabled}
                                     onClick={() =>
                                         handleCreateConversation(
+                                            acceptPaypal,
                                             addChat,
                                             router,
                                             setLoadingChat,
