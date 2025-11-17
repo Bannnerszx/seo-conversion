@@ -45,7 +45,7 @@ export function ReviewStep({
     };
 
     return (
-        <div className="flex flex-col p-4 sm:p-6 gap-4 h-full">
+        <div className="flex flex-col p-4 sm:p-6 gap-4 max-h-[calc(100vh-6rem)] min-h-0">
             <div className="space-y-1">
                 <h3 className="text-xl font-semibold text-foreground">Review &amp; Confirm</h3>
                 <p className="text-sm text-muted-foreground">
@@ -55,7 +55,7 @@ export function ReviewStep({
 
             {/* Scrollable content */}
             <div className="flex-1 min-h-0">
-                <div className="max-h-[70vh] overflow-y-auto pr-1 space-y-4">
+                <div className="overflow-y-auto pr-1 space-y-4 h-full">
                     <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-4">
                         <div className="space-y-1">
                             <p className="text-sm font-medium text-muted-foreground">Email Address</p>
@@ -174,7 +174,7 @@ export function ReviewStep({
                                 onClick={onBack}
                                 disabled={isSubmitting}
                                 aria-label="Go back"
-                                className="w-full sm:flex-1 h-14 sm:h-12 text-base sm:text-sm font-semibold bg-transparent
+                                className="w-full sm:flex-1 h-12 text-base sm:text-sm font-semibold bg-transparent
                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0070BA] focus-visible:ring-offset-2"
                             >
                                 Back
@@ -184,7 +184,7 @@ export function ReviewStep({
                                 onClick={confirm}
                                 disabled={!allChecked || isSubmitting}
                                 aria-label="Confirm payment"
-                                className="w-full sm:flex-1 h-14 sm:h-12 text-base sm:text-sm bg-[#0070BA] hover:bg-[#005EA6] text-white font-semibold
+                                className="w-full sm:flex-1 h-12 text-base sm:text-sm bg-[#0070BA] hover:bg-[#005EA6] text-white font-semibold
                  disabled:opacity-60 disabled:cursor-not-allowed
                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0070BA] focus-visible:ring-offset-2
                  inline-flex items-center justify-center"
