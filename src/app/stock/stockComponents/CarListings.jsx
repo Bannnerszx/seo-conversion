@@ -114,7 +114,6 @@ function CarCard({
     : `/product/${stockID}`;
 
 
-
   const safeViews = toInt(views, 0);
   const safeChatCount = toInt(chatCount, 0);
 
