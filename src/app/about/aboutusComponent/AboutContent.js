@@ -1,4 +1,4 @@
-import { Mail, Phone, Printer, MapPin, Clock, Globe } from "lucide-react"
+import { Mail, Phone, Printer, MapPin, Clock, Globe, MessageCircle } from "lucide-react"
 import Image from "next/image"
 
 export default function AboutContent() {
@@ -41,6 +41,7 @@ export default function AboutContent() {
             </h3>
 
             <div className="space-y-6">
+              {/* Phone Section */}
               <div className="group">
                 <div className="flex items-center p-4 rounded-lg border border-gray-100 group-hover:border-indigo-200 transition-all duration-300 group-hover:bg-indigo-50">
                   <div className="bg-indigo-100 p-3 rounded-full mr-4 group-hover:bg-indigo-200 transition-all duration-300">
@@ -51,6 +52,26 @@ export default function AboutContent() {
                     <p className="text-lg font-semibold text-gray-800">+81-565-85-0602</p>
                   </div>
                 </div>
+              </div>
+
+              {/* WhatsApp Section - Added Here */}
+              <div className="group">
+                <a
+                  href="https://wa.me/818035419928"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center p-4 rounded-lg border border-gray-100 group-hover:border-indigo-200 transition-all duration-300 group-hover:bg-indigo-50"
+                >
+                  <div className="bg-indigo-100 p-3 rounded-full mr-4 group-hover:bg-indigo-200 transition-all duration-300">
+                    <MessageCircle className="h-6 w-6 text-indigo-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-green-500 font-medium">WhatsApp</p>
+                    <p className="text-lg font-semibold text-gray-800 group-hover:text-indigo-700">
+                      +81-80-3541-9928
+                    </p>
+                  </div>
+                </a>
               </div>
 
               <div className="group">
@@ -136,7 +157,7 @@ export default function AboutContent() {
               </div>
             </div>
 
-            <div className="h-[250px] relative rounded-lg overflow-hidden shadow-md">
+            <div className="h-[320px] relative rounded-lg overflow-hidden shadow-md">
               <iframe
                 src={
                   "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d1632.936608114054!2d137.09699772767226!3d35.0599087490721!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x60049f743d9d0723%3A0x32785dd77ebf1094!2z5qCq5byP5Lya56S-44Ok44OK44Ku44K144Ov77yo77yk!5e0!3m2!1sen!2sjp!4v1746670892196!5m2!1sen!2sjp"
