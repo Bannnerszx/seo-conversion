@@ -276,6 +276,17 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
         return () => unsubscribe();
     }, [chatId, isDetailView]);
 
+    async function hashText(text) {
+        try {
+            const enc = new TextEncoder().encode(text);
+            const digest = await crypto.subtle.digest('SHA-256', enc);
+            return Array.from(new Uint8Array(digest))
+                .map(b => b.toString(16).padStart(2, '0'))
+                .join('');
+        } catch (error) {
+            return `${text.length}|${text.slice(0, 16)}`
+        }
+    }
     // Persist a key so a page refresh uses the same idempotencyKey during auto-retry
     function saveIdem(key, meta = {}) {
         try { localStorage.setItem(`idem:${key}`, JSON.stringify({ status: 'pending', ...meta })); } catch { }
