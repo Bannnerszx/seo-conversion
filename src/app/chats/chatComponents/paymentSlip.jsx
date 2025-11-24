@@ -190,6 +190,68 @@ export default function PaymentSlip({ context = 'payment', chatId, selectedChatD
 
     const callUpdatePaymentNotifications = httpsCallable(functions, "updatePaymentNotifications");
 
+
+
+   //Idempotency helpers
+    const rand = () =>
+        (typeof crypto !== 'undefined' && crypto.randomUUID)
+            ? crypto.randomUUID()
+            : `r_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
+    async function sha256Bytes(bytes) {
+        try {
+            const digest = await crypto.subtle.digest('SHA-256', bytes);
+            return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+        } catch {
+            let h = 0;
+            for (let i = 0; i < bytes.length; i++) h = (h * 31 + bytes[i]) | 0;
+            return `f_${(h >>> 0).toString(16)}`;
+        }
+    }
+
+    async function hashFileId(file) {
+        try {
+            const buf = await file.arrayBuffer();
+            const nameBytes = new TextEncoder().encode(`${file.name}|${file.size}|${file.lastModified}`);
+            const combined = new Uint8Array(nameBytes.length + buf.byteLength);
+            combined.set(nameBytes, 0);
+            combined.set(new Uint8Array(buf), nameBytes.length);
+            return await sha256Bytes(combined);
+        } catch {
+            return `${file.name}|${file.size}|${file.lastModified}`;
+        }
+    }
+
+    async function hashTextId(text) {
+        try {
+            const enc = new TextEncoder().encode(text || '');
+            return await sha256Bytes(enc);
+        } catch {
+            return `${(text || '').length}:${(text || '').slice(0, 16)}`;
+        }
+    }
+
+    function markIdemPending(key, meta = {}) {
+        try { localStorage.setItem(`idem:${key}`, JSON.stringify({ status: 'pending', ...meta })); } catch { }
+    }
+    function markIdemDone(key, meta = {}) {
+        try { localStorage.setItem(`idem:${key}`, JSON.stringify({ status: 'completed', ...meta })); } catch { }
+    }
+    function isIdemDone(key) {
+        try {
+            const v = localStorage.getItem(`idem:${key}`);
+            if (!v) return false;
+            return JSON.parse(v).status === 'completed'
+        } catch {
+            return false;
+        }
+    }
+    const sanitizeForDocId = (s) =>
+        String(s)
+            .replaceAll("/", "-")     // avoid Firestore path splits
+            .replaceAll("\\", "-")    // just in case
+            .trim();
+
     const handleSendMessage = async (e) => {
         e.preventDefault();
 
@@ -218,6 +280,24 @@ export default function PaymentSlip({ context = 'payment', chatId, selectedChatD
         setIsSubmitting(true);
         try {
             const calendarETD = format(date, "yyyy/MM/dd");
+
+            const fileId = await hashFileId(attachedFile);
+            const nameId = await hashTextId(nameOfRemitter.trim());
+
+            // KEEP calendarETD as-is (even if it's yyyy/MM/dd)
+            const keyBase = `pay:${chatId}:${userEmail}:${calendarETD}:${nameId}:${fileId}`;
+
+            // Only sanitize the final id used for Firestore
+            const idempotencyKey = sanitizeForDocId(keyBase);
+            if (isIdemDone(idempotencyKey)) {
+                setIsSubmitting(false);
+                return;
+            }
+            markIdemPending(idempotencyKey, { chatId, calendarETD, type: 'paymentSlip' });
+
+
+
+
             const messageData = `Wire Date: ${calendarETD}
 
 Name of Remitter: ${nameOfRemitter}
@@ -253,7 +333,7 @@ ${newMessage.trim()}
 
             const selectedFilePayload = await fileToBase64Payload(attachedFile);
 
-            await callUpdatePaymentNotifications({
+            const res = await callUpdatePaymentNotifications({
                 chatId,
                 userEmail,
                 messageValue: messageData,
@@ -262,9 +342,11 @@ ${newMessage.trim()}
                 nameOfRemitter,
                 calendarETD,
                 selectedFile: selectedFilePayload,
-            });
+                idempotencyKey
+            })
 
 
+            markIdemDone(idempotencyKey, { finishedAt: Date.now() });
             setNameOfRemitter("");
             setDate(null);
             setNewMessage("");

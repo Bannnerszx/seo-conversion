@@ -354,8 +354,8 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
                 })
 
                 const [freshIp, fresTime] = await Promise.all([
-                    retryableCall(fetchJson("https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo")),
-                    retryableCall(fetchJson("https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time"))
+                    retryableCall(fetchJson("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo")),
+                    retryableCall(fetchJson("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time"))
                 ]);
 
                 currentIpInfo = freshIp;
