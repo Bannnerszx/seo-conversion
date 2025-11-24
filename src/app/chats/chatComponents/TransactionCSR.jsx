@@ -276,7 +276,25 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
         return () => unsubscribe();
     }, [chatId, isDetailView]);
 
+    // Persist a key so a page refresh uses the same idempotencyKey during auto-retry
+    function saveIdem(key, meta = {}) {
+        try { localStorage.setItem(`idem:${key}`, JSON.stringify({ status: 'pending', ...meta })); } catch { }
+    }
+    function completeIdem(key, meta = {}) {
+        try { localStorage.setItem(`idem:${key}`, JSON.stringify({ status: 'completed', ...meta })); } catch { }
+    }
 
+    function isCompletedIdem(key) {
+        try {
+            const v = localStorage.getItem(`idem:${key}`);
+            if (!v) return false;
+            const j = JSON.parse(v);
+            return j.status === 'completed';
+        } catch (error) {
+            return false;
+        }
+    }
+    const sanitizeForDocId = (s) => String(s).replaceAll("/", "-").replaceAll("\\", "-").trim();
     const handleSendMessage = async (e) => {
         if (loadingSent || isLoading || (!newMessage.trim() && !attachedFile)) {
             return;
@@ -284,54 +302,68 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
         setLoadingSent(true);
         e.preventDefault();
 
-        if (!newMessage.trim() && !attachedFile) return;
+        if (!newMessage.trim() && !attachedFile) {
+            setLoadingSent(false);
+            return;
+        }
+
+        let idempotencyKey = null;
+        try {
+            if (attachedFile) {
+                const fileHash = await hashFile(attachedFile);
+                idempotencyKey = sanitizeForDocId(`file:${chatId}:${userEmail}:${fileHash}`)
+            } else {
+                const text = newMessage.trim();
+                const textHash = await hashText(text || 'File attached.');
+                idempotencyKey = sanitizeForDocId(`text:${chatId}:${userEmail}:${textHash}`)
+            }
+        } catch (err) {
+            idempotencyKey = sanitizeForDocId(`fallback:${chatId}:${userEmail}`);
+        }
+
+        if (isCompletedIdem(idempotencyKey)) {
+            setLoadingSent(false);
+            return;
+        }
+        saveIdem(idempotencyKey, { chatId, type: attachedFile ? 'file' : 'text' });
 
         try {
             let currentIpInfo = ipInfo;
             let currentTokyoTime = tokyoTime;
 
-            // Try to fetch fresh data with a timeout, but don't block if it fails
             try {
-                // If the client reports a slow connection, try a warm up to prime TCP/DNS before heavy upload
                 const connection = typeof navigator !== 'undefined' && navigator.connection ? navigator.connection : null;
                 const effective = connection && connection.effectiveType ? connection.effectiveType : null;
                 if (effective && (effective.includes('3g') || effective.includes('2g'))) {
-                    // warm network quickly but don't block send for too long
                     warmUpNetwork().catch(() => { });
                 }
                 const fetchJson = (url) => () => fetch(url).then(r => {
                     if (!r.ok) throw new Error('Network response was not ok');
                     return r.json();
-                });
+                })
 
-                const [freshIp, freshTime] = await Promise.all([
-                    retryableCall(fetchJson("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo")),
-                    retryableCall(fetchJson("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time")),
+                const [freshIp, fresTime] = await Promise.all([
+                    retryableCall(fetchJson("https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo")),
+                    retryableCall(fetchJson("https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time"))
                 ]);
+
                 currentIpInfo = freshIp;
-                currentTokyoTime = freshTime;
-
-                // Update state with fresh data for next time
+                currentTokyoTime = fresTime;
                 setIpInfo(freshIp);
-                setTokyoTime(freshTime);
-            } catch (fetchError) {
-                console.warn("Failed to fetch fresh data, using cached values:", fetchError);
-                // Continue with cached values
+                setTokyoTime(fresTime);
+            } catch (error) {
+                console.warn("Failed to fetch fresh data, using cached values:", error);
             }
 
-            // If we still don't have any data (even cached), we need to handle this
             if (!currentIpInfo || !currentTokyoTime) {
-                throw new Error("No IP info or time data available");
+                throw new Error("No IP infor or time data available");
             }
 
-            // Format the time
             const formattedTime = formatTokyoLocal(currentTokyoTime?.datetime);
-            // Extract IP info details
             const ip = currentIpInfo.ip;
             const ipCountry = currentIpInfo.country_name;
             const ipCountryCode = currentIpInfo.country_code;
 
-            // Rest of your existing logic...
 
             if (attachedFile) {
                 const fileData = {
@@ -340,22 +372,19 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
                     userEmail,
                     messageValue: newMessage.trim() ? newMessage : "File attached.",
                     ipInfo: currentIpInfo,
-                    formattedTime: formattedTime
-                }
+                    formattedTime,
+                    idempotencyKey,
+                };
 
-                // use retryableCall to reduce chance of transient network/firebase timeout errors
                 let result;
                 try {
                     result = await retryableCall(updateCustomerFiles, fileData, { retries: 3, timeout: 20000, backoff: 1500 });
                     console.log("Function returned successfully [file upload function]:", result);
-                    if (!result) {
-                        throw new Error("Failed to send message via function API");
-                    }
-                } catch (fnErr) {
-                    // store payload and start auto-retry
-                    const pending = { type: 'file', payload: fileData };
+                    if (!result) throw new Error("Failed to send message via function API");
+                } catch (error) {
+                    const pending = { type: 'file', payload: { ...fileData, idempotencyKey } };
                     startAutoRetry(pending, { maxAttempts: 5, baseDelay: 3000 });
-                    throw fnErr; // rethrow so outer catch handles loading state
+                    throw error
                 }
             } else if (newMessage.trim()) {
                 const bodyData = {
@@ -366,31 +395,31 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
                     ip,
                     ipCountry,
                     ipCountryCode,
+                    idempotencyKey,
                 };
 
                 try {
                     const result = await retryableCall(sendMessage, bodyData, { retries: 2, timeout: 15000 });
                     console.log("Function returned successfully:", result);
-                    if (!result) {
-                        throw new Error("Failed to send message via function API");
-                    }
-                } catch (fnErr) {
-                    const pending = { type: 'text', payload: bodyData };
+                    if (!result) throw new Error("Failed to send message via function API");
+                } catch (error) {
+                    const pending = { type: 'text', payload: { ...bodyData, idempotencyKey } };
                     startAutoRetry(pending, { maxAttempts: 4, baseDelay: 2000 });
-                    throw fnErr;
+                    throw error
                 }
             }
+            completeIdem(idempotencyKey, { finishedAt: Date.now() });
 
-            setNewMessage("");
+            setNewMessage('');
             setAttachedFile(null);
-            // clear the hidden file input so re-selecting the same file triggers onChange
             if (fileInputRef && fileInputRef.current) fileInputRef.current.value = "";
             setLoadingSent(false);
         } catch (error) {
             console.error("Error sending message:", error);
             setLoadingSent(false);
         }
-    };
+    }
+
 
     // automatic retry is handled by startAutoRetry; no manual retry handler required
 
