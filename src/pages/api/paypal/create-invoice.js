@@ -235,7 +235,7 @@ export default async function handler(req, res) {
         // We don't fail the request if messaging fails
       }
     }
-    // =====================================================
+    // ====================================================
 
     return res.status(200).json({
       ok: true,
