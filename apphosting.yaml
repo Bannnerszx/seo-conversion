@@ -41,8 +41,8 @@ env:
   - variable: NEXT_PUBLIC_PAYPAL_SECRET
     secret: NEXT_PUBLIC_PAYPAL_SECRET
 
-  - variable: PAYPAL_BASE
-    value: "https://api-m.sandbox.paypal.com"
+  - variable: NEXT_PUBLIC_PAYPAL_BASE
+    secret: NEXT_PUBLIC_PAYPAL_BASE
 
 
 

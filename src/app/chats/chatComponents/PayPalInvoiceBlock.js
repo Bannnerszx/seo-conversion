@@ -5,13 +5,6 @@ import PaymentModal from "./paypalComponents/payment-modal";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "../../../../firebase/clientApp";
 
-const hostedWebBase = () =>
-    (process.env.NEXT_PUBLIC_PAYPAL_BASE || "https://api-m.sandbox.paypal.com").includes(".sandbox.")
-        ? "https://www.sandbox.paypal.com"
-        : "https://www.paypal.com";
-const toHostedUrl = (invoiceId) =>
-    invoiceId ? `${hostedWebBase()}/invoice/payerView/details/${encodeURIComponent(invoiceId)}` : undefined;
-
 
 
 export default function PayPalInvoiceBlock({ tokyotime, chatId, invoiceNumber, carData, invoiceData, message, userEmail, renderTextWithLinks }) {
