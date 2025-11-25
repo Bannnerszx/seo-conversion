@@ -16,55 +16,20 @@ import SalesOffDisplay from "./salesOffDisplay";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "../../../../firebase/clientApp";
 
-// Skeleton placeholder for loading
+// Skeleton placeholder for loading (unchanged)
 export function CarCardSkeleton() {
   return (
     <Card className="max-w-7xl mx-auto  border border-gray-200 rounded-lg shadow-lg">
       <div className="flex flex-col sm:flex-row">
         <div className="relative h-64 sm:h-auto sm:w-96 l:w-[36rem] flex-shrink-0">
           <Skeleton className="h-full w-full object-cover" />
-          <Badge variant="secondary" className="absolute left-4 top-4 bg-white/90 font-medium">
-            <SteeringWheel className="mr-2 h-4 w-4" />
-            <Skeleton className="w-12 h-4" />
-          </Badge>
         </div>
         <div className="flex flex-1 flex-col p-6">
-          <div className="flex items-start justify-between gap-6">
-            <Skeleton className="h-6 w-40" />
-            <Button variant="outline" size="sm" className="shrink-0" disabled>
-              <Heart className="mr-1 h-4 w-4" />
-              <Skeleton className="w-20 h-4" />
-            </Button>
-          </div>
-          <div className="mt-6">
-            <div className="text-sm text-gray-500">FOB Price</div>
-            <Skeleton className="h-8 w-24" />
-          </div>
-          <div className="mt-6 grid grid-cols-2 gap-x-10 gap-y-4 text-sm">
-            <div className="flex items-center gap-2">
-              <span className="text-gray-500">Year</span>
-              <Skeleton className="w-12 h-4" />
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-gray-500">Mileage</span>
-              <Skeleton className="w-16 h-4" />
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-gray-500">Exterior Color</span>
-              <Skeleton className="w-16 h-4" />
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-gray-500">Engine Displacement</span>
-              <Skeleton className="w-16 h-4" />
-            </div>
-          </div>
-          <div className="grid">
-            <div className="mt-6 justify-self-end">
-              <Button className="w-full sm:w-auto" size="lg">
-                <Skeleton className="w-20 h-6" />
-              </Button>
-            </div>
-          </div>
+           <Skeleton className="h-6 w-40" />
+           <Skeleton className="h-8 w-24 mt-6" />
+           <div className="mt-6 justify-self-end">
+              <Skeleton className="w-20 h-6" />
+           </div>
         </div>
       </div>
     </Card>
@@ -101,29 +66,56 @@ function CarCard({
   router,
   fobHistory,
   insuranceParams,
-  inspectionParams
+  inspectionParams,
+  clearingParams, // NEW PROP
+  deliveryParams  // NEW PROP
 }) {
+  // 1. Construct the URL Query String
   const qs = new URLSearchParams();
   if (countryParams) qs.set('country', countryParams);
   if (portParams) qs.set('port', portParams);
   if (inspectionParams === '1') qs.set('inspection', '1');
   if (insuranceParams === '1') qs.set('insurance', '1');
+  
+  // NEW: Add Clearing and Delivery to URL
+  if (clearingParams === '1') qs.set('clearing', '1');
+  if (deliveryParams) qs.set('delivery', deliveryParams);
+
   const href = qs.toString()
     ? `/product/${stockID}?${qs.toString()}`
     : `/product/${stockID}`;
 
-
-
   const safeViews = toInt(views, 0);
   const safeChatCount = toInt(chatCount, 0);
 
-  const { profitMap, inspectionToggle, insuranceToggle } = useSort();
+  // GET GLOBAL STATE FOR DISPLAY PRICE CALCULATION
+  const { 
+      profitMap, 
+      inspectionToggle, 
+      insuranceToggle, 
+      clearingToggle, 
+      clearingCost, 
+      deliveryCost 
+  } = useSort();
 
   const { selectedCurrency } = useCurrency();
   const imageUrl = thumbnailImage;
-  const basePrice = parseFloat(fobPrice) * parseFloat(currency.jpyToUsd);
-  const baseFinalPrice = (basePrice) + (parseFloat(dimensionCubicMeters) * parseFloat(profitMap));
-  const finalPrice = (((baseFinalPrice * selectedCurrency.value) + (inspectionToggle ? 300 : 0) + (insuranceToggle ? 50 : 0)));
+  
+  // Base Car Cost (USD)
+  const basePriceUSD = parseFloat(fobPrice) * parseFloat(currency.jpyToUsd);
+  
+  // Base Final Cost (USD) including Freight Profit
+  const baseFinalPriceUSD = (basePriceUSD) + (parseFloat(dimensionCubicMeters) * parseFloat(profitMap));
+
+  // Calculate Add-ons (USD)
+  const addonsUSD = 
+      (inspectionToggle ? 300 : 0) + 
+      (insuranceToggle ? 50 : 0) + 
+      (clearingToggle ? clearingCost : 0) + 
+      deliveryCost;
+
+  // Final Price displayed in Selected Currency
+  const finalPrice = (baseFinalPriceUSD + addonsUSD) * selectedCurrency.value;
 
   return (
     <Card key={stockID} className="w-full mx-auto border border-gray-200 rounded-lg shadow-lg">
@@ -132,7 +124,6 @@ function CarCard({
         <div
           className="
         relative
-       
         w-full
         h-[450px] 
         max-[650px]:w-full max-[650px]:h-[320px]               
@@ -141,16 +132,12 @@ function CarCard({
         max-[1023px]:w-[26rem]       
         max-[1023px]:h-auto      
         flex-shrink-0
-
       "
         >
+          {/* FIXED: Use the calculated `href` variable here too */}
           <Link
             onClick={() => handleViewDetailsClick(stockID)}
-            href={
-              countryParams && portParams
-                ? `/product/${stockID}?country=${countryParams}&port=${portParams}`
-                : `/product/${stockID}`
-            }
+            href={href} 
           >
             <Image
               src={imageUrl ? imageUrl : '/placeholder.jpg'}
@@ -219,8 +206,6 @@ function CarCard({
 
           </div>
 
-
-          {/* This line changed: use max-[425px] instead of max-[1024px] */}
           <div className="mt-6 flex flex-row justify-between max-[425px]:flex-col max-[425px]:space-y-4">
             <div>
               <div className="text-sm text-gray-500">FOB Price</div>
@@ -229,7 +214,7 @@ function CarCard({
                 <div className="flex justify-center">
                   <div className="text-3xl font-bold text-center">
                     <span className="text-sm">{selectedCurrency.symbol}</span>{' '}
-                    {Math.ceil(basePrice * selectedCurrency.value).toLocaleString()}
+                    {Math.ceil(basePriceUSD * selectedCurrency.value).toLocaleString()}
                   </div>
                 </div>
                 <SalesOffDisplay currency={currency} selectedCurrency={selectedCurrency} fobHistory={fobHistory} fobPrice={fobPrice} />
@@ -279,6 +264,7 @@ function CarCard({
 
           <div className="grid sm:w-full">
             <div className="mt-6 justify-self-stretch sm:justify-self-end">
+              {/* FIXED: Use the calculated href variable here */}
               <Link href={href} onClick={() => handleViewDetailsClick(stockID)}>
                 <Button className="flex items-center w-full sm:w-auto bg-[#0000ff] hover:bg-[#0000dd] font-semibold" size="lg">
                   <Eye className="text-white w-5 h-5" />
@@ -290,7 +276,6 @@ function CarCard({
         </div>
       </div>
     </Card>
-
   );
 }
 
@@ -298,14 +283,20 @@ function CarCard({
 export default function CarListings({ resultsIsFavorited, products, currency, country, port, userEmail }) {
   const router = useRouter()
   const searchParams = useSearchParams();
+  
+  // Read Existing Params
   const inspectionParam = searchParams.get('inspection') === '1' ? '1' : undefined;
   const insuranceParam = searchParams.get('insurance') === '1' ? '1' : undefined;
-
+  
+  // NEW: Read Clearing and Delivery Params from URL
+  const clearingParam = searchParams.get('clearing') === '1' ? '1' : undefined;
+  const deliveryParam = searchParams.get('delivery'); // returns string (e.g., "Lusaka") or null
 
   const { withPhotosOnly } = useSort();
   const filtered = products
     ?.filter(car => car.fobPriceNumber)
     .filter(car => !withPhotosOnly || (car.images?.length ?? 0) > 0);
+    
   const incrementView = httpsCallable(functions, 'incrementViewCounter')
   const handleViewDetailsClick = async (productId) => {
     const viewLoggedKey = `viewed_${productId}`;
@@ -320,11 +311,6 @@ export default function CarListings({ resultsIsFavorited, products, currency, co
       }
     }
   }
-
-
-
-
-
 
   return (
     <div className="space-y-4 p-2 mx-auto w-full">
@@ -343,8 +329,15 @@ export default function CarListings({ resultsIsFavorited, products, currency, co
             countryParams={country}
             portParams={port}
             userEmail={userEmail}
-            inspectionParams={inspectionParam}   // <-- NEW
+            
+            // Pass existing params
+            inspectionParams={inspectionParam}
             insuranceParams={insuranceParam}
+            
+            // Pass NEW params
+            clearingParams={clearingParam}
+            deliveryParams={deliveryParam}
+            
             resultsIsFavorited={resultsIsFavorited}
           />
         ))
@@ -361,7 +354,3 @@ export default function CarListings({ resultsIsFavorited, products, currency, co
     </div>
   );
 }
-
-
-
-

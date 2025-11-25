@@ -13,7 +13,8 @@ import { SignatureStep } from "./signature-step"
 import { ReviewStep } from "./review-step"
 import { functions } from "../../../../../firebase/clientApp"
 import { httpsCallable } from "firebase/functions"
-export default function PaymentModal({ invoiceNumber, carData, chatId, invoiceData, isOpen, onClose }) {
+export default function PaymentModal({ timestamp, invoiceNumber, carData, chatId, invoiceData, isOpen, onClose }) {
+    console.log(timestamp, 'timestamp inside payment modal')
     const reserveOrderIdFromInvoice = httpsCallable(functions, "reserveOrderIdFromInvoice");
     const createSignatureAndUpload = httpsCallable(functions, "createSignatureAndUpload");
     const [currentStep, setCurrentStep] = React.useState(1)
@@ -58,10 +59,44 @@ export default function PaymentModal({ invoiceNumber, carData, chatId, invoiceDa
         `Invoice No. RMJ-${invoiceNumber}\n\n${chassis}\n\n${model}\n\n${incot}\n\n${port}\n\nBuyer reviewed and agreed to conditions (refund/FX policy, no address change)`
 
     ].join("\n\n");
+    function formatTokyoLocal(ymdHmsMsStr) {
+        if (!ymdHmsMsStr) return '';
+        // Match: 2025/10/07 [anything/at] 14:23:45.678
+        const m = ymdHmsMsStr.match(
+            /(\d{4}\/\d{2}\/\d{2}).*?(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,6}))?/
+        );
+        if (!m) return ymdHmsMsStr; // fallback if unexpected format
+
+        const [, date, hh, mm, ss, msRaw = ''] = m;
+        const ms = msRaw ? msRaw.padStart(3, '0').slice(0, 3) : '000';
+        return `${date} at ${hh}:${mm}:${ss}.${ms}`;
+    }
 
     const handleSubmit = async ({ consent }) => {
         try {
             setIsSubmitting(true);
+
+            // ---------------------------------------------------------
+            // 1. Fetch Fresh Tokyo Time for the Timestamp
+            // ---------------------------------------------------------
+            let timestamp = new Date().toISOString(); // fallback
+            try {
+                const fetchJson = (url) => fetch(url).then(r => {
+                    if (!r.ok) throw new Error('Network response was not ok');
+                    return r.json();
+                });
+
+                // Fetch time from your API
+                const tokyoTimeData = await fetchJson("https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time");
+
+                // Format using the helper provided
+                if (tokyoTimeData && tokyoTimeData.datetime) {
+                    timestamp = formatTokyoLocal(tokyoTimeData.datetime);
+                }
+            } catch (error) {
+                console.warn("Failed to fetch fresh Tokyo time, using local fallback:", error);
+            }
+            // ---------------------------------------------------------
 
             const clientYear = new Date().getFullYear();
             const invNum = Number(invoiceNumber);
@@ -71,7 +106,7 @@ export default function PaymentModal({ invoiceNumber, carData, chatId, invoiceDa
             const norm2 = (n) => (Number(n || 0)).toFixed(2);
             const port = String(invoiceData?.discharge?.port || "Port of Dar es Salaam only");
 
-            // 1) Reserve order on chat (idempotent)
+            // 2) Reserve order on chat (idempotent)
             await reserveOrderIdFromInvoice({
                 chatId,
                 merchantInvoiceNumber: invNum,
@@ -79,7 +114,7 @@ export default function PaymentModal({ invoiceNumber, carData, chatId, invoiceDa
                 idempotencyKey: reserveIdemKey,
             });
 
-            // 2) Create signature (idempotent)
+            // 3) Create signature (idempotent)
             const sigRes = await createSignatureAndUpload({
                 chatId,
                 merchantInvoiceNumber: invNum,
@@ -122,7 +157,7 @@ export default function PaymentModal({ invoiceNumber, carData, chatId, invoiceDa
 
             const reference = orderId || `ORD-${clientYear}-${String(invNum).padStart(6, "0")}`;
 
-            // 3) Create/send PayPal invoice
+            // 4) Create/send PayPal invoice
             const res = await fetch("/api/paypal/create-invoice", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -139,7 +174,8 @@ export default function PaymentModal({ invoiceNumber, carData, chatId, invoiceDa
                     invoiceNumber: String(invNum).padStart(6, "0"),
                     forceNew: true,                                // ← set true if you expect a NEW invoice each time
                     retryToken: signatureIdemKey,                  // helps server keep the same new number on retries
-                    chatId,                                        // optional, for server logging
+                    chatId,                                        // Passed for server logging
+                    timestamp,                                     // Passed: "YYYY/MM/DD at HH:mm:ss.sss"
                 }),
                 cache: "no-store",
             });
@@ -147,39 +183,43 @@ export default function PaymentModal({ invoiceNumber, carData, chatId, invoiceDa
             const data = await res.json();
 
             if (data?.ok && data?.hostedUrl) {
-                // 3.5) Pin the NEW URL/ids to the chat using a DIFFERENT key, so it actually writes
-                const pinIdemKey = `${reserveIdemKey}:pin:${data.invoiceId}`;  // ← different key
+
+                // --- TRY TO OPEN POPUP (No blank page first) ---
+                const popup = window.open(data.hostedUrl, "_blank", "noopener,noreferrer");
+                if (popup) popup.focus();
+                // -----------------------------------------------
+
+                // 3.5) Pin the NEW URL/ids to the chat
+                const pinIdemKey = `${reserveIdemKey}:pin:${data.invoiceId}`;
                 await reserveOrderIdFromInvoice({
                     chatId,
                     merchantInvoiceNumber: invNum,
                     clientYear,
-                    idempotencyKey: pinIdemKey,                   // ← not the same as the first call
+                    idempotencyKey: pinIdemKey,
                     paypalInvoiceId: data.invoiceId,
                     hostedUrl: data.hostedUrl,
                     paypalInvoiceNumber: data.paypalInvoiceNumber,
                     status: "awaiting_payment",
                 });
 
-                // 4) Open the *current* payer link
-                window.open(data.hostedUrl, "_blank", "noopener,noreferrer");
+                // Close modal (no alerts)
+                onClose();
+
             } else if (res.status === 409) {
-                alert("This signature already has a PAID invoice. Create a new signature to issue a new invoice.");
+                console.warn("Invoice conflict: This signature already has a PAID invoice.");
             } else {
                 console.error("Invoice error:", data);
-                alert(data?.error || data?.message || "Failed to create/send invoice.");
             }
 
             setCurrentStep(1);
             setPaymentData({ email: "", signature: "" });
-            onClose();
+
         } catch (err) {
             console.error("Payment submit failed:", err);
         } finally {
             setIsSubmitting(false);
         }
     };
-
-
 
 
 
@@ -200,7 +240,7 @@ export default function PaymentModal({ invoiceNumber, carData, chatId, invoiceDa
                 }
             }}
         >
-            <DialogContent className="max-w-lg p-0 gap-0 max-h-[90vh] overflow-hidden">
+            <DialogContent className="max-w-lg p-0 gap-0 max-h-[90vh] overflow-hidden min-h-0">
                 {/* A11y-only header to satisfy DialogContent requirement */}
                 <DialogHeader className="sr-only">
                     <DialogTitle>Complete Payment</DialogTitle>
@@ -209,7 +249,7 @@ export default function PaymentModal({ invoiceNumber, carData, chatId, invoiceDa
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="flex flex-col h-full">
+                <div className="flex flex-col max-h-[90vh]">
 
                     <div className="border-b border-border bg-muted/30 px-6 py-3 pr-12">
                         <div className="flex items-center justify-between mb-2">
@@ -227,8 +267,8 @@ export default function PaymentModal({ invoiceNumber, carData, chatId, invoiceDa
                         </div>
                     </div>
 
-                    {/* Step content */}
-                    <div className="flex-1 overflow-y-auto">
+                    {/* Step content: make this the scroll container so each step's buttons scroll into view */}
+                    <div className="flex-1 overflow-y-auto min-h-0">
                         {currentStep === 1 && (
                             <EmailStep
                                 onComplete={handleEmailComplete}

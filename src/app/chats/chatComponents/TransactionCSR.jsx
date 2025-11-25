@@ -834,7 +834,7 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
                                                 </p>
                                                 <div className={`mt-2 flex justify-${message.sender === userEmail ? "end" : "start"}`}>
 
-                                                    <PreviewInvoice userEmail={userEmail} chatId={chatId} accountData={accountData} selectedChatData={contact} invoiceData={invoiceData} />
+                                                    <PreviewInvoice tokyoTime={tokyoTime} ipInfo={ipInfo} userEmail={userEmail} chatId={chatId} accountData={accountData} selectedChatData={contact} invoiceData={invoiceData} />
                                                 </div>
                                             </>
 
@@ -861,7 +861,7 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
                                                 >
                                                     {renderTextWithLinks(message.text)}
                                                 </p>
-                                                <PayPalInvoiceBlock chatId={chatId} invoiceNumber={contact?.invoiceNumber} carData={contact?.carData} invoiceData={invoiceData} renderTextWithLinks={renderTextWithLinks} message={message} userEmail={userEmail} />
+                                                <PayPalInvoiceBlock tokyoTime={tokyoTime} chatId={chatId} invoiceNumber={contact?.invoiceNumber} carData={contact?.carData} invoiceData={invoiceData} renderTextWithLinks={renderTextWithLinks} message={message} userEmail={userEmail} />
                                             </>
 
                                         )}

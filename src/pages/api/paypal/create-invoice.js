@@ -3,8 +3,6 @@ export default async function handler(req, res) {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Method Not Allowed" });
   }
-  //helper
-  // helper: clamp text length safely
 
   try {
     const {
@@ -18,6 +16,8 @@ export default async function handler(req, res) {
       allowPartial = false,
       minPartialValue,
       forceNew = false,      // <<< set true to always mint a fresh invoice number
+      chatId,                // <<< NEW: chat ID for logging/messaging
+      timestamp,             // <<< NEW: timestamp from parent component
     } = req.body || {};
 
 
@@ -180,6 +180,63 @@ export default async function handler(req, res) {
 
     if (!hostedUrl) hostedUrl = buildHostedPayerUrl(invoiceId);
 
+    // =====================================================
+    // NEW LOGIC: Add System Message to Chat
+    // =====================================================
+    if (chatId) {
+      // Use parent timestamp if available, else server-side time (ISO string)
+      // This ensures message is sent even if parent didn't pass timestamp prop.
+      const msgTimestamp = timestamp || new Date().toISOString();
+
+      try {
+        const admin = (await import("firebase-admin")).default;
+        if (!admin.apps.length) admin.initializeApp();
+        const db = admin.firestore();
+
+        console.log("[PayPal] Posting message to chat:", chatId);
+
+        const messageText = 
+          "The PayPal invoice has been made.\n\n" + 
+          "If popup fails please kindly check your email to see the invoice for paypal we have sent to you.";
+
+        const msg = {
+          sender: "system@paypal-webhook",
+          text: messageText,
+          timestamp: msgTimestamp,
+          ip: "",
+          ipCountry: "Japan",
+          ipCountryCode: "JP",
+        };
+
+        // 1) Add message to chat messages subcollection
+        await db
+          .collection("chats")
+          .doc(chatId)
+          .collection("messages")
+          .doc()
+          .set(msg);
+
+        // 2) Update only basic chat summary
+        const chatRef = db.doc(`chats/${chatId}`);
+        await chatRef.set(
+          {
+            lastMessage: msg.text,
+            lastMessageDate: msg.timestamp,
+            lastMessageSender: msg.sender,
+            lastMessageSenderId: "system",
+            read: false,
+            readBy: [],
+          },
+          { merge: true }
+        );
+        console.log("[PayPal] Chat message posted successfully.");
+      } catch (msgErr) {
+        console.error("[PayPal] Failed to post system message:", msgErr);
+        // We don't fail the request if messaging fails
+      }
+    }
+    // =====================================================
+
     return res.status(200).json({
       ok: true,
       invoiceId,
@@ -188,6 +245,7 @@ export default async function handler(req, res) {
       existingStatus,                     // for UI (SENT/DRAFT/PAID…)
     });
   } catch (e) {
+    console.error("[create-invoice] Error:", e);
     return res.status(500).json({ ok: false, stage: "server", error: String(e?.message || e) });
   }
 }

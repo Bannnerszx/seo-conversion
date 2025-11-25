@@ -99,17 +99,28 @@ export async function middleware(request) {
 
   // 3) SSR-safe stock filters persistence for /stock/**
   if (pathname.startsWith('/stock')) {
+    // Existing checks
     const hasCountry = url.searchParams.has('country')
     const hasPort = url.searchParams.has('port')
     const hasInspection = url.searchParams.has('inspection')
     const hasInsurance = url.searchParams.has('insurance')
+    
+    // NEW: Check for Clearing and Delivery params
+    const hasClearing = url.searchParams.has('clearing')
+    const hasDelivery = url.searchParams.has('delivery')
 
+    // Existing cookies
     const cookieCountry = cookies.get('stock_country')?.value
     const cookiePort = cookies.get('stock_port')?.value
-    const cookieInspection = cookies.get('stock_inspection')?.value // "1" or "0"
-    const cookieInsurance = cookies.get('stock_insurance')?.value // "1" or "0"
+    const cookieInspection = cookies.get('stock_inspection')?.value 
+    const cookieInsurance = cookies.get('stock_insurance')?.value 
+    
+    // NEW: Get Clearing and Delivery cookies
+    const cookieClearing = cookies.get('stock_clearing')?.value // "1" or "0"
+    const cookieDelivery = cookies.get('stock_delivery')?.value // "CityName"
 
     let mutated = false
+
     if (!hasCountry && cookieCountry) {
       url.searchParams.set('country', cookieCountry)
       mutated = true
@@ -124,6 +135,18 @@ export async function middleware(request) {
     }
     if (!hasInsurance && cookieInsurance === '1') {
       url.searchParams.set('insurance', '1')
+      mutated = true
+    }
+
+    // NEW: Apply persistence for Clearing
+    if (!hasClearing && cookieClearing === '1') {
+      url.searchParams.set('clearing', '1')
+      mutated = true
+    }
+
+    // NEW: Apply persistence for Delivery (City Name)
+    if (!hasDelivery && cookieDelivery) {
+      url.searchParams.set('delivery', cookieDelivery)
       mutated = true
     }
 
@@ -204,9 +227,6 @@ export async function middleware(request) {
     return NextResponse.redirect(new URL('/stock', origin))
   }
 
-
-
   // Allow the request to continue
   return NextResponse.next()
 }
-

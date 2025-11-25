@@ -4,7 +4,7 @@ import CarListings from "../stockComponents/CarListings";
 import SearchHeader from "../stockComponents/Pagination";
 import { Search } from "lucide-react";
 import { fetchCarMakes, fetchVehicleProductsByPage, fetchCarBodytype, fetchCountries, fetchCurrency } from "../../../../services/fetchFirebaseData";
-import { fetchChatCountForVehicle, isFavorited } from "@/app/actions/actions";
+import { fetchChatCountForVehicle, fetchD2DCountries, isFavorited } from "@/app/actions/actions";
 import { SortProvider } from "../stockComponents/sortContext";
 import CarFilter from "../stockComponents/CarFilter";
 import { notFound } from "next/navigation";
@@ -229,6 +229,7 @@ export default async function StockPage({ params, searchParams }) {
     const recommendedUrl = filters.includes('recommended')
     const saleUrl = filters.includes('sale');
     const context = 'query';
+    const D2DCountries = await fetchD2DCountries()
 
     return (
         <SortProvider>
@@ -253,6 +254,7 @@ export default async function StockPage({ params, searchParams }) {
                             port={port}
                             recommendedUrl={recommendedUrl}
                             saleUrl={saleUrl}
+                            d2dCountries={D2DCountries}
                         />
                     </BannerAwareAside>
                     <div className="w-full">
@@ -278,6 +280,7 @@ export default async function StockPage({ params, searchParams }) {
 
 
                         <SearchHeader
+                            d2dCountries={D2DCountries}
                             context={context}
                             totalCount={totalCount}
                             initialLimit={Number(limit)}

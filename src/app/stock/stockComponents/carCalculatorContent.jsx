@@ -1,148 +1,237 @@
-import React from 'react';
-import { Card } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
+"use client"
+
+import React, { useState, useEffect, useRef } from 'react';
+import { Calculator, MapPin, Check, X } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
-import { useState, useEffect, useRef } from "react"
-import { useSearchParams } from 'next/navigation';
-import { Select, SelectTrigger, SelectItem, SelectValue, SelectContent } from "@/components/ui/select"
-import { Icon, Calculator } from 'lucide-react';
-import { usePathname } from "next/navigation"
-import { useRouter } from "@bprogress/next"
-import { useSort } from "./sortContext"
-import { useInspectionToggle } from "@/app/product/productComponents/inspectionToggle"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { cn } from "@/lib/utils";
+import { useSearchParams, usePathname } from 'next/navigation';
+import { useRouter } from "@bprogress/next";
+import { useSort } from "./sortContext";
+import { useInspectionToggle } from "@/app/product/productComponents/inspectionToggle";
+import { fetchInspectionPrice } from "@/app/actions/actions"; 
 
-const Dropdown = ({ placeholder, options, value, onChange, containerRef }) => {
-    return (
-        <div className="relative inline-block w-full">
-            <Select value={decodeURIComponent(value)} onValueChange={onChange}>
-                <SelectTrigger className="py-[20px] w-full border-blue-200 focus:border-blue-500 focus:ring-blue-500 hover:border-blue-400 transition-colors">
-                    <SelectValue placeholder={placeholder} />
-                </SelectTrigger>
-                <SelectContent container={containerRef.current} className="z-[9004]">
-                    {options.map((option, index) => (
-                        <SelectItem key={index} value={option.value}>
-                            {option.label}
-                        </SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-        </div>
-    )
-}
-export default function PriceCalculatorCard({ countryArray, context, onClose }) {
+export default function PriceCalculatorCard({ countryArray, d2dCountries = [], context, onClose }) {
     const searchParams = useSearchParams();
-    const [pendingUrlPort, setPendingUrlPort] = useState(null);
-    const [pendingUrlInspection, setPendingUrlInspection] = useState(null);
-    const [didHydrateInspectionFromUrl, setDidHydrateInspectionFromUrl] = useState(false);
-    const [pendingUrlInsurance, setPendingUrlInsurance] = useState(null);  // null | boolean
-    const [didHydrateInsuranceFromUrl, setDidHydrateInsuranceFromUrl] = useState(false);
-
-    const userSetInsuranceRef = useRef(false);
-    const preferUrlInspectionRef = useRef(false);
-    const preferUrlInsuranceRef = useRef(false);
-    const containerRef = useRef(null)
-    const router = useRouter()
+    const router = useRouter();
     const pathname = usePathname();
-    const { setProfitMap, setInspectionToggle, inspectionToggle, setInsuranceToggle, insuranceToggle } = useSort();
-    const [ports, setPorts] = useState([])
+    const containerRef = useRef(null);
+
+    // =========================================================================
+    // 1. GLOBAL CONTEXT
+    // =========================================================================
+    const {
+        setProfitMap,
+        setInspectionToggle,
+        inspectionToggle,
+        setInsuranceToggle,
+        insuranceToggle,
+        clearingToggle, setClearingToggle,
+        setClearingCost,
+        deliveryCost, setDeliveryCost
+    } = useSort();
+
+    // =========================================================================
+    // 2. LOCAL STATE
+    // =========================================================================
+    const [ports, setPorts] = useState([]);
     const [selectedCountry, setSelectedCountry] = useState('');
     const [dropdownValuesLocations, setDropdownValuesLocations] = useState({
         'Select Country': 'none',
         'Select Port': 'none',
-    })
+    });
 
+    // D2D & Delivery
+    const [d2dMatch, setD2dMatch] = useState(null);
+    const [d2dCities, setD2dCities] = useState([]);
+    const [loadingCities, setLoadingCities] = useState(false);
+    const [city, setCity] = useState(""); 
+    const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
+    
+    // Hydration
+    const [pendingUrlPort, setPendingUrlPort] = useState(null);
+    const [pendingUrlInspection, setPendingUrlInspection] = useState(null);
+    const [didHydrateInspectionFromUrl, setDidHydrateInspectionFromUrl] = useState(false);
+    const [pendingUrlInsurance, setPendingUrlInsurance] = useState(null);
+    const [didHydrateInsuranceFromUrl, setDidHydrateInsuranceFromUrl] = useState(false);
+    
+    const [didHydrateClearing, setDidHydrateClearing] = useState(false);
+    const [didHydrateDelivery, setDidHydrateDelivery] = useState(false);
+
+    // Refs
+    const preferUrlInspectionRef = useRef(false);
+    const preferUrlInsuranceRef = useRef(false);
+    const userSetInspectionRef = useRef(false);
+
+    const selectedPort = dropdownValuesLocations["Select Port"];
+    const { inspectionData } = useInspectionToggle(dropdownValuesLocations);
+    const isInspectionRequired = inspectionData?.inspectionIsRequired === "Required";
+    
+    const [inspectionPrice, setInspectionPrice] = useState('');
+    
     useEffect(() => {
-        if (!selectedCountry) {
-            setPorts([])
-            return
-        }
+        if (!inspectionData?.inspectionName) return;
+        const getInspectionPrice = async () => {
+            try {
+                const price = await fetchInspectionPrice(inspectionData?.inspectionName);
+                setInspectionPrice(price);
+            } catch (error) {
+                console.error('Error fetching inspection price:', error);
+            }
+        };
+        getInspectionPrice();
+    }, [inspectionData?.inspectionName]);
 
+    const inspectionAddOn = Number(inspectionPrice ?? 300) || 300;
+
+    // =========================================================================
+    // 3. HELPERS
+    // =========================================================================
+
+    const setPersist = (k, v) => {
+        if (typeof document !== 'undefined') {
+            document.cookie = `${k}=${encodeURIComponent(v)}; path=/; max-age=31536000`;
+            localStorage.setItem(k, v);
+        }
+    };
+
+    const clearPersist = (k) => {
+        if (typeof document !== 'undefined') {
+            document.cookie = `${k}=; path=/; max-age=0`;
+            localStorage.removeItem(k);
+        }
+    };
+
+    const updateUrlParam = (key, value, explicitSaveValue = null) => {
+        const params = new URLSearchParams(window.location.search);
+
+        if (value) {
+            const valToSave = explicitSaveValue || '1';
+            params.set(key, valToSave);
+            setPersist(`stock_${key}`, valToSave);
+        } else {
+            params.delete(key);
+            clearPersist(`stock_${key}`);
+        }
+        
+        const q = params.toString();
+        router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
+    };
+
+    // =========================================================================
+    // 4. EFFECTS
+    // =========================================================================
+
+    // D2D Match & Reset Logic
+    useEffect(() => {
+        if (didHydrateClearing && didHydrateDelivery) {
+             if (selectedCountry && d2dCountries.length > 0) {
+                 const match = d2dCountries.find(
+                     (d2d) => d2d.name === selectedCountry || d2d.id === selectedCountry
+                 );
+                 setD2dMatch(match || null);
+                 
+                 if (match) {
+                     setClearingCost(Number(match.clearingPrice) || 0);
+                 } else {
+                     // Reset everything atomically
+                     const params = new URLSearchParams(window.location.search);
+                     let changed = false;
+
+                     if(clearingToggle) { params.delete('clearing'); clearPersist('stock_clearing'); changed = true; }
+                     if(city) { params.delete('delivery'); clearPersist('stock_delivery'); changed = true; }
+
+                     setClearingCost(0);
+                     setClearingToggle(false);
+                     setCity("");
+                     setDeliveryCost(0);
+
+                     if(changed) {
+                         const q = params.toString();
+                         router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
+                     }
+                 }
+             } else {
+                 setD2dMatch(null);
+                 setClearingCost(0);
+                 setClearingToggle(false);
+                 setCity("");
+                 setDeliveryCost(0);
+             }
+        } else {
+             if (selectedCountry && d2dCountries.length > 0) {
+                 const match = d2dCountries.find(
+                     (d2d) => d2d.name === selectedCountry || d2d.id === selectedCountry
+                 );
+                 setD2dMatch(match || null);
+                 if (match) setClearingCost(Number(match.clearingPrice) || 0);
+             }
+        }
+    }, [selectedCountry, d2dCountries, setClearingCost, setClearingToggle, setDeliveryCost, didHydrateClearing, didHydrateDelivery]);
+
+    // Fetch Cities
+    useEffect(() => {
+        if (d2dMatch?.id) {
+            setLoadingCities(true);
+            fetch(`/api/d2d-cities?countryId=${d2dMatch.id}`)
+                .then(res => res.json())
+                .then(data => {
+                    setD2dCities(data.cities || []);
+                })
+                .catch(err => {
+                    console.error("Error fetching cities:", err);
+                    setD2dCities([]);
+                })
+                .finally(() => setLoadingCities(false));
+        } else {
+            setD2dCities([]);
+        }
+    }, [d2dMatch]);
+
+    // Delivery Cost
+    useEffect(() => {
+        if (!city || !d2dCities.length) {
+            setDeliveryCost(0);
+            return;
+        }
+        const selectedCityData = d2dCities.find(c => (c.name || c.id).toLowerCase() === city.toLowerCase());
+        if (selectedCityData) {
+            setDeliveryCost(Number(selectedCityData.deliveryPrice) || 0);
+        } else {
+            setDeliveryCost(0);
+        }
+    }, [city, d2dCities, setDeliveryCost]);
+
+    // Fetch Ports
+    useEffect(() => {
+        if (!selectedCountry || selectedCountry === 'none') {
+            setPorts([]);
+            return;
+        }
         const getPorts = async () => {
             try {
-                const res = await fetch(
-                    `/api/ports?ports=${encodeURIComponent(selectedCountry)}`
-                )
-                if (!res.ok) throw new Error(res.statusText)
-                const data = await res.json()
-                setPorts(Array.isArray(data.ports) ? data.ports : [])
+                const res = await fetch(`/api/ports?ports=${encodeURIComponent(selectedCountry)}`);
+                if (!res.ok) throw new Error(res.statusText);
+                const data = await res.json();
+                setPorts(Array.isArray(data.ports) ? data.ports : []);
             } catch (err) {
-                console.error('Error fetching ports:', err)
-                setPorts([])
+                console.error('Error fetching ports:', err);
+                setPorts([]);
             }
-        }
-        getPorts()
-    }, [selectedCountry])
+        };
+        getPorts();
+    }, [selectedCountry]);
 
-    // 2) Build your dropdown groups
-    const dropdownGroupsLocations = [
-        [
-            {
-                placeholder: 'Select Country',
-                options: [
-                    { value: 'none', label: 'Select Country' },
-                    ...countryArray?.map((c) => ({
-                        value: c,
-                        label: c === 'D_R_Congo' ? 'D.R. Congo' : c,
-                    })),
-                ],
-            },
-            {
-                placeholder: 'Select Port',
-                options: [
-                    { value: 'none', label: 'Select Port' },
-                    ...(ports.length > 0
-                        ? ports.map((port) => ({
-                            value: port.replace(/\./g, '_'),
-                            label: port,
-                        }))
-                        : [{ value: 'Others', label: 'Others' }]),
-                ],
-            },
-        ],
-    ];
-    const selectedPort = dropdownValuesLocations["Select Port"]
-    const { inspectionData } = useInspectionToggle(dropdownValuesLocations);
-    const isRequired = inspectionData?.inspectionIsRequired === "Required";
-    useEffect(() => {
-        // 1) Force on if required by port
-        if (isRequired) {
-            setInspectionToggle(true);
-            return;
-        }
-
-        // 2) If URL contains an inspection value, honor it (don’t overwrite)
-        if (preferUrlInspectionRef.current && pendingUrlInspection !== null) {
-            setInspectionToggle(!!pendingUrlInspection);
-            return;
-        }
-
-        // 3) If the user manually toggled, don’t auto-override anymore
-        if (userSetInspectionRef.current) return;
-
-        // 4) Otherwise fall back to inspectionData or false
-        if (typeof inspectionData?.toggle === 'boolean') {
-            setInspectionToggle(inspectionData.toggle);
-        } else {
-            setInspectionToggle(false);
-        }
-    }, [isRequired, pendingUrlInspection, inspectionData?.toggle, setInspectionToggle]);
+    // Fetch Profit Map
     useEffect(() => {
         const getPortInspection = async () => {
-            // More comprehensive check for invalid values
-            if (
-                selectedPort === undefined ||
-                selectedPort === null ||
-                selectedPort === 'none' ||
-                (typeof selectedPort === 'string' && selectedPort.trim() === '')
-            ) {
+            if (!selectedPort || selectedPort === 'none' || selectedPort.trim() === '') {
                 setProfitMap('');
-                console.log("Skipping API call for invalid selectedPort:", selectedPort);
                 return;
             }
-
             try {
-                console.log("Making API call for selectedPort:", selectedPort);
                 const res = await fetch(`/api/inspection?selectedPort=${encodeURIComponent(selectedPort)}`);
                 const data = await res.json();
                 setProfitMap(data?.portsInspection?.profitPrice);
@@ -150,408 +239,252 @@ export default function PriceCalculatorCard({ countryArray, context, onClose }) 
                 console.error("Error fetching port data:", error);
             }
         };
-
-        // Only run the effect if component is mounted
         getPortInspection();
-    }, [selectedPort])
-    // Add this useEffect to sync URL insurance to state
+    }, [selectedPort, setProfitMap]);
+
+    // URL Sync & Hydration
     useEffect(() => {
-        // If URL has insurance value and we haven't hydrated yet, apply it
-        if (!didHydrateInsuranceFromUrl && pendingUrlInsurance !== null) {
-            setInsuranceToggle(!!pendingUrlInsurance);
-            setDidHydrateInsuranceFromUrl(true);
-        }
-    }, [pendingUrlInsurance, didHydrateInsuranceFromUrl, setInsuranceToggle]);
-    const handleDropdownChangeLocation = (placeholder, value) => {
-        // update the individual dropdown’s value
-        setDropdownValuesLocations((prev) => ({
-            ...prev,
-            [placeholder]: value,
-        }))
-
-        if (placeholder === 'Select Country') {
-            // when country changes, update selectedCountry (and reset the port dropdown)
-            setSelectedCountry(value === 'none' ? '' : value)
-            setDropdownValuesLocations((prev) => ({
-                ...prev,
-                'Select Port': 'none',
-            }))
-        }
-    };
-
-
-    const userSetInspectionRef = useRef(false);
-    const handleSubmit = async (e) => {
-        e?.preventDefault?.();
-        onClose();
-
-        const response = await fetch('/api/country-port-selection', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ country: selectedCountry, port: selectedPort }),
-        });
-
-        const result = await response.json();
-
-        const params = new URLSearchParams(window.location.search);
-
-        const setPersist = (k, v) => {
-            document.cookie = `${k}=${encodeURIComponent(v)}; path=/; max-age=31536000`;
-            localStorage.setItem(k, v);
-        };
-        const clearPersist = (k) => {
-            document.cookie = `${k}=; path=/; max-age=0`;
-            localStorage.removeItem(k);
-        };
-
-        // country
-        if (result.country && result.country.toLowerCase() !== 'none') {
-            params.set('country', result.country);
-            setPersist('stock_country', result.country);
-        } else {
-            params.delete('country');
-            clearPersist('stock_country');
-        }
-
-        // port
-        if (result.port && result.port.toLowerCase() !== 'none') {
-            params.set('port', result.port);
-            setPersist('stock_port', result.port);
-        } else {
-            params.delete('port');
-            clearPersist('stock_port');
-        }
-
-        // inspection (required or user-toggled)
-        if (isRequired || inspectionToggle) {
-            params.set('inspection', '1');
-            setPersist('stock_inspection', '1');
-        } else {
-            params.delete('inspection');
-            clearPersist('stock_inspection');
-        }
-
-        // 🔐 insurance (persist like inspection)
-        if (insuranceToggle) {
-            params.set('insurance', '1');
-            setPersist('stock_insurance', '1');
-        } else {
-            params.delete('insurance');
-            clearPersist('stock_insurance');
-        }
-
-        const finalQuery = params.toString();
-        const finalUrl = finalQuery ? `${pathname}?${finalQuery}` : pathname;
-        router.replace(finalUrl, { scroll: false });
-    };
-
-    useEffect(() => {
-        // already reading country/port...
         const urlCountry = searchParams?.get('country');
         const urlPortRaw = searchParams?.get('port');
-
         const urlInspectionRaw = searchParams?.get('inspection');
-        const urlInsuranceRaw = searchParams?.get('insurance');  // <-- NEW
+        const urlInsuranceRaw = searchParams?.get('insurance');
+        const urlClearingRaw = searchParams?.get('clearing');
+        const urlDeliveryRaw = searchParams?.get('delivery');
 
-        // country (existing)
         if (urlCountry && urlCountry.toLowerCase() !== 'none') {
             setSelectedCountry(urlCountry);
             setDropdownValuesLocations(prev => ({ ...prev, 'Select Country': urlCountry }));
-        } else if (urlCountry === 'none' || urlCountry === '' || urlCountry === null) {
-            setSelectedCountry('');
-            setDropdownValuesLocations(prev => ({ ...prev, 'Select Country': 'none' }));
         }
-
-        // port (existing)
         if (urlPortRaw && urlPortRaw.toLowerCase() !== 'none') {
             setPendingUrlPort(urlPortRaw);
-        } else if (urlPortRaw === 'none' || urlPortRaw === '' || urlPortRaw === null) {
-            setDropdownValuesLocations(prev => ({ ...prev, 'Select Port': 'none' }));
         }
 
-        // ---- inspection (existing logic) ----
         if (urlInspectionRaw !== null) {
             const val = /^(1|true|on|yes)$/i.test(urlInspectionRaw);
             setPendingUrlInspection(val);
             preferUrlInspectionRef.current = true;
             setDidHydrateInspectionFromUrl(false);
-        } else {
-            preferUrlInspectionRef.current = false;
         }
-
-        // ---- insurance (NEW: immediate hydrate) ----
         if (urlInsuranceRaw !== null) {
             const val = /^(1|true|on|yes)$/i.test(urlInsuranceRaw);
-            setPendingUrlInsurance(val);               // stage it
-            preferUrlInsuranceRef.current = true;
-            setDidHydrateInsuranceFromUrl(false);      // allow one-time hydrate
-        } else {
-            preferUrlInsuranceRef.current = false;
-            setPendingUrlInsurance(null);
+            setPendingUrlInsurance(val);
+            setDidHydrateInsuranceFromUrl(false);
+        }
+
+        if (urlClearingRaw !== null && !didHydrateClearing) {
+            const val = /^(1|true|on|yes)$/i.test(urlClearingRaw);
+            setClearingToggle(val);
+            setDidHydrateClearing(true);
+        } else if (!didHydrateClearing) {
+            setDidHydrateClearing(true);
+        }
+
+        if (urlDeliveryRaw !== null && !didHydrateDelivery) {
+            setCity(urlDeliveryRaw);
+            setDidHydrateDelivery(true);
+        } else if (!didHydrateDelivery) {
+            setDidHydrateDelivery(true);
         }
     }, [searchParams]);
 
+    // Apply Pending Port
     useEffect(() => {
-        if (!pendingUrlPort) return;
-        if (!Array.isArray(ports) || ports.length === 0) return;
-
+        if (!pendingUrlPort || !ports.length) return;
         const normalize = (p) => p.replace(/\./g, '_');
         const wanted = normalize(pendingUrlPort);
-
         const exists = ports.some((p) => normalize(p).toLowerCase() === wanted.toLowerCase());
-
         setDropdownValuesLocations((prev) => ({
             ...prev,
-            'Select Port': exists ? wanted : 'Others', // fallback if not found
+            'Select Port': exists ? wanted : 'Others',
         }));
-
         setPendingUrlPort(null);
     }, [ports, pendingUrlPort]);
 
-    const calcContent = (
-        <>
-            <Card className="p-6 shadow-lg ">
-                <h3 className="font-semibold text-lg mb-6 flex items-center">
-                    <Calculator className="w-5 h-5 mr-2 text-blue-600" />
-                    Price Calculator
-                </h3>
+    // Inspection Logic
+    useEffect(() => {
+        if (isInspectionRequired) {
+            setInspectionToggle(true);
+            return;
+        }
+        if (preferUrlInspectionRef.current && pendingUrlInspection !== null) {
+            setInspectionToggle(!!pendingUrlInspection);
+            return;
+        }
+        if (userSetInspectionRef.current) return;
 
-                <div className="space-y-2">
-                    <div>
-                        {dropdownGroupsLocations.map((group, groupIndex) => (
-                            <div key={groupIndex} className="space-y-2">
-                                {group.map((dropdown, index) => (
-                                    <div key={index}>
-                                        <Label className="text-sm font-medium mb-2 block">
-                                            {dropdown.placeholder === "Select Country" ? "Country" : "Port"}
-                                        </Label>
-                                        <Dropdown
-                                            containerRef={containerRef}
-                                            placeholder={dropdown.placeholder}
-                                            options={dropdown.options}
-                                            value={dropdownValuesLocations[dropdown.placeholder] || ""}
-                                            onChange={(value) => handleDropdownChangeLocation(dropdown.placeholder, value)}
-                                        />
-                                    </div>
-                                ))}
-                            </div>
-                        ))}
-                    </div>
+        if (typeof inspectionData?.toggle === 'boolean') {
+            setInspectionToggle(inspectionData.toggle);
+        } else {
+            setInspectionToggle(false);
+        }
+    }, [isInspectionRequired, pendingUrlInspection, inspectionData?.toggle, setInspectionToggle]);
 
-                    <div className="space-y-2 pt-4 border-blue-200">
-                        <div className="flex items-center justify-between">
-                            <Label htmlFor="inspection" className="text-sm font-medium text-blue-800">
-                                Inspection
-                            </Label>
-                            <Switch
-                                id="inspection"
-                                checked={isRequired ? true : inspectionToggle}
-                                disabled={inspectionData?.isToggleDisabled || isRequired}
-                                onCheckedChange={(checked) => {
-                                    if (!isRequired) {
-                                        userSetInspectionRef.current = true;
-                                        setInspectionToggle(checked);
+    // Insurance Hydration
+    useEffect(() => {
+        if (!didHydrateInsuranceFromUrl && pendingUrlInsurance !== null) {
+            setInsuranceToggle(!!pendingUrlInsurance);
+            setDidHydrateInsuranceFromUrl(true);
+        }
+    }, [pendingUrlInsurance, didHydrateInsuranceFromUrl, setInsuranceToggle]);
 
-                                        // keep URL + cookies/localStorage in sync
-                                        const params = new URLSearchParams(window.location.search);
-                                        const setPersist = (k, v) => {
-                                            document.cookie = `${k}=${encodeURIComponent(v)}; path=/; max-age=31536000`;
-                                            localStorage.setItem(k, v);
-                                        };
-                                        const clearPersist = (k) => {
-                                            document.cookie = `${k}=; path=/; max-age=0`;
-                                            localStorage.removeItem(k);
-                                        };
+    // =========================================================================
+    // 5. HANDLERS
+    // =========================================================================
 
-                                        if (checked) {
-                                            params.set('inspection', '1');
-                                            setPersist('stock_inspection', '1');
-                                        } else {
-                                            params.delete('inspection');
-                                            clearPersist('stock_inspection');
-                                        }
+    const handleCountryChange = (value) => {
+        setSelectedCountry(value);
+        setDropdownValuesLocations({
+            'Select Country': value,
+            'Select Port': 'none'
+        });
+        
+        // PERSIST COUNTRY:
+        updateUrlParam('country', true, value);
+        // Reset port param
+        updateUrlParam('port', false);
+    };
 
-                                        const q = params.toString();
-                                        router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
-                                    }
-                                }}
-                                className="data-[state=checked]:bg-blue-600"
-                            />
+    const handlePortChange = (value) => {
+        setDropdownValuesLocations(prev => ({
+            ...prev,
+            'Select Port': value
+        }));
+        
+        // PERSIST PORT:
+        updateUrlParam('port', true, value);
+    };
 
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <Label htmlFor="insurance" className="text-sm font-medium text-blue-800">
-                                Insurance
-                            </Label>
-                            <Switch
-                                id="insurance"
-                                checked={!!insuranceToggle}        // keep it controlled
-                                onCheckedChange={(checked) => {
-                                    // 1) update state
-                                    setInsuranceToggle(checked);
+    const handleCityChange = (value) => {
+        setCity(value);
+        updateUrlParam('delivery', true, value);
+        setIsDeliveryModalOpen(false); 
+    };
 
-                                    // 2) persist to cookie + localStorage
-                                    const params = new URLSearchParams(window.location.search);
-                                    const setPersist = (k, v) => {
-                                        document.cookie = `${k}=${encodeURIComponent(v)}; path=/; max-age=31536000`;
-                                        localStorage.setItem(k, v);
-                                    };
-                                    const clearPersist = (k) => {
-                                        document.cookie = `${k}=; path=/; max-age=0`;
-                                        localStorage.removeItem(k);
-                                    };
+    const toggleService = (service) => {
+        if (service === "inspection") {
+            if (isInspectionRequired || inspectionData?.isToggleDisabled) return;
+            const newState = !inspectionToggle;
+            userSetInspectionRef.current = true;
+            setInspectionToggle(newState);
+            updateUrlParam('inspection', newState);
+        }
+        else if (service === "insurance") {
+            const newState = !insuranceToggle;
+            setInsuranceToggle(newState);
+            updateUrlParam('insurance', newState);
+        }
+        else if (service === "clearing") {
+            const next = !clearingToggle;
+            setClearingToggle(next);
+            
+            if (next) {
+                updateUrlParam('clearing', true);
+            } else {
+                // Disable Clearing AND Delivery atomically
+                const params = new URLSearchParams(window.location.search);
+                
+                params.delete('clearing');
+                clearPersist('stock_clearing');
+                
+                params.delete('delivery');
+                clearPersist('stock_delivery');
+                
+                setCity(""); 
+                setDeliveryCost(0);
+                
+                const q = params.toString();
+                router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
+            }
+        }
+        else if (service === "delivery") {
+            if (!clearingToggle) return; 
+            
+            if (city) {
+                setCity(""); 
+                setDeliveryCost(0);
+                updateUrlParam('delivery', false);
+            } else {
+                setIsDeliveryModalOpen(true); 
+            }
+        }
+    };
 
-                                    if (checked) {
-                                        params.set('insurance', '1');      // 3) write to URL
-                                        setPersist('stock_insurance', '1');
-                                    } else {
-                                        params.delete('insurance');
-                                        clearPersist('stock_insurance');
-                                    }
+    // =========================================================================
+    // 6. RENDER
+    // =========================================================================
 
-                                    // 4) push (not replace) so Back/Forward keeps the change
-                                    const q = params.toString();
-                                    router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
-                                }}
-                                className="data-[state=checked]:bg-blue-600"
-                            />
-                        </div>
-
-
-                    </div>
-
-                    <Button onClick={handleSubmit} size="lg" className="w-full bg-[#0000ff] hover:bg-[#0000dd] text-white font-semibold py-3 shadow-lg hover:shadow-xl transition-all hover:scale-105">
-                        Calculate Total Price
-                    </Button>
-                </div>
-            </Card>
-        </>
-    )
-    const sidebarCalc = (
-        <>
-            <div className="pb-4">
-
-
-                <div className="space-y-4">
-                    <div>
-                        {dropdownGroupsLocations.map((group, groupIndex) => (
-                            <div key={groupIndex} className="space-y-2">
-                                {group.map((dropdown, index) => (
-                                    <div key={index}>
-                                        <Label className="text-sm font-medium mb-2 block">
-                                            {dropdown.placeholder === "Select Country" ? "Country" : "Port"}
-                                        </Label>
-                                        <Dropdown
-                                            containerRef={containerRef}
-                                            placeholder={dropdown.placeholder}
-                                            options={dropdown.options}
-                                            value={dropdownValuesLocations[dropdown.placeholder] || ""}
-                                            onChange={(value) => handleDropdownChangeLocation(dropdown.placeholder, value)}
-                                        />
-                                    </div>
-                                ))}
-                            </div>
-                        ))}
-                    </div>
-
-                    <div className="space-y-5 pt-4 border-blue-200">
-                        <div className="flex items-center justify-between">
-                            <Label htmlFor="inspection" className="text-sm font-medium text-blue-800">
-                                Inspection
-                            </Label>
-                            <Switch
-                                id="inspection"
-                                checked={isRequired ? true : inspectionToggle}
-                                disabled={inspectionData?.isToggleDisabled || isRequired}
-                                onCheckedChange={(checked) => {
-                                    if (!isRequired) {
-                                        setInspectionToggle(checked);
-
-                                        // keep URL + cookies/localStorage in sync
-                                        const params = new URLSearchParams(window.location.search);
-                                        const setPersist = (k, v) => {
-                                            document.cookie = `${k}=${encodeURIComponent(v)}; path=/; max-age=31536000`;
-                                            localStorage.setItem(k, v);
-                                        };
-                                        const clearPersist = (k) => {
-                                            document.cookie = `${k}=; path=/; max-age=0`;
-                                            localStorage.removeItem(k);
-                                        };
-
-                                        if (checked) {
-                                            params.set('inspection', '1');
-                                            setPersist('stock_inspection', '1');
-                                        } else {
-                                            params.delete('inspection');
-                                            clearPersist('stock_inspection');
-                                        }
-
-                                        const q = params.toString();
-                                        router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
-                                    }
-                                }}
-                                className="data-[state=checked]:bg-blue-600"
-                            />
-
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <Label htmlFor="insurance" className="text-sm font-medium text-blue-800">
-                                Insurance
-                            </Label>
-                            <Switch
-                                id="insurance"
-                                checked={!!insuranceToggle}        // keep it controlled
-                                onCheckedChange={(checked) => {
-                                    // 1) update state
-                                    setInsuranceToggle(checked);
-
-                                    // 2) persist to cookie + localStorage
-                                    const params = new URLSearchParams(window.location.search);
-                                    const setPersist = (k, v) => {
-                                        document.cookie = `${k}=${encodeURIComponent(v)}; path=/; max-age=31536000`;
-                                        localStorage.setItem(k, v);
-                                    };
-                                    const clearPersist = (k) => {
-                                        document.cookie = `${k}=; path=/; max-age=0`;
-                                        localStorage.removeItem(k);
-                                    };
-
-                                    if (checked) {
-                                        params.set('insurance', '1');      // 3) write to URL
-                                        setPersist('stock_insurance', '1');
-                                    } else {
-                                        params.delete('insurance');
-                                        clearPersist('stock_insurance');
-                                    }
-
-                                    // 4) push (not replace) so Back/Forward keeps the change
-                                    const q = params.toString();
-                                    router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
-                                }}
-                                className="data-[state=checked]:bg-blue-600"
-                            />
-                        </div>
-
-
-                    </div>
-
-                    <Button onClick={handleSubmit} size="lg" className="p-3 w-full bg-[#0000ff] hover:bg-[#0000dd] text-white font-semibold shadow-lg hover:shadow-xl transition-all hover:scale-105">
-                        Calculate Total Price
-                    </Button>
-                </div>
+    const renderFormBody = () => (
+        <div className="space-y-4">
+            {/* Country */}
+            <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase text-slate-700">Country</label>
+                <Select value={selectedCountry === 'none' ? '' : selectedCountry} onValueChange={handleCountryChange}>
+                    <SelectTrigger className="w-full bg-white border-blue-200 focus:ring-blue-500"><SelectValue placeholder="Select Country" /></SelectTrigger>
+                    <SelectContent className="max-h-[40vh] overflow-y-auto z-[9999]">
+                        {countryArray?.map((c, idx) => (<SelectItem key={idx} value={c}>{c === 'D_R_Congo' ? 'D.R. Congo' : c}</SelectItem>))}
+                    </SelectContent>
+                </Select>
             </div>
-        </>
-    );
-    if (context === "sidebar") {
-        return (
-            <div ref={containerRef} className="px-4 gap-2 w-full mb-4">
-                {sidebarCalc}
+            {/* Port */}
+            <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase text-slate-700">Port</label>
+                <Select value={selectedPort === 'none' ? '' : selectedPort} onValueChange={handlePortChange} disabled={!ports.length && selectedCountry !== ''}>
+                    <SelectTrigger className="w-full bg-white border-blue-200 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-400"><SelectValue placeholder="Select Port" /></SelectTrigger>
+                    <SelectContent className="max-h-[40vh] overflow-y-auto z-[9999]">
+                        {ports.length > 0 ? (ports.map((port, idx) => (<SelectItem key={idx} value={port.replace(/\./g, '_')}>{port}</SelectItem>))) : (<SelectItem value="Others">Others</SelectItem>)}
+                    </SelectContent>
+                </Select>
             </div>
-        )
-    }
-    return (
-        <div ref={containerRef}>
-            {calcContent}
+            {/* Services */}
+            <div className="space-y-2 pt-1">
+                <div className="flex flex-wrap gap-2">
+                    <button onClick={() => toggleService("inspection")} disabled={isInspectionRequired || inspectionData?.isToggleDisabled} className={cn("relative rounded-full border px-4 py-1.5 text-xs font-medium transition-all flex items-center gap-1", (isInspectionRequired || inspectionToggle) ? "border-[#155DFC] bg-[#155DFC] text-white" : "border-[#155DFC] bg-white text-slate-700 hover:bg-[#155DFC] hover:text-white")}>
+                        Inspection {(isInspectionRequired || inspectionToggle) && <span className={cn("ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold", (isInspectionRequired || inspectionToggle) ? "bg-white text-[#155DFC]" : "bg-[#155DFC] text-white")}>+${inspectionAddOn}</span>} {isInspectionRequired && <Check className="w-3 h-3 ml-1" />}
+                    </button>
+                    <button onClick={() => toggleService("insurance")} className={cn("relative rounded-full border px-4 py-1.5 text-xs font-medium transition-all flex items-center", insuranceToggle ? "border-[#155DFC] bg-[#155DFC] text-white" : "border-[#155DFC] bg-white text-slate-700 hover:bg-[#155DFC] hover:text-white")}>
+                        Insurance {insuranceToggle && <span className="ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-white text-[#155DFC]">+$50</span>}
+                    </button>
+                    {d2dMatch && (
+                        <>
+                            <button onClick={() => toggleService("clearing")} className={cn("relative rounded-full border px-4 py-1.5 text-xs font-medium transition-all flex items-center", clearingToggle ? "border-[#155DFC] bg-[#155DFC] text-white" : "border-[#155DFC] bg-white text-slate-700 hover:bg-[#155DFC] hover:text-white")}>
+                                Clearing {clearingToggle && d2dMatch?.clearingPrice && <span className="ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-white text-[#155DFC]">+${d2dMatch.clearingPrice}</span>}
+                            </button>
+                            <button onClick={() => toggleService("delivery")} disabled={!clearingToggle} className={cn("relative rounded-full border px-4 py-1.5 text-xs font-medium transition-all flex items-center", !clearingToggle ? "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed" : city ? "border-[#155DFC] bg-[#155DFC] text-white" : "border-[#155DFC] bg-white text-slate-700 hover:bg-[#155DFC] hover:text-white")}>
+                                Delivery {city && <span className="ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-white text-[#155DFC]">+${deliveryCost}</span>}
+                            </button>
+                        </>
+                    )}
+                </div>
+                {d2dMatch && !clearingToggle && <p className="text-[10px] text-slate-400 px-1">*Delivery requires Clearing enabled</p>}
+            </div>
+            {city && (
+                <div className="flex items-center justify-between rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-sm animate-in fade-in slide-in-from-top-2">
+                    <div className="flex items-center gap-2 text-blue-700"><MapPin className="h-4 w-4" /><span className="font-medium">Delivery to: {city.charAt(0).toUpperCase() + city.slice(1)}</span></div>
+                    <button onClick={() => setIsDeliveryModalOpen(true)} className="text-xs font-medium text-blue-600 hover:underline">Change</button>
+                </div>
+            )}
         </div>
     );
+
+    const calcContent = (<Card className="w-full border-blue-200 shadow-sm"><CardHeader className="pb-3 pt-4"><CardTitle className="flex items-center gap-2 text-lg font-bold text-slate-900"><Calculator className="h-5 w-5 text-blue-600" />Price Calculator</CardTitle></CardHeader><CardContent className="pb-4">{renderFormBody()}</CardContent></Card>);
+    const sidebarCalc = (<div className="pb-4">{renderFormBody()}</div>);
+
+    const deliveryDialog = (
+        <Dialog open={isDeliveryModalOpen} onOpenChange={setIsDeliveryModalOpen}>
+            <DialogContent className="z-[9999] w-full max-w-xs sm:max-w-xs">
+                <DialogHeader><DialogTitle>Select Delivery City</DialogTitle></DialogHeader>
+                <div className="pt-4 pb-2">
+                    <Select value={city} onValueChange={handleCityChange} disabled={loadingCities}>
+                        <SelectTrigger className="w-full"><SelectValue placeholder={loadingCities ? "Loading cities..." : "Choose a city..."} /></SelectTrigger>
+                        <SelectContent className="z-[10000] max-h-[40vh]">
+                            {d2dCities && d2dCities.length > 0 ? (d2dCities.map((cityObj) => (<SelectItem key={cityObj.id} value={(cityObj.name || 'Others').toLowerCase()}>{cityObj.name || 'Others'}</SelectItem>))) : (<div className="p-2 text-sm text-center text-slate-500">{loadingCities ? "Loading..." : "No cities available"}</div>)}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+
+    if (context === "sidebar") { return (<><div ref={containerRef} className="px-4 gap-2 w-full mb-4">{sidebarCalc}</div>{deliveryDialog}</>) }
+    return (<><div ref={containerRef}>{calcContent}</div>{deliveryDialog}</>);
 }

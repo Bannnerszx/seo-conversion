@@ -10,7 +10,7 @@ import {
     fetchCountries,
     fetchCurrency,
 } from "../../../services/fetchFirebaseData";
-import { fetchChatCountForVehicle, isFavorited } from "../actions/actions";
+import { fetchChatCountForVehicle, fetchD2DCountries, isFavorited } from "../actions/actions";
 import { SortProvider } from "./stockComponents/sortContext";
 import CarFilter from "./stockComponents/CarFilter";
 
@@ -223,6 +223,10 @@ const CarStock = async ({ params, searchParams }) => {
     // true or false
     // Render with correct userEmail
     const context = 'query'
+
+    const D2DCountries = await fetchD2DCountries()
+
+
     return (
         <SortProvider>
             <div className={`z-10`}>
@@ -242,6 +246,7 @@ const CarStock = async ({ params, searchParams }) => {
                             country={country}
                             port={port}
                             totalCount={totalCount}
+                            d2dCountries={D2DCountries}
                         />
                     </BannerAwareAside>
 
@@ -260,6 +265,7 @@ const CarStock = async ({ params, searchParams }) => {
                         </div>
 
                         <SearchHeader
+                            d2dCountries={D2DCountries}
                             context={context}
                             totalCount={totalCount}
                             initialLimit={Number(limit)}

@@ -516,108 +516,69 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
 
     const totalPriceCalculated = () => {
 
+        // 1. Calculate Additional Price (Existing Logic)
         const totalAdditionalPrice = invoiceData.paymentDetails.additionalPrice.reduce((total, price) => {
-            const converted = Number(price); // Convert each price using your currency conversion function
-            const numericPart = price.replace(/[^0-9.]/g, ''); // Remove non-numeric characters, assuming decimal numbers
-            return total + parseFloat(numericPart); // Add the numeric value to the total
+            // const converted = Number(price); // Unused variable from original code
+            const numericPart = price.replace(/[^0-9.]/g, '');
+            return total + parseFloat(numericPart || 0);
         }, 0);
 
-        const totalUsd = ((Number(invoiceData.paymentDetails.fobPrice)
-            + Number(invoiceData.paymentDetails.freightPrice)
+        // 2. Calculate Base Total (USD)
+        // We calculate this ONCE. All other currencies will rely on this value.
+        const baseTotalUsd = (
+            Number(invoiceData.paymentDetails.fobPrice || 0)
+            + Number(invoiceData.paymentDetails.freightPrice || 0)
+            + totalAdditionalPrice
+            // Existing Checks
             + (invoiceData.paymentDetails.inspectionIsChecked
-                ? (Number(invoiceData.paymentDetails.inspectionPrice))
+                ? Number(invoiceData.paymentDetails.inspectionPrice || 0)
                 : 0)
             + (invoiceData.paymentDetails.incoterms == 'CIF'
-                ? Number(invoiceData.paymentDetails.insurancePrice)
+                ? Number(invoiceData.paymentDetails.insurancePrice || 0)
                 : 0)
-            + totalAdditionalPrice))
-            // * Number(invoiceData.currency.jpyToEur)
-            ;
+            // --- NEW CHECKS ADDED HERE ---
+            + (invoiceData?.paymentDetails?.clearing
+                ? Number(invoiceData?.paymentDetails?.clearingPrice || 0)
+                : 0)
+            + (invoiceData?.paymentDetails?.delivery
+                ? Number(invoiceData?.paymentDetails?.deliveryPrice || 0)
+                : 0)
+        );
 
-        const totalJpy = ((Number(invoiceData.paymentDetails.fobPrice)
-            + Number(invoiceData.paymentDetails.freightPrice)
-            + (invoiceData.paymentDetails.inspectionIsChecked
-                ? (Number(invoiceData.paymentDetails.inspectionPrice))
-                : 0)
-            + (invoiceData.paymentDetails.incoterms == 'CIF'
-                ? Number(invoiceData.paymentDetails.insurancePrice)
-                : 0)
-            + totalAdditionalPrice)
-            * Number(invoiceData.currency.usdToJpy));
+        // 3. Handle Currency Conversion & Formatting
+        const selectedCurrency = invoiceData.selectedCurrencyExchange;
 
-        const totalEur = ((Number(invoiceData.paymentDetails.fobPrice)
-            + Number(invoiceData.paymentDetails.freightPrice)
-            + (invoiceData.paymentDetails.inspectionIsChecked
-                ? (Number(invoiceData.paymentDetails.inspectionPrice))
-                : 0)
-            + (invoiceData.paymentDetails.incoterms == 'CIF'
-                ? Number(invoiceData.paymentDetails.insurancePrice)
-                : 0)
-            + totalAdditionalPrice)
-            * Number(invoiceData.currency.usdToEur));
-
-
-        // const totalEur = Number(invoiceData.paymentDetails.fobPrice) * Number(invoiceData.currency.usdToEur)
-        //     + (valueCurrency * Number(invoiceData.currency.usdToEur))
-        //     + Number(invoiceData.paymentDetails.freightPrice) * Number(invoiceData.currency.usdToEur)
-        //     + (valueCurrency * Number(invoiceData.currency.usdToEur))
-        //     + (invoiceData.paymentDetails.inspectionIsChecked
-        //         ? (Number(invoiceData.paymentDetails.inspectionPrice) * Number(invoiceData.currency.usdToEur)
-        //             + (valueCurrency * Number(invoiceData.currency.usdToEur)))
-        //         : 0)
-        //     + totalAdditionalPrice;
-
-        const totalAud = ((Number(invoiceData.paymentDetails.fobPrice)
-            + Number(invoiceData.paymentDetails.freightPrice)
-            + (invoiceData.paymentDetails.inspectionIsChecked
-                ? (Number(invoiceData.paymentDetails.inspectionPrice))
-                : 0)
-            + (invoiceData.paymentDetails.incoterms == 'CIF'
-                ? Number(invoiceData.paymentDetails.insurancePrice)
-                : 0)
-            + totalAdditionalPrice)
-            * Number(invoiceData.currency.usdToAud))
-
-        const totalGbp = ((Number(invoiceData.paymentDetails.fobPrice)
-            + Number(invoiceData.paymentDetails.freightPrice)
-            + (invoiceData.paymentDetails.inspectionIsChecked
-                ? (Number(invoiceData.paymentDetails.inspectionPrice))
-                : 0)
-            + (invoiceData.paymentDetails.incoterms == 'CIF'
-                ? Number(invoiceData.paymentDetails.insurancePrice)
-                : 0)
-            + totalAdditionalPrice)
-            * Number(invoiceData.currency.usdToGbp))
-
-        const totalCad = ((Number(invoiceData.paymentDetails.fobPrice)
-            + Number(invoiceData.paymentDetails.freightPrice)
-            + (invoiceData.paymentDetails.inspectionIsChecked
-                ? (Number(invoiceData.paymentDetails.inspectionPrice))
-                : 0)
-            + (invoiceData.paymentDetails.incoterms == 'CIF'
-                ? Number(invoiceData.paymentDetails.insurancePrice)
-                : 0)
-            + totalAdditionalPrice)
-            * Number(invoiceData.currency.usdToCad))
-
-        if (invoiceData.selectedCurrencyExchange == 'None' || !invoiceData.selectedCurrencyExchange || invoiceData.selectedCurrencyExchange == 'USD') {
-            return `$${Math.round(totalUsd).toLocaleString('en-US', { useGrouping: true })}`;
+        if (!selectedCurrency || selectedCurrency === 'None' || selectedCurrency === 'USD') {
+            return `$${Math.round(baseTotalUsd).toLocaleString('en-US', { useGrouping: true })}`;
         }
-        if (invoiceData.selectedCurrencyExchange == 'JPY') {
-            return `¥${Math.round(totalJpy).toLocaleString('en-US', { useGrouping: true })}`;
+
+        if (selectedCurrency === 'JPY') {
+            const total = baseTotalUsd * Number(invoiceData.currency.usdToJpy);
+            return `¥${Math.round(total).toLocaleString('en-US', { useGrouping: true })}`;
         }
-        if (invoiceData.selectedCurrencyExchange == 'EUR') {
-            return `€${Math.round(totalEur).toLocaleString('en-US', { useGrouping: true })}`;
+
+        if (selectedCurrency === 'EUR') {
+            const total = baseTotalUsd * Number(invoiceData.currency.usdToEur);
+            return `€${Math.round(total).toLocaleString('en-US', { useGrouping: true })}`;
         }
-        if (invoiceData.selectedCurrencyExchange == 'AUD') {
-            return `A$${Math.round(totalAud).toLocaleString('en-US', { useGrouping: true })}`;
+
+        if (selectedCurrency === 'AUD') {
+            const total = baseTotalUsd * Number(invoiceData.currency.usdToAud);
+            return `A$${Math.round(total).toLocaleString('en-US', { useGrouping: true })}`;
         }
-        if (invoiceData.selectedCurrencyExchange == 'GBP') {
-            return `£${Math.round(totalGbp).toLocaleString('en-US', { useGrouping: true })}`;
+
+        if (selectedCurrency === 'GBP') {
+            const total = baseTotalUsd * Number(invoiceData.currency.usdToGbp);
+            return `£${Math.round(total).toLocaleString('en-US', { useGrouping: true })}`;
         }
-        if (invoiceData.selectedCurrencyExchange == 'CAD') {
-            return `C$${Math.round(totalCad).toLocaleString('en-US', { useGrouping: true })}`;
+
+        if (selectedCurrency === 'CAD') {
+            const total = baseTotalUsd * Number(invoiceData.currency.usdToCad);
+            return `C$${Math.round(total).toLocaleString('en-US', { useGrouping: true })}`;
         }
+
+        // Fallback (Optional)
+        return `$${Math.round(baseTotalUsd).toLocaleString('en-US', { useGrouping: true })}`;
     }
 
 
@@ -811,7 +772,7 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
 
 
 
-        const preMsg = `
+    const preMsg = `
 <!doctype html>
 <html>
 <head>
@@ -1029,7 +990,7 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
                     </Button>
 
 
-                    <Modal context={'invoice'} showModal={previewInvoiceVisible} setShowModal={handlePreviewInvoiceModal}>
+                    <Modal context={'invoice'} showModal={previewInvoiceVisible} setShowModal={handlePreviewInvoiceModal} siblingOpen={isOrderMounted}>
 
                         {previewInvoiceVisible &&
 
@@ -1069,22 +1030,49 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
                                                         <span>View Image</span>
                                                     </Button>
                                                 )}
-                                                {!isReservedOrSold && !isCancelled && (
-                                                    <div className={`ml-auto flex justify-end ${!isHidden ? "" : "left-[1500px]  absolute"}`}>{renderButtons()}</div>
+                                                {!isReservedOrSold && !isCancelled && stepValue === 2 && (
+                                                    <View
+                                                        style={{
+                                                            marginLeft: 'auto', // 👈 pushes this to the far right
+                                                            zIndex: 200000,
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            borderRadius: 8,
+                                                            backgroundColor: 'transparent',
+                                                        }}
+                                                    >
+                                                        <OrderButton
+                                                            context={'invoice'}
+                                                            ipInfo={ipInfo}
+                                                            tokyoTime={tokyoTime}
+                                                            accountData={accountData}
+                                                            chatId={chatId}
+                                                            selectedChatData={selectedChatData}
+                                                            countryList={countryList}
+                                                            userEmail={userEmail}
+                                                            invoiceData={invoiceData}
+                                                            isOrderMounted={isOrderMounted}
+                                                            setIsOrderMounted={setIsOrderMounted}
+                                                            setIsHidden={setIsHidden}
+                                                            handlePreviewInvoiceModal={handlePreviewInvoiceModal}
+                                                        />
+                                                    </View>
                                                 )}
-
-
-
 
                                             </View>
                                         )
                                 )}
+
+                                {/* Floating Order Now button (hovering above the ScrollView) */}
+
 
                                 {!isHidden && (
                                     <ScrollView
                                         keyboardShouldPersistTaps="always"
                                         style={{ position: context === 'invoice' ? 'absolute' : null, top: context === 'invoice' ? -99999 : null, zIndex: 1, maxHeight: screenHeight < 960 ? 520 : 750, width: '100%', maxWidth: screenWidth < 960 ? '100%' : 900, alignSelf: 'center' }}
                                     >
+
                                         <View style={{
                                             position: 'absolute',
                                             top: 0,
@@ -1112,6 +1100,7 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
                                             ) : (
                                                 <Loader />
                                             )}
+
                                         </View>
 
                                         {/* Main content with invoice details */}
@@ -1553,7 +1542,7 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
                                                                 {invoiceData?.paymentDetails.inspectionIsChecked ? `Inspection [${invoiceData?.paymentDetails.inspectionName}]` : ' '}
                                                             </Text>}
 
-                                                            {invoiceData?.paymentDetails.inspectionIsChecked && invoiceData?.paymentDetails.incoterms == "CIF" &&
+                                                            {invoiceData?.paymentDetails.inspectionIsChecked && invoiceData?.paymentDetails.incoterms == "CIF"  &&
                                                                 <>
                                                                     <Text
                                                                         style={{
@@ -1573,7 +1562,27 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
                                                                             marginBottom: 3 * heightScaleFactor,
                                                                             marginLeft: 2 * widthScaleFactor,
                                                                         }}>
-                                                                        {invoiceData?.paymentDetails.incoterms == "CIF" ? ` + Insurance` : ' '}
+                                                                        {invoiceData?.paymentDetails.incoterms == "CIF" ? `+ Insurance` : ' '}
+                                                                    </Text>
+                                                                    <Text
+                                                                        style={{
+                                                                            fontWeight: 400,
+                                                                            fontSize: 12 * widthScaleFactor,
+                                                                            lineHeight: 14 * widthScaleFactor,
+                                                                            marginBottom: 3 * heightScaleFactor,
+                                                                            marginLeft: 2 * widthScaleFactor,
+                                                                        }}>
+                                                                        {invoiceData?.paymentDetails.clearingPrice != null ? `+ Clearing` : ' '}
+                                                                    </Text>
+                                                                    <Text
+                                                                        style={{
+                                                                            fontWeight: 400,
+                                                                            fontSize: 12 * widthScaleFactor,
+                                                                            lineHeight: 14 * widthScaleFactor,
+                                                                            marginBottom: 3 * heightScaleFactor,
+                                                                            marginLeft: 2 * widthScaleFactor,
+                                                                        }}>
+                                                                        {invoiceData?.paymentDetails.delivery ? `+ Delivery` : ' '}
                                                                     </Text>
                                                                 </>
                                                             }
@@ -1642,6 +1651,24 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
                                                                             marginBottom: 3 * heightScaleFactor,
                                                                         }}>
                                                                         {invoiceData?.paymentDetails.incoterms === "CIF" ? ` + ${convertedCurrency(Number(invoiceData?.paymentDetails.insurancePrice))}` : ' '}
+                                                                    </Text>
+                                                                    <Text
+                                                                        style={{
+                                                                            fontWeight: 400,
+                                                                            fontSize: 12 * widthScaleFactor,
+                                                                            lineHeight: 14 * widthScaleFactor,
+                                                                            marginBottom: 3 * heightScaleFactor,
+                                                                        }}>
+                                                                        {invoiceData?.paymentDetails.clearing == true ? ` + ${convertedCurrency(Number(invoiceData?.paymentDetails.clearingPrice))}` : ' '}
+                                                                    </Text>
+                                                                    <Text
+                                                                        style={{
+                                                                            fontWeight: 400,
+                                                                            fontSize: 12 * widthScaleFactor,
+                                                                            lineHeight: 14 * widthScaleFactor,
+                                                                            marginBottom: 3 * heightScaleFactor,
+                                                                        }}>
+                                                                        {invoiceData?.paymentDetails.delivery == true ? ` + ${convertedCurrency(Number(invoiceData?.paymentDetails.deliveryPrice))}` : ' '}
                                                                     </Text>
                                                                 </Text>
 
@@ -2049,6 +2076,8 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
                                                         </View>
                                                     </View>}
 
+                                                {/* Order Now (moved): floating button is rendered above the ScrollView instead */}
+
 
                                             </View>
                                         }
@@ -2056,6 +2085,7 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
 
                                     </ScrollView>
                                 )}
+
 
                             </>
 

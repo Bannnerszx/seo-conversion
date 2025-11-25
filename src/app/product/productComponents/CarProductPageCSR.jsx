@@ -3,7 +3,7 @@
 import moment from "moment"
 import { functions } from "../../../../firebase/clientApp"
 import { httpsCallable } from 'firebase/functions'
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import Image from "next/image"
 import { Download, Heart, ChevronLeft, ChevronRight, Loader2, UserPlus, Users, TrendingUp, Eye, ChevronDown, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -28,16 +28,16 @@ import ImageViewer from "@/app/chats/chatComponents/imageViewer"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { SignUpButton } from "@/app/components/SignUpButton"
 import { Badge } from "@/components/ui/badge"
+
+// ... (Keep Dropdown helper function exactly as is) ...
 const Dropdown = ({ placeholder, options, value, onChange, className = '' }) => {
     const [isHydrated, setIsHydrated] = useState(false);
 
     useEffect(() => {
-        // Set hydration state after the component mounts
         setIsHydrated(true);
     }, []);
 
     if (!isHydrated) {
-        // Render a basic placeholder or nothing during SSR
         return (
             <div className={`relative inline-block w-full ${className}`}>
                 <select
@@ -45,20 +45,15 @@ const Dropdown = ({ placeholder, options, value, onChange, className = '' }) => 
                     className={`w-full border p-2 rounded-md focus:outline-none focus:ring focus:ring-blue-300 ${className}`}
                     onChange={(e) => onChange(e.target.value)}
                 >
-                    <option value="" disabled>
-                        {placeholder}
-                    </option>
+                    <option value="" disabled>{placeholder}</option>
                     {options.map((option, index) => (
-                        <option key={index} value={option.value}>
-                            {option.label}
-                        </option>
+                        <option key={index} value={option.value}>{option.label}</option>
                     ))}
                 </select>
             </div>
         );
     }
 
-    // Render the Select component after hydration
     return (
         <div className={`relative inline-block w-full ${className} `} style={{ zoom: 1.25, transformOrigin: "top left" }}>
             <Select value={decodeURIComponent(value)} onValueChange={onChange}>
@@ -70,22 +65,18 @@ const Dropdown = ({ placeholder, options, value, onChange, className = '' }) => 
                     align="start"
                     sideOffset={4}
                     collisionPadding={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    className="
-    w-[var(--radix-select-trigger-width)]
-    overflow-y-auto
-    max-h-[20vh]
-  "
+                    className="w-[var(--radix-select-trigger-width)] overflow-y-auto max-h-[20vh]"
                 >
                     {options.map((option, idx) => (
-                        <SelectItem key={idx} value={option.value}>
-                            {option.label}
-                        </SelectItem>
+                        <SelectItem key={idx} value={option.value}>{option.label}</SelectItem>
                     ))}
                 </SelectContent>
             </Select>
         </div>
     );
 };
+
+// --- UPDATED FUNCTION SIGNATURE ---
 async function handleCreateConversation(
     acceptPaypal,
     addChat,
@@ -107,13 +98,18 @@ async function handleCreateConversation(
     insuranceSelected,
     ipInfo,
     tokyoTimeData,
-    inspectionSelected
+    inspectionSelected,
+    // NEW PARAMETERS ADDED HERE
+    clearing,
+    delivery,
+    deliveryAddress,
+    clearingPrice,
+    deliveryCity,
+    deliveryPrice
 ) {
-
     console.log(inspectionSelected, insuranceSelected)
     setLoadingChat(true);
 
-    // 1) Make sure we have a user and an account
     if (!user) {
         console.log("User not logged in or email not verified.");
         setLoadingChat(false);
@@ -124,8 +120,6 @@ async function handleCreateConversation(
         return router.push("/accountCreation")
     }
 
-
-    // 2) Check for an existing chat
     const chatId = `chat_${carData?.stockID}_${user}`;
     const checkChat = await checkChatExists(carData?.stockID, user)
     if (checkChat.exists) {
@@ -135,7 +129,6 @@ async function handleCreateConversation(
         return setTimeout(() => router.push(`/chats/${chatId}`), 100);
     }
 
-    // 3) Validate dropdowns
     let error = false;
     if (!dropdownValuesLocations['Select Country'] || dropdownValuesLocations['Select Country'] === 'none') {
         setShakeCountry(true);
@@ -153,20 +146,15 @@ async function handleCreateConversation(
     }
 
     try {
-        // 4) Fetch IP info + Tokyo time in parallel
-
         const m = moment(tokyoTimeData.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');
         const formattedTime = m.format('YYYY/MM/DD [at] HH:mm:ss.SSS');
         const docId = m.format('YYYY-MM');
         const dayField = m.format('DD');
 
-        // 5) Optionally record offer stats
         if (docId && carData && user && dayField && exists && (!missingFields || missingFields.length === 0)) {
             await addOfferStatsCustomer({ docId, carData, userEmail: user, dayField });
         }
 
-        // 6) **Only now** actually create the chat
-        //    (this will never run for non-existent users or if chatExists was true)
         const chatData = {
             carId: carData.stockID,
             carData,
@@ -186,6 +174,14 @@ async function handleCreateConversation(
             inspectionName: inspectionData.inspectionName,
             toggle: inspectionSelected,
             insurance: insuranceSelected,
+            // --- ADDED NEW FIELDS TO CHAT DATA ---
+            clearing: clearing,
+            delivery: delivery,
+            deliveryAddress: deliveryAddress,
+            clearingPrice: clearingPrice,
+            deliveryCity: deliveryCity,
+            deliveryPrice: deliveryPrice,
+            // -------------------------------------
             currency,
             profitMap: profitMap || 0,
             freightOrigPrice,
@@ -203,7 +199,6 @@ async function handleCreateConversation(
         };
 
         if (exists && (!missingFields || missingFields.length === 0)) {
-            // … build chatData …
             const res = await addChat(chatData);
             console.log("Chat created:", res.data.chatId);
             setLoadingChat(false);
@@ -214,53 +209,40 @@ async function handleCreateConversation(
         console.error('Failed to create chat:', err);
         setLoadingChat(false);
     }
-}
+};
 
-
+// ... (Keep downloadImagesAsZip unchanged) ...
 const downloadImagesAsZip = async ({ images, setIsDownloading, carData }) => {
     if (!images || images?.length === 0) {
         alert("No images to download")
         return
     }
-
     setIsDownloading(true)
     const zip = new JSZip()
-
     try {
-        // Download each image and add to zip
         for (const [index, imageUrl] of images?.entries()) {
             try {
                 console.log(`Downloading image: ${imageUrl}`)
                 const response = await fetch(imageUrl)
-
                 if (!response.ok) {
                     throw new Error(`Failed to fetch image at ${imageUrl}`)
                 }
-
-                // Convert response to Blob then to ArrayBuffer (needed by JSZip)
                 const blob = await response.blob()
                 const arrayBuffer = await blob.arrayBuffer()
                 const extension = getFileExtension(imageUrl) || "jpg"
                 const filename = `image_${index + 1}.${extension}`
-
                 zip.file(filename, arrayBuffer)
             } catch (error) {
                 console.error(`Error downloading ${imageUrl}:`, error)
             }
         }
-
-        // Generate the zip file as a blob
         const zipBlob = await zip.generateAsync({ type: "blob" })
-
-        // Create download link
         const url = URL.createObjectURL(zipBlob)
         const link = document.createElement("a")
         link.href = url
         link.download = `${carData.carName}.zip`
         document.body.appendChild(link)
         link.click()
-
-        // Clean up
         document.body.removeChild(link)
         URL.revokeObjectURL(url)
     } catch (error) {
@@ -271,19 +253,34 @@ const downloadImagesAsZip = async ({ images, setIsDownloading, carData }) => {
     }
 }
 
-// Helper function to get file extension from URL
 const getFileExtension = (url) => {
     const match = url.match(/\.([a-zA-Z0-9]+)(?:\?|$)/);
     return match ? match[1].toLowerCase() : null;
 };
 
-export default function CarProductPageCSR({ chatCount, carData, countryArray, currency, useAuth, resultsIsFavorited, }) {
+export default function CarProductPageCSR({ d2dCountries, chatCount, carData, countryArray, currency, useAuth, resultsIsFavorited, }) {
+    const searchParams = useSearchParams();
+    const router = useRouter();
+    
+    // 1. Parse URL Params for Clearing and Delivery
+    const urlClearingOn = searchParams.get("clearing") === '1';
+    const urlDeliveryCity = searchParams.get("delivery");
+
+    const [d2dCities, setD2dCities] = useState([]);
+    const [loadingCities, setLoadingCities] = useState(false);
+    
+    // 2. Initialize State from URL
+    const [clearingEnabled, setClearingEnabled] = useState(() => urlClearingOn);
+    const [deliveryEnabled, setDeliveryEnabled] = useState(() => !!urlDeliveryCity);
+    const [deliveryCity, setDeliveryCity] = useState(() => urlDeliveryCity || '');
+    const [deliveryAddress, setDeliveryAddress] = useState('');
+    const [showDeliveryModal, setShowDeliveryModal] = useState(false);
+
     const addChat = httpsCallable(functions, 'addChat')
     const [acceptPaypal, setAcceptPaypal] = useState(false)
     const [agreed, setAgreed] = useState(false)
     const [doorToDoorEnabled, setDoorToDoorEnabled] = useState(false);
     const [zones, setZones] = useState(null)
-    const router = useRouter();
 
     const { user } = useAuth();
     const [shakeCountry, setShakeCountry] = useState(false);
@@ -324,13 +321,11 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
     // Slideshow functionality
     useEffect(() => {
         let interval;
-
         if (isPlaying) {
             interval = setInterval(() => {
                 handleNextImage();
             }, 3000);
         }
-
         return () => {
             if (interval) clearInterval(interval);
         };
@@ -347,7 +342,6 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
                 setIsFullscreen(false);
             }
         };
-
         window.addEventListener("keydown", handleKeyDown);
         return () => {
             window.removeEventListener("keydown", handleKeyDown);
@@ -361,12 +355,13 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
             activeThumb.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" })
         }
     }, [currentImageIndex])
+
     const [ports, setPorts] = useState([]);
-    const searchParams = useSearchParams();
     const country = searchParams.get("country");
     const port = searchParams.get("port");
     const inspection = searchParams.get("inspection")
     const insurance = searchParams.get("insurance")
+    
     // Initialize state using the query parameters
     const [dropdownValuesLocations, setDropdownValuesLocations] = useState({
         "Select Country": country,
@@ -380,9 +375,9 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
     const urlInspectionOn = inspection === '1';
     const urlInsuranceOn = insurance === '1';
     const [insuranceToggle, setInsuranceToggle] = useState(() => urlInsuranceOn);
-    const rule = inspectionData?.inspectionIsRequired; // "Required" | "Optional" | undefined
+    const rule = inspectionData?.inspectionIsRequired;
     const isRequired = rule === "Required"
-    console.log(selectedCountry)
+
     useEffect(() => {
         if (!inspectionData?.inspectionName) {
             return;
@@ -395,11 +390,51 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
                 console.error('Error fetching inspection price:', error);
             }
         };
-
         getInspectionPrice();
     }, [inspectionData?.inspectionName, inspectionToggle]);
 
+    const [d2dMatch, setD2dMatch] = useState(null);
+
+    useEffect(() => {
+        if (selectedCountry && d2dCountries && d2dCountries.length > 0) {
+            const match = d2dCountries.find(
+                (d2d) => d2d.name === selectedCountry || d2d.id === selectedCountry
+            );
+            setD2dMatch(match || null);
+            if (match) {
+                console.log(`✅ D2D Match Found for ${selectedCountry}:`, match);
+            } else {
+                console.log(`❌ No D2D configuration found for ${selectedCountry}`);
+            }
+        } else {
+            setD2dMatch(null);
+        }
+    }, [selectedCountry, d2dCountries]);
+
+    // 3. Effect to Sync Clearing/Delivery State from URL (Handle Back/Forward)
+    useEffect(() => {
+        // Sync Clearing
+        setClearingEnabled(urlClearingOn);
+        
+        // Sync Delivery
+        if (urlDeliveryCity) {
+            setDeliveryEnabled(true);
+            setDeliveryCity(urlDeliveryCity);
+        } else {
+            setDeliveryEnabled(false);
+            setDeliveryCity('');
+        }
+    }, [urlClearingOn, urlDeliveryCity]);
+
     const inspectionAddOn = Number(inspectionPrice ?? 300) || 300;
+    const clearingAddOn = (d2dMatch?.clearingPrice) ? Number(d2dMatch.clearingPrice) : 0;
+
+    const selectedCityData = d2dCities.find(
+        (c) => (c.name || c.id) === deliveryCity
+    );
+    const deliveryAddOn = (deliveryEnabled && selectedCityData?.deliveryPrice)
+        ? Number(selectedCityData.deliveryPrice)
+        : 0;
     const inspectionSelected =
         isRequired ? true
             : inspection !== null ? urlInspectionOn
@@ -407,19 +442,20 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
 
     const insuranceSelected = !!insuranceToggle;
 
-    const finalPrice =
-        baseFinalPrice +
-        (inspectionSelected ? inspectionAddOn : 0) +
-        (insuranceSelected ? 50 : 0);
+    const finalPrice = useMemo(() => {
+        const inspectionAdd = inspectionSelected ? inspectionAddOn : 0;
+        const insuranceAdd = insuranceSelected ? 50 : 0;
+        const clearingAdd = clearingEnabled ? clearingAddOn : 0;
+        const deliveryAdd = deliveryEnabled ? deliveryAddOn : 0;
+        return Number(baseFinalPrice || 0) + Number(inspectionAdd) + Number(insuranceAdd) + Number(clearingAdd) + Number(deliveryAdd);
+    }, [baseFinalPrice, inspectionSelected, inspectionAddOn, insuranceSelected, clearingEnabled, clearingAddOn, deliveryEnabled, deliveryAddOn]);
 
     useEffect(() => {
         setInspectionToggle(prev => {
-            if (isRequired) return true;                      // rule wins
-            if (inspection !== null) return urlInspectionOn;  // URL wins if present
-            // otherwise, keep user choice if any; else config default; else false
+            if (isRequired) return true;
+            if (inspection !== null) return urlInspectionOn;
             return prev ?? (inspectionData?.toggle ?? false);
         });
-        // also sync insurance from URL whenever it changes (user may navigate/back)
         setInsuranceToggle(prev => (prev === urlInsuranceOn ? prev : urlInsuranceOn));
     }, [
         isRequired,
@@ -428,6 +464,7 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
         inspectionData?.toggle,
         selectedCountry, selectedPort
     ]);
+    
     const disableInspection =
         isRequired ||
         inspectionData?.isToggleDisabled === true ||
@@ -435,16 +472,15 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
         carData?.stockStatus === "Reserved";
 
     const [freightOrigPrice, setFreightOrigPrice] = useState('');
+    
     useEffect(() => {
         const getPortInspection = async () => {
-            // If selectedPort is blank, set profitMap to blank and exit early.
             if (selectedPort === 'none' || !selectedPort) {
                 setProfitMap('');
                 return;
             }
             setIsFetchingModels(true);
             try {
-                // Update URL to send "selectedPort" as the query parameter
                 const res = await fetch(`/api/inspection?selectedPort=${selectedPort}`);
                 const data = await res.json();
                 setProfitMap(data?.portsInspection?.profitPrice);
@@ -460,22 +496,19 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
                     };
                     setFreightOrigPrice(portPriceMapping[carData.port] || '');
                 }
-
-
             } catch (error) {
                 console.error("Error fetching ports:", error);
             } finally {
                 setIsFetchingModels(false);
             }
         };
-
         getPortInspection();
     }, [selectedPort]);
 
     useEffect(() => {
         const getPorts = async () => {
             if (!selectedCountry) {
-                setPorts([]); // Clear ports if no country is selected
+                setPorts([]); 
                 return;
             };
             setIsDataLoading(true);
@@ -490,25 +523,48 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
                 setIsDataLoading(false);
             }
         };
-
         getPorts();
     }, [selectedCountry]);
 
+    const setPersist = (k, v) => { document.cookie = `${k}=${encodeURIComponent(v)}; path=/; max-age=31536000`; localStorage.setItem(k, v); };
+    const clearPersist = (k) => { document.cookie = `${k}=; path=/; max-age=0`; localStorage.removeItem(k); };
+
     const handleDropdownChangeLocation = (key, value) => {
         setDropdownValuesLocations((prevValues) => {
+            let nextCountry = prevValues["Select Country"];
+            let nextPort = prevValues["Select Port"];
+            
             if (key === "Select Country") {
-                return {
-                    ...prevValues,
-                    [key]: value,
-                    "Select Port": "",
-                };
+                nextCountry = value;
+                nextPort = "";
+            } else {
+                nextPort = value;
             }
-            return {
-                ...prevValues,
-                [key]: value,
-            };
+
+            const params = new URLSearchParams(window.location.search);
+            if (nextCountry && nextCountry !== 'none') {
+                params.set('country', nextCountry);
+                setPersist('stock_country', nextCountry);
+            } else {
+                params.delete('country');
+                clearPersist('stock_country');
+            }
+
+            if (nextPort && nextPort !== 'none') {
+                params.set('port', nextPort);
+                setPersist('stock_port', nextPort);
+            } else {
+                params.delete('port');
+                clearPersist('stock_port');
+            }
+
+            const q = params.toString();
+            router.replace(q ? `${window.location.pathname}?${q}` : window.location.pathname, { scroll: false });
+
+            return { "Select Country": nextCountry, "Select Port": nextPort };
         });
     };
+    
     const dropdownGroupsLocations = [
         [
             {
@@ -525,7 +581,6 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
                 placeholder: "Select Port",
                 options: [
                     { value: "none", label: "Select Port" },
-                    // if there are ports, map them; otherwise add a single "Others" entry
                     ...(ports.length > 0
                         ? ports.map((port) => {
                             const safeValue = port.replace(/\./g, "_");
@@ -537,15 +592,9 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
         ],
     ];
 
-
     const textareaRef = useRef(null);
-
-    // Access the value anytime using textareaRef.current.value
-    // Example usage:
-
     const [showAlert, setShowAlert] = useState(false);
     const [loadingChat, setLoadingChat] = useState(false);
-
     const [isDownloading, setIsDownloading] = useState(false);
     const thumbnailsRef = useRef(null);
 
@@ -558,13 +607,13 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
     const isOtherPort = selectedPort === "Others";
 
     const isButtonDisabled =
-        isDataLoading ||                              // still fetching…
-        loadingChat ||                                //…or chatting
-        !selectedCountry ||                           // country must be picked
-        !selectedPort ||                              // port must be picked
+        isDataLoading ||                              
+        loadingChat ||                                
+        !selectedCountry ||                           
+        !selectedPort ||                              
         (
-            !isOtherPort &&                           // if _not_ “Others”…
-            (                                       // …then require both price & profit
+            !isOtherPort &&                           
+            (                                       
                 !freightOrigPrice ||
                 !profitMap
             )
@@ -573,19 +622,17 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
         carData?.stockStatus?.startsWith("Reserved") || carData?.stockStatus === "Hidden"
         || !agreed;
 
-
     const src =
         Array.isArray(images) && images?.length > 0 && images[currentImageIndex]
             ? images[currentImageIndex]
             : '/placeholder.jpg'
 
     const THUMB_COUNT = 10;
-    // fall back to an empty array if images is undefined/null
     const safeImages = images ?? [];
-    // at least THUMB_COUNT slots, or more if you have more images
     const thumbnailCount = Math.max(safeImages.length, THUMB_COUNT);
     const [ipInfo, setIpInfo] = useState(null);
     const [tokyoTimeData, setTokyoTimeData] = useState(null);
+    
     useEffect(() => {
         let mounted = true;
         Promise.all([
@@ -603,10 +650,9 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
             });
         return () => { mounted = false; };
     }, []);
+    
     function formatStockStatus(rawStatus) {
-
         if (!rawStatus) return "";
-
         if (rawStatus.startsWith("Sold")) {
             return "SOLD";
         }
@@ -616,15 +662,12 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
         if (rawStatus === "Hidden") {
             return "UNAVAILABLE";
         }
-        // anything else falls back to unavailable
         return "";
     }
     const status = formatStockStatus(carData?.stockStatus);
 
-    // 2) Decide when to show the watermark
     const showWatermark = ["SOLD", "RESERVED", "UNAVAILABLE"].includes(status);
 
-    // 3) Pick a color class for each status
     let watermarkColorClass;
     switch (status) {
         case "SOLD":
@@ -634,100 +677,48 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
             watermarkColorClass = "text-[#ffd700]/50";
             break;
         case "UNAVAILABLE":
-            // without text-sm, it'll stay text-[120px]/max-[426px]:text-[25px]
             watermarkColorClass = "text-gray-500/30";
             break;
         default:
             watermarkColorClass = "";
     }
 
+    useEffect(() => {
+        if (d2dMatch?.id) {
+            const fetchCities = async () => {
+                setLoadingCities(true);
+                try {
+                    const res = await fetch(`/api/d2d-cities?countryId=${d2dMatch.id}`);
+                    const data = await res.json();
+                    if (data.cities) {
+                        setD2dCities(data.cities);
+                    } else {
+                        setD2dCities([]);
+                    }
+                } catch (error) {
+                    console.error("Error fetching cities:", error);
+                    setD2dCities([]);
+                } finally {
+                    setLoadingCities(false);
+                }
+            };
 
-    // useEffect(() => {
-    //     const fetchZones = async () => {
+            fetchCities();
+        } else {
+            setD2dCities([]);
+        }
+    }, [d2dMatch]);
 
-    //         if (!selectedCountry) {
-    //             setZones({});
-    //             return;
-    //         }
-
-    //         // setIsDataLoading(true);
-    //         setDoorToDoorEnabled(false);
-
-    //         const callGetZones = httpsCallable(functions, 'getDeliveryZones');
-
-    //         try {
-    //             const result = await callGetZones({ countryName: selectedCountry });
-    //             const fetchedZones = result.data.zones;
-    //             setZones(fetchedZones || {});
-    //         } catch (err) {
-    //             console.error('Error calling getDeliveryZones function:', err);
-    //         }
-    //     };
-
-    //     fetchZones();
-    // }, [dropdownValuesLocations]);
-
-    const [clearingEnabled, setClearingEnabled] = useState(false);
-    const [deliveryEnabled, setDeliveryEnabled] = useState(false);
-    const [showDeliveryModal, setShowDeliveryModal] = useState(false);
-    const [deliveryCity, setDeliveryCity] = useState('');
-    const [deliveryAddress, setDeliveryAddress] = useState('');
 
     return (
         <div className=" mx-auto px-4 py-8 z-[9999]">
             <FloatingAlertPortal
                 show={showAlert}
                 onClose={() => setShowAlert(false)}
-                duration={5000} // 5 seconds
+                duration={5000} 
             />
             {loadingChat && <Loader />}
-            {/* {isFullscreen && (
-                <div className="fixed inset-0 bg-black z-50 flex flex-col justify-center items-center">
-                    <div className="relative w-full h-[80vh] max-w-6xl">
-                        <Image
-                            src={images[currentImageIndex] || "/placeholder.svg"}
-                            alt={`Image ${currentImageIndex + 1}`}
-                            fill
-                            className="object-contain"
-
-                        />
-                    </div>
-
-                    <div className="absolute bottom-4 left-0 right-0">
-                        <div className="flex justify-center gap-2 px-4">
-                            <Button variant="ghost" size="icon" onClick={handlePrevImage} className="text-white hover:bg-white/20">
-                                <ChevronLeft className="h-6 w-6" />
-                            </Button>
-
-                            <div className="flex-1 max-w-3xl overflow-x-auto hide-scrollbar">
-                                <div className="flex gap-2 justify-center">
-                                    {images?.map((image, index) => (
-                                        <div
-                                            key={index}
-                                            id={`fullscreen-thumbnail-${index}`}
-                                            className={`flex-shrink-0 w-16 h-12 overflow-hidden rounded-md border cursor-pointer ${index === currentImageIndex ? "ring-2 ring-white" : "opacity-70"
-                                                }`}
-                                            onClick={() => handleThumbnailClick(index)}
-                                        >
-                                            <Image
-                                                src={image || "/placeholder.svg"}
-                                                alt={`Thumbnail ${index + 1}`}
-                                                width={80}
-                                                height={60}
-                                                className="object-cover w-full h-full"
-                                            />
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <Button variant="ghost" size="icon" onClick={handleNextImage} className="text-white hover:bg-white/20">
-                                <ChevronRight className="h-6 w-6" />
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            )} */}
+            
             <div className="max-w-screen-2xl mx-auto p-4 font-sans">
                 <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-8">
                     {/* Left side - Car images and thumbnails */}
@@ -749,10 +740,7 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
                                         <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
                                         <span className="truncate">{(carData?.views ?? 0) + 2} views today</span>
                                     </Badge>
-
-
                                 </div>
-
                             </div>
                             <div className="flex gap-2">
                                 {user && (
@@ -792,7 +780,6 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
 
                         {/* IMAGE + THUMBNAILS */}
                         <div className="flex flex-col lg:flex-row gap-4  w-full mx-auto">
-                            {/* MAIN IMAGE WRAPPER */}
                             <div className="relative w-full inline-block overflow-hidden rounded-md z-[100]">
                                 <button
                                     className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white p-1 rounded-full z-10"
@@ -819,15 +806,10 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
                                 </div>
                             </div>
 
-                            {/* THUMBNAILS */}
                             <div className="relative">
-                                {/* Scrollable thumbnail container */}
                                 <div
                                     ref={thumbnailsRef}
-                                    className="
-      relative flex flex-row gap-2 w-full overflow-x-auto z-[101]
-      h-auto lg:h-[600px] lg:w-[145px] lg:flex-col lg:overflow-y-auto lg:overflow-x-visible
-    "
+                                    className="relative flex flex-row gap-2 w-full overflow-x-auto z-[101] h-auto lg:h-[600px] lg:w-[145px] lg:flex-col lg:overflow-y-auto lg:overflow-x-visible"
                                 >
                                     <div className="flex flex-row gap-2 px-1 lg:flex-col lg:gap-2 z-10">
                                         {Array.from({ length: thumbnailCount }).map((_, idx) => {
@@ -836,12 +818,7 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
                                                 <div
                                                     key={idx}
                                                     onClick={() => handleThumbnailClick(idx)}
-                                                    className={`
-            cursor-pointer overflow-hidden rounded-md border transition
-            ${idx === currentImageIndex
-                                                            ? "ring-2 ring-primary"
-                                                            : "opacity-70 hover:opacity-100"}
-          `}
+                                                    className={`cursor-pointer overflow-hidden rounded-md border transition ${idx === currentImageIndex ? "ring-2 ring-primary" : "opacity-70 hover:opacity-100"}`}
                                                     style={{ aspectRatio: "4/3", width: "100px" }}
                                                 >
                                                     <Image
@@ -856,34 +833,10 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
                                         })}
                                     </div>
                                 </div>
-
-                                {/* Floating left scroll button (mobile only) */}
-                                <button
-                                    onClick={() => scrollThumbnails(-100)}
-                                    className="
-      absolute left-2 top-1/2 -translate-y-1/2
-      p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg z-[950]
-      lg:hidden hover:bg-white transition-all
-    "
-                                >
-                                    <ChevronLeft className="h-4 w-4" />
-                                </button>
-
-                                {/* Floating right scroll button (mobile only) */}
-                                <button
-                                    onClick={() => scrollThumbnails(100)}
-                                    className="
-      absolute right-2 top-1/2 -translate-y-1/2
-      p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg z-[950]
-      lg:hidden hover:bg-white transition-all
-    "
-                                >
-                                    <ChevronRight className="h-4 w-4" />
-                                </button>
+                                <button onClick={() => scrollThumbnails(-100)} className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg z-[950] lg:hidden hover:bg-white transition-all"><ChevronLeft className="h-4 w-4" /></button>
+                                <button onClick={() => scrollThumbnails(100)} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg z-[950] lg:hidden hover:bg-white transition-all"><ChevronRight className="h-4 w-4" /></button>
                             </div>
                         </div>
-
-
                     </div>
 
                     {/* Right side - buttons */}
@@ -919,7 +872,6 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
                                     }}
                                 >
                                     <SelectTrigger className="w-[90px] h-9 px-3 [&_svg]:text-[#0000ff] [&_svg]:stroke-[#0000ff] mx-3 -my-2">
-
                                         <SelectValue placeholder="Currency" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -956,35 +908,17 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
                         </div>
 
                         <Card className="my-6 relative overflow-visible border-[3px] border-[#155DFC] bg-background">
-                            {/* Watermark overlay */}
                             {showWatermark && (
                                 <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none">
-                                    <span
-                                        className={`
-          text-[85px]
-          max-[426px]:text-[25px]
-          font-bold
-          transform -rotate-45
-          select-none
-          ${watermarkColorClass}
-        `}
-                                    >
+                                    <span className={`text-[85px] max-[426px]:text-[25px] font-bold transform -rotate-45 select-none ${watermarkColorClass}`}>
                                         {status}
                                     </span>
                                 </div>
                             )}
 
                             <CardContent className="relative z-0 p-6 md:p-8">
-                                {/* =========================
-        Pricing Section (Top)
-       ========================= */}
                                 <div className="mb-8 rounded-lg border-2 border-[#155DFC] bg-[#F3FAFF] p-4">
-                                    {/* <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-foreground">
-                                        Pricing Generated: <span className="text-primary">Estimate*</span>
-                                    </div> */}
-
                                     <div className="grid gap-4 md:grid-cols-2">
-                                        {/* FOB Price */}
                                         <div className="rounded-md border-2 border-[#155DFC] bg-card p-4">
                                             <p className="text-sm font-medium text-foreground mb-1">FOB Price</p>
                                             <div className="text-3xl font-bold text-foreground">
@@ -1000,17 +934,17 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
                                             </div>
                                         </div>
 
-                                        {/* Final Price */}
                                         <div className="rounded-md border-2 border-[#155DFC] bg-card p-4">
                                             <p className="text-sm font-medium text-foreground mb-1">Final Price</p>
                                             <div className="text-3xl font-bold text-primary">
                                                 <AnimatedCurrencyPrice
+                                                    key={`final-${profitMap || ''}-${selectedPort || ''}-${selectedCountry || ''}-${finalPrice}`}
                                                     basePrice={profitMap && selectedPort && selectedCountry ? finalPrice : 0}
                                                     selectedCurrency={{
                                                         symbol: selectedCurrency.symbol,
                                                         value: selectedCurrency.value,
                                                     }}
-                                                    duration={1000}
+                                                    duration={300}
                                                     selectedPort={selectedPort}
                                                 />
                                             </div>
@@ -1018,14 +952,6 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
                                     </div>
                                 </div>
 
-
-
-
-
-
-                                {/* =========================
-        Step 1: Select Destination
-       ========================= */}
                                 <div className="mb-6">
                                     <div className="mb-4 flex items-center gap-2">
                                         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#155DFC] text-sm font-bold text-primary-foreground">
@@ -1060,9 +986,6 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
                                     </div>
                                 </div>
 
-                                {/* =========================
-        Step 2: Choose Services (Pills)
-       ========================= */}
                                 <div className="mb-6">
                                     <div className="mb-4 flex items-center gap-2">
                                         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#155DFC] text-sm font-bold text-primary-foreground">
@@ -1073,22 +996,20 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
 
                                     <div className="rounded-lg  border-primary bg-card">
                                         <div className="flex flex-wrap gap-3">
-                                            {/* Inspection pill */}
                                             <button
                                                 type="button"
                                                 onClick={() => {
                                                     if (disableInspection || isRequired) return;
 
                                                     const next = !inspectionSelected;
-                                                    setInspectionToggle(next);
+                                                    setInspectionToggle(prev => !prev);
 
-                                                    // update URL
                                                     const params = new URLSearchParams(window.location.search);
                                                     if (next) params.set('inspection', '1');
                                                     else params.delete('inspection');
 
                                                     const q = params.toString();
-                                                    router.push(q ? `${location.pathname}?${q}` : location.pathname, {
+                                                    router.replace(q ? `${location.pathname}?${q}` : location.pathname, {
                                                         scroll: false,
                                                     });
                                                 }}
@@ -1101,23 +1022,29 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
                                                     }`}
                                             >
                                                 Inspection
+                                                {inspectionToggle && (
+                                                    <span
+                                                        className={`ml-2 px-3 py-1 rounded-full text-xs font-bold ${inspectionSelected ? 'bg-white text-[#155DFC]' : 'bg-[#155DFC] text-white'
+                                                            }`}
+                                                    >
+                                                        +$300
+                                                    </span>
+                                                )}
+
                                             </button>
 
-
-                                            {/* Insurance pill */}
                                             <button
                                                 type="button"
                                                 onClick={() => {
                                                     const next = !insuranceSelected;
-                                                    setInsuranceToggle(next);
+                                                    setInsuranceToggle(prev => !prev);
 
-                                                    // update URL
                                                     const params = new URLSearchParams(window.location.search);
                                                     if (next) params.set('insurance', '1');
                                                     else params.delete('insurance');
 
                                                     const q = params.toString();
-                                                    router.push(q ? `${location.pathname}?${q}` : location.pathname, {
+                                                    router.replace(q ? `${location.pathname}?${q}` : location.pathname, {
                                                         scroll: false,
                                                     });
                                                 }}
@@ -1127,67 +1054,119 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
                                                     }`}
                                             >
                                                 Insurance
+                                                {insuranceToggle && (
+                                                    <span
+                                                        className={`ml-2 px-3 py-1 rounded-full text-xs font-bold ${insuranceSelected ? 'bg-white text-[#155DFC]' : 'bg-[#155DFC] text-white'
+                                                            }`}
+                                                    >
+                                                        +$50
+                                                    </span>
+                                                )}
+
                                             </button>
 
 
-                                            {/* Clearing pill */}
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    const next = !clearingEnabled;
-                                                    setClearingEnabled(next);
+                                            {d2dMatch && (
+                                                <>
+                                                    {/* Clearing pill with URL Sync */}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const next = !clearingEnabled;
+                                                            setClearingEnabled(next);
+                                                            
+                                                            const params = new URLSearchParams(window.location.search);
 
-                                                    // If turning off clearing, also turn off delivery + clear details
-                                                    if (!next) {
-                                                        setDeliveryEnabled(false);
-                                                        setDeliveryCity('');
-                                                        setDeliveryAddress('');
-                                                    }
-                                                }}
-                                                className={`relative rounded-full border-2 px-6 py-2.5 text-sm font-semibold transition-all ${clearingEnabled
-                                                    ? 'border-[#155DFC] bg-[#155DFC] text-primary-foreground'
-                                                    : 'border-[#155DFC] text-foreground hover:bg-[#155DFC] hover:text-white'
-                                                    }`}
-                                            >
-                                                Clearing
-                                            </button>
+                                                            if (!next) {
+                                                                // If turning OFF:
+                                                                setDeliveryEnabled(false);
+                                                                setDeliveryCity('');
+                                                                setDeliveryAddress('');
+                                                                
+                                                                // Remove both from URL
+                                                                params.delete('clearing');
+                                                                params.delete('delivery');
+                                                            } else {
+                                                                // If turning ON:
+                                                                params.set('clearing', '1');
+                                                            }
+                                                            
+                                                            const q = params.toString();
+                                                            router.replace(q ? `${location.pathname}?${q}` : location.pathname, {
+                                                                scroll: false,
+                                                            });
+                                                        }}
+                                                        className={`relative rounded-full border-2 px-6 py-2.5 text-sm font-semibold transition-all ${clearingEnabled
+                                                            ? 'border-[#155DFC] bg-[#155DFC] text-primary-foreground'
+                                                            : 'border-[#155DFC] text-foreground hover:bg-[#155DFC] hover:text-white'
+                                                            }`}
+                                                    >
+                                                        Clearing
 
-                                            {/* Delivery pill */}
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    if (!clearingEnabled) return;
+                                                        {clearingEnabled && d2dMatch?.clearingPrice && (
+                                                            <span
+                                                                className={`ml-2 px-3 py-1 rounded-full text-xs font-bold ${clearingEnabled ? 'bg-white text-[#155DFC]' : 'bg-[#155DFC] text-white'
+                                                                    }`}
+                                                            >
+                                                                +${d2dMatch.clearingPrice}
+                                                            </span>
+                                                        )}
+                                                    </button>
+                                                    
+                                                    {/* Delivery pill with URL Sync */}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            if (!clearingEnabled) return;
+                                                            
+                                                            if (deliveryEnabled) {
+                                                                // Turning OFF
+                                                                setDeliveryEnabled(false);
+                                                                setDeliveryCity('');
+                                                                setDeliveryAddress('');
+                                                                
+                                                                const params = new URLSearchParams(window.location.search);
+                                                                params.delete('delivery');
+                                                                const q = params.toString();
+                                                                router.replace(q ? `${location.pathname}?${q}` : location.pathname, {
+                                                                    scroll: false,
+                                                                });
+                                                            } else {
+                                                                // Turning ON (Open Modal)
+                                                                setShowDeliveryModal(true);
+                                                            }
+                                                        }}
+                                                        disabled={!clearingEnabled}
+                                                        className={`relative rounded-full border-2 px-6 py-2.5 text-sm font-semibold transition-all ${!clearingEnabled
+                                                                ? 'border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed'
+                                                                : deliveryEnabled
+                                                                    ? 'border-[#155DFC] bg-[#155DFC] text-primary-foreground'
+                                                                    : 'border-[#155DFC] bg-card text-foreground hover:bg-[#155DFC] hover:text-primary-foreground'
+                                                            }`}
+                                                    >
+                                                        Delivery
 
-                                                    if (deliveryEnabled) {
-                                                        // turning off delivery
-                                                        setDeliveryEnabled(false);
-                                                        setDeliveryCity('');
-                                                        setDeliveryAddress('');
-                                                    } else {
-                                                        setShowDeliveryModal(true);
-                                                    }
-                                                }}
-                                                disabled={!clearingEnabled}
-                                                className={`relative rounded-full border-2 px-6 py-2.5 text-sm font-semibold transition-all ${!clearingEnabled
-                                                    ? 'border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed'
-                                                    : deliveryEnabled
-                                                        ? 'border-[#155DFC] bg-[#155DFC] text-primary-foreground'
-                                                        : 'border-[#155DFC] bg-card text-foreground hover:bg-[#155DFC] hover:text-primary-foreground'
-                                                    }`}
-                                            >
-                                                Delivery
-                                            </button>
+                                                        {deliveryEnabled && selectedCityData?.deliveryPrice && (
+                                                            <span
+                                                                className={`ml-2 px-3 py-1 rounded-full text-xs font-bold ${deliveryEnabled ? 'bg-white text-[#155DFC]' : 'bg-[#155DFC] text-white'
+                                                                    }`}
+                                                            >
+                                                                +${selectedCityData.deliveryPrice}
+                                                            </span>
+                                                        )}
+                                                    </button>
+
+                                                    {!clearingEnabled && (
+                                                        <p className="w-full mt-2 text-xs text-muted-foreground">
+                                                            *Delivery requires Clearing service to be enabled
+                                                        </p>
+                                                    )}
+                                                </>
+                                            )}
                                         </div>
-
-                                        {!clearingEnabled && (
-                                            <p className="mt-2 text-xs text-muted-foreground">
-                                                *Delivery requires Clearing service to be enabled
-                                            </p>
-                                        )}
                                     </div>
 
-                                    {/* Delivery summary when enabled */}
-                                    {deliveryEnabled && deliveryCity && deliveryAddress && (
+                                    {deliveryEnabled && deliveryCity && (
                                         <div className="mt-4 rounded-lg border-2 border-primary bg-primary/5 p-4">
                                             <div className="mb-2 text-sm font-semibold text-foreground">
                                                 Delivery Information:
@@ -1196,9 +1175,11 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
                                                 <div>
                                                     <span className="font-medium">City:</span> {deliveryCity}
                                                 </div>
-                                                <div>
-                                                    <span className="font-medium">Address:</span> {deliveryAddress}
-                                                </div>
+                                                {deliveryAddress && (
+                                                    <div>
+                                                        <span className="font-medium">Address:</span> {deliveryAddress}
+                                                    </div>
+                                                )}
                                             </div>
                                             <button
                                                 type="button"
@@ -1210,8 +1191,6 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
                                         </div>
                                     )}
                                 </div>
-
-
 
                                 <div className="flex items-center gap-3 rounded-lg border-2 border-blue-500 bg-white p-3 -mt-3 mb-2">
                                     <Checkbox
@@ -1229,9 +1208,6 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
                                     </Label>
                                 </div>
 
-                                {/* =========================
-        Step 3: Additional Information
-       ========================= */}
                                 <div className="mb-6">
                                     <div className="mb-4 flex items-center gap-2">
                                         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#155DFC] text-sm font-bold text-primary-foreground">
@@ -1283,9 +1259,7 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
                                     </div>
                                 </div>
 
-                                {/* =========================
-        Send Inquiry Button
-       ========================= */}
+                                {/* --- 2. UPDATED BUTTON CLICK --- */}
                                 <Button
                                     id="rmj_inquiry_button"
                                     disabled={isButtonDisabled}
@@ -1311,7 +1285,14 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
                                             insuranceSelected,
                                             ipInfo,
                                             tokyoTimeData,
-                                            inspectionSelected
+                                            inspectionSelected,
+                                            // New Values
+                                            clearingEnabled,
+                                            deliveryEnabled,
+                                            deliveryAddress,
+                                            clearingAddOn,
+                                            deliveryCity,
+                                            deliveryAddOn
                                         )
                                     }
                                     className="w-full rounded-md bg-primary py-6 text-lg font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1327,7 +1308,9 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
                                 <Card className="w-full max-w-md border-[3px] border-primary bg-background">
                                     <CardContent className="p-6">
                                         <div className="mb-6 flex items-center justify-between">
-                                            <h3 className="text-xl font-bold text-foreground">Delivery Details</h3>
+                                            <h3 className="text-xl font-bold text-foreground">
+                                                Delivery Details
+                                            </h3>
                                             <button
                                                 type="button"
                                                 onClick={() => setShowDeliveryModal(false)}
@@ -1343,22 +1326,43 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
                                                     htmlFor="delivery-city"
                                                     className="mb-2 block text-sm font-semibold text-foreground"
                                                 >
-                                                    CITY:
+                                                    City:
                                                 </Label>
-                                                <div className="relative">
-                                                    <select
+                                                <Select
+                                                    value={deliveryCity}
+                                                    onValueChange={(val) => setDeliveryCity(val)}
+                                                    disabled={loadingCities || (!d2dCities.length && !loadingCities)}
+                                                >
+                                                    <SelectTrigger
                                                         id="delivery-city"
-                                                        value={deliveryCity}
-                                                        onChange={e => setDeliveryCity(e.target.value)}
-                                                        className="w-full appearance-none rounded-md border-2 border-input bg-card px-4 py-3 pr-10 text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                                                        className="w-full h-[54px] rounded-md border-2 border-input bg-card px-4 text-foreground focus:ring-2 focus:ring-primary"
                                                     >
-                                                        <option value="">Select a city</option>
-                                                        <option value="city1">City 1</option>
-                                                        <option value="city2">City 2</option>
-                                                        <option value="city3">City 3</option>
-                                                    </select>
-                                                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-foreground" />
-                                                </div>
+                                                        <SelectValue
+                                                            placeholder={loadingCities ? "Loading cities..." : "Select a city"}
+                                                        />
+                                                    </SelectTrigger>
+                                                    <SelectContent
+                                                        className="max-h-[40vh] overflow-y-auto z-[9999]"
+                                                        side="bottom"
+                                                        align="start"
+                                                    >
+                                                        {d2dCities && d2dCities.length > 0 ? (
+                                                            d2dCities.map((city) => (
+                                                                <SelectItem
+                                                                    key={city.id}
+                                                                    value={city.name || 'Others'}
+                                                                    className="cursor-pointer py-3"
+                                                                >
+                                                                    {city.name || 'Others'}
+                                                                </SelectItem>
+                                                            ))
+                                                        ) : (
+                                                            <div className="p-4 text-sm text-center text-muted-foreground">
+                                                                {loadingCities ? "Loading..." : "No cities available for this region"}
+                                                            </div>
+                                                        )}
+                                                    </SelectContent>
+                                                </Select>
                                             </div>
 
                                             <div>
@@ -1366,7 +1370,7 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
                                                     htmlFor="delivery-address"
                                                     className="mb-2 block text-sm font-semibold text-foreground"
                                                 >
-                                                    ADDRESS:
+                                                    Address:
                                                 </Label>
                                                 <Textarea
                                                     id="delivery-address"
@@ -1382,11 +1386,11 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
                                             <Button
                                                 type="button"
                                                 onClick={() => {
-                                                    // If no info, make sure delivery stays off
                                                     if (!deliveryCity && !deliveryAddress) {
                                                         setDeliveryEnabled(false);
                                                     }
-                                                    setShowDeliveryModal(false);
+
+                                                    setShowDeliveryModal(false)
                                                 }}
                                                 variant="outline"
                                                 className="flex-1 border-2 border-input text-foreground hover:bg-accent hover:text-accent-foreground"
@@ -1398,7 +1402,16 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
                                                 onClick={() => {
                                                     if (!deliveryCity || !deliveryAddress) return;
                                                     setDeliveryEnabled(true);
-                                                    setShowDeliveryModal(false);
+                                                    setShowDeliveryModal(false)
+                                                    
+                                                    // Update URL
+                                                    const params = new URLSearchParams(window.location.search);
+                                                    params.set('delivery', deliveryCity);
+                                                    
+                                                    const q = params.toString();
+                                                    router.replace(q ? `${location.pathname}?${q}` : location.pathname, {
+                                                        scroll: false,
+                                                    });
                                                 }}
                                                 disabled={!deliveryCity || !deliveryAddress}
                                                 className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1419,4 +1432,3 @@ export default function CarProductPageCSR({ chatCount, carData, countryArray, cu
         </div>
     )
 }
-

@@ -1655,3 +1655,33 @@ export async function fetchChatCountForVehicle(stockID) {
     }
 }
 
+
+export async function fetchD2DCountries() {
+    try {
+        // 2. Construct the reference down to the sub-collection
+        const countriesRef = db
+            .collection('CustomerCountryPort') // Root Collection
+            .doc('CountriesDoc')               // Specific Doc ID
+            .collection('D2DCountries');       // Target Sub-collection
+
+        // 3. Fetch the snapshot
+        const snapshot = await countriesRef.get();
+
+        if (snapshot.empty) {
+            console.log('No matching documents.');
+            return [];
+        }
+
+        // 4. Map the data into a usable array
+        const countriesData = snapshot.docs.map(doc => ({
+            id: doc.id,       // It's good practice to include the Doc ID
+            ...doc.data()     // Spread the actual data fields
+        }));
+
+        return countriesData;
+
+    } catch (error) {
+        console.error('Error fetching countries:', error);
+        throw error;
+    }
+}

@@ -14,7 +14,8 @@ const toHostedUrl = (invoiceId) =>
 
 
 
-export default function PayPalInvoiceBlock({ chatId, invoiceNumber, carData, invoiceData, message, userEmail, renderTextWithLinks }) {
+export default function PayPalInvoiceBlock({ tokyotime, chatId, invoiceNumber, carData, invoiceData, message, userEmail, renderTextWithLinks }) {
+
     const getPaymentState = httpsCallable(functions, "getPaymentState");
     const [payerEmail, setPayerEmail] = useState("");
     const [submitting, setSubmitting] = useState(false);
@@ -24,30 +25,30 @@ export default function PayPalInvoiceBlock({ chatId, invoiceNumber, carData, inv
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     const handleClick = async () => {
-       setChecking(true);
-  try {
-    const { data: state } = await getPaymentState({ chatId });
+        setChecking(true);
+        try {
+            const { data: state } = await getPaymentState({ chatId });
 
-    switch (state.suggestedAction) {
-      case "none":
-        if (state.hostedUrl) window.open(state.hostedUrl, "_blank", "noopener,noreferrer");
-        else alert("This invoice has already been paid."); //add modal here if ever
-        
-        return;
+            switch (state.suggestedAction) {
+                case "none":
+                    if (state.hostedUrl) window.open(state.hostedUrl, "_blank", "noopener,noreferrer");
+                    else alert("This invoice has already been paid."); //add modal here if ever
 
-      case "openHostedUrl":
-        if (state.hostedUrl) {
-          window.open(state.hostedUrl, "_blank", "noopener,noreferrer");
-          return;
+                    return;
+
+                case "openHostedUrl":
+                    if (state.hostedUrl) {
+                        window.open(state.hostedUrl, "_blank", "noopener,noreferrer");
+                        return;
+                    }
+                default:
+                    // Your existing modal flow that creates the signature THEN creates invoice
+                    setIsModalOpen(true);
+                    return;
+            }
+        } finally {
+            setChecking(false);
         }
-      default:
-        // Your existing modal flow that creates the signature THEN creates invoice
-        setIsModalOpen(true);
-        return;
-    }
-  } finally {
-    setChecking(false);
-  }
     };
 
 
@@ -125,7 +126,7 @@ export default function PayPalInvoiceBlock({ chatId, invoiceNumber, carData, inv
 
             </p>
 
-            <PaymentModal chatId={chatId} invoiceNumber={invoiceNumber} carData={carData} invoiceData={invoiceData} isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+            <PaymentModal timestamp={tokyotime} chatId={chatId} invoiceNumber={invoiceNumber} carData={carData} invoiceData={invoiceData} isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
         </div>
 
     );

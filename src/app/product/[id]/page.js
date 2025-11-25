@@ -4,7 +4,7 @@ import { fetchCarDataAdmin, fetchCountries, fetchCurrency, fetchInspectionToggle
 import CarProductPageCSR from '../productComponents/CarProductPageCSR';
 import VehicleSpecifications from '../productComponents/VehicleSpecificationsCSR';
 import { useAuth } from '@/app/providers/AuthProvider';
-import { makeFavorite, isFavorited, getAccountData, fetchChatCountForVehicle } from '@/app/actions/actions';
+import { makeFavorite, isFavorited, getAccountData, fetchChatCountForVehicle, fetchD2DCountries } from '@/app/actions/actions';
 import { admin } from '@/lib/firebaseAdmin';
 import { cookies } from "next/headers";
 import ClientAppCheck from '../../../../firebase/ClientAppCheck';
@@ -97,6 +97,10 @@ export default async function ProductPage({ params, searchParams }) {
   // 3️⃣ Read cookies() synchronously
   const cookieStore = await cookies()
 
+
+  const D2DCountries = await fetchD2DCountries()
+
+
   // 4️⃣ If any legacy cookie still exists, render guest UI immediately
   for (const legacyName of oldNames) {
     if (cookieStore.get(legacyName)?.value) {
@@ -111,6 +115,7 @@ export default async function ProductPage({ params, searchParams }) {
                 countryArray={countryArray}
                 useAuth={useAuth}
                 chatCount={chatCount}
+                d2dCountries={D2DCountries}
               />
             </div>
             <div className='-mt-12'>
@@ -138,6 +143,7 @@ export default async function ProductPage({ params, searchParams }) {
               countryArray={countryArray}
               useAuth={useAuth}
               chatCount={chatCount}
+              d2dCountries={D2DCountries}
             />
             <div className='-mt-12'>
               <VehicleSpecifications carData={carData} />
@@ -180,6 +186,7 @@ export default async function ProductPage({ params, searchParams }) {
                 countryArray={countryArray}
                 useAuth={useAuth}
                 chatCount={chatCount}
+                d2dCountries={D2DCountries}
               />
 
 
@@ -205,6 +212,7 @@ export default async function ProductPage({ params, searchParams }) {
               countryArray={countryArray}
               useAuth={useAuth}
               chatCount={chatCount}
+              d2dCountries={D2DCountries}
             />
 
             <div className='-mt-12'>
@@ -234,6 +242,7 @@ export default async function ProductPage({ params, searchParams }) {
             countryArray={countryArray}
             useAuth={useAuth}
             userEmail={userEmail}
+            d2dCountries={D2DCountries}
           />
 
           <div className='-mt-12'>

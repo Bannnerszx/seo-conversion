@@ -4,12 +4,10 @@ import TimelineStatus from "./timelineStatus"
 import { useRouter } from "next/navigation";
 import { ChevronLeft } from "lucide-react"
 import Link from "next/link";
+
 export default function CarDetails({ chatId, handleBackToList, isMobileView, isDetailView, countryDetails, contact, invoiceData, dueDate }) {
     const router = useRouter()
     const selectedCurrencyCode = contact?.selectedCurrencyExchange; // e.g. "JPY"
-    // Payment auto-navigation removed — SEO/admin will control visible URL for /chats/payment
-    // 2) build your lookup table
-
 
     const toNumber = (v, fallback = 0) => {
         if (v == null) return fallback;
@@ -21,7 +19,7 @@ export default function CarDetails({ chatId, handleBackToList, isMobileView, isD
         return fallback;
     };
 
-   const formatMoney = (amount, symbol) =>
+    const formatMoney = (amount, symbol) =>
         Number.isFinite(amount) ? `${symbol} ${Math.trunc(amount).toLocaleString()}` : 'ASK';
 
     // --- currency setup (USD pivot) ---
@@ -40,13 +38,13 @@ export default function CarDetails({ chatId, handleBackToList, isMobileView, isD
 
     const rates = {
         USD: 1,
-        EUR: toNumber(contact?.currency?.usdToEur, NaN), // USD->EUR
-        JPY: toNumber(contact?.currency?.usdToJpy, NaN), // USD->JPY
+        EUR: toNumber(contact?.currency?.usdToEur, NaN),
+        JPY: toNumber(contact?.currency?.usdToJpy, NaN),
         CAD: toNumber(contact?.currency?.usdToCad, NaN),
         AUD: toNumber(contact?.currency?.usdToAud, NaN),
         GBP: toNumber(contact?.currency?.usdToGbp, NaN),
         ZAR: toNumber(contact?.currency?.usdToZar, NaN),
-        jpyToUsd: toNumber(contact?.currency?.jpyToUsd, NaN), // JPY->USD for FOB
+        jpyToUsd: toNumber(contact?.currency?.jpyToUsd, NaN),
     };
 
     const fromUSD = (usdAmount, toCode = 'USD') => {
@@ -66,6 +64,9 @@ export default function CarDetails({ chatId, handleBackToList, isMobileView, isD
         (Number.isFinite(dimM3) ? dimM3 : 0) *
         (Number.isFinite(freightUSD) ? freightUSD : 0);
 
+
+    console.log(contact?.carData?.fobPrice, 'usd')
+
     // Invoice totals are ALWAYS USD in your system:
     const invoiceTotalUSD = toNumber(invoiceData?.paymentDetails?.totalAmount, NaN);
     const hasInvoiceTotal = Number.isFinite(invoiceTotalUSD);
@@ -83,10 +84,19 @@ export default function CarDetails({ chatId, handleBackToList, isMobileView, isD
 
     // Only add surcharges when using fallback (NOT when invoice exists)
     let amountInTarget = fromUSD(baseFinalUSD, targetCurrencyCode);
+
     if (!hasInvoiceTotal) {
-        const inspection = contact?.inspection ? fromUSD(300, targetCurrencyCode) : 0;
+        // FIX: Use saved inspection price if available, otherwise 300
+        const savedInspectionPrice = contact?.inspectionPrice ? toNumber(contact.inspectionPrice) : 300;
+
+        const inspection = contact?.inspection ? fromUSD(savedInspectionPrice, targetCurrencyCode) : 0;
         const insurance = contact?.insurance ? fromUSD(50, targetCurrencyCode) : 0;
-        amountInTarget = toNumber(amountInTarget, 0) + inspection + insurance;
+
+        // Add Clearing & Delivery
+        const clearing = contact?.clearing ? fromUSD(contact.clearingPrice || 0, targetCurrencyCode) : 0;
+        const delivery = contact?.delivery ? fromUSD(contact.deliveryPrice || 0, targetCurrencyCode) : 0;
+
+        amountInTarget = toNumber(amountInTarget, 0) + inspection + insurance + clearing + delivery;
     }
 
     // Final for render
@@ -112,7 +122,6 @@ export default function CarDetails({ chatId, handleBackToList, isMobileView, isD
             setLoading(true);
             setError(null);
 
-            // 1) Serve from cache if present
             if (C.current.has(carId)) {
                 if (!aborted) {
                     setThumbnailUrl(C.current.get(carId) || '');
@@ -127,7 +136,7 @@ export default function CarDetails({ chatId, handleBackToList, isMobileView, isD
                 });
 
                 if (!res.ok) {
-                    C.current.set(carId, '');            // cache empty to avoid refetch loops
+                    C.current.set(carId, '');
                     if (!aborted) setThumbnailUrl('');
                     return;
                 }
@@ -135,7 +144,7 @@ export default function CarDetails({ chatId, handleBackToList, isMobileView, isD
                 const json = await res.json();
                 const url = typeof json?.thumbnailUrl === 'string' ? json.thumbnailUrl : '';
 
-                C.current.set(carId, url);             // cache the string
+                C.current.set(carId, url);
                 if (!aborted) setThumbnailUrl(url);
             } catch (err) {
                 if (!aborted && err.name !== 'AbortError') {
@@ -179,18 +188,11 @@ export default function CarDetails({ chatId, handleBackToList, isMobileView, isD
                 <div className="flex flex-col gap-2">
                     <div className="relative w-20 h-20 overflow-hidden rounded-[50%] border border-gray-200">
                         <Image
-                            src={
-                                src
-                            }
-                            alt={
-                                contact?.carData?.carName
-                                    ? contact.carData.carName
-                                    : 'Car image'
-                            }
+                            src={src}
+                            alt={contact?.carData?.carName ? contact.carData.carName : 'Car image'}
                             layout="fill"
                             className="object-fit"
                         />
-
                     </div>
                 </div>
 
@@ -203,19 +205,7 @@ export default function CarDetails({ chatId, handleBackToList, isMobileView, isD
                     </h2>
                     <div className="text-xs text-gray-500">{contact?.carData?.referenceNumber}</div>
 
-
                     <div className="mt-4 flex items-center justify-between relative">
-                        {/* <div className="absolute h-0.5 bg-gray-300 w-full top-1/2 -translate-y-1/2 z-0"></div>
-                        {[1, 2, 3, 4, 5, 6, 7].map((step, index) => (
-                            <div key={index} className="z-10 flex flex-col items-center">
-                                <div
-                                    className={`w-6 h-6 rounded-full flex items-center justify-center ${index < 2 ? "bg-blue-500 text-white" : "bg-gray-200"
-                                        }`}
-                                >
-                                    {index === 0 ? <span className="text-xs">✓</span> : <span className="text-xs">{step}</span>}
-                                </div>
-                            </div>
-                        ))} */}
                         <TimelineStatus currentStep={contact?.stepIndicator.value} />
                     </div>
                 </div>
@@ -227,7 +217,6 @@ export default function CarDetails({ chatId, handleBackToList, isMobileView, isD
                     <div className="text-gray-600">{contact?.carData?.fuel}</div>
                     <div className="text-gray-600">{contact?.carData?.transmission}</div>
                 </div>
-
 
                 {/* Right side - Price and location */}
                 <div className="flex flex-col gap-2 min-w-[180px]">
@@ -243,17 +232,14 @@ export default function CarDetails({ chatId, handleBackToList, isMobileView, isD
                             (invoiceData?.paymentDetails?.incoterms
                                 ? (invoiceData?.paymentDetails?.incoterms === 'C&F' ? 'C&F' : 'CIF')
                                 : (contact?.insurance ? 'CIF' : 'C&F')),
-                            (invoiceData?.paymentDetails?.warrantyIsChecked ?? contact?.warranty) ? 'WARRANTY' : null
+                            (invoiceData?.paymentDetails?.warrantyIsChecked ?? contact?.warranty) ? 'WARRANTY' : null,
+                            contact?.clearing ? 'CLEARING' : null,
+                            contact?.delivery ? 'DELIVERY' : null
                         ].filter(Boolean).join(' + ')}
-
-
                     </div>
                     <div className="text-xs text-red-500">Due Date: {dueDate ? dueDate : `No due date available`}</div>
                 </div>
             </div>
         </div>
-
-
     )
 }
-
