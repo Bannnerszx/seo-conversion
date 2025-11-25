@@ -32,7 +32,7 @@ env:
     value: "false"
 
   - variable: NEXT_PUBLIC_PAYPAL_SANDBOX_CLIENT_ID
-    value: NEXT_PUBLIC_PAYPAL_SANDBOX_CLIENT_ID
+    secret: NEXT_PUBLIC_PAYPAL_SANDBOX_CLIENT_ID
 
   - variable: PAYPAL_CLIENT_ID
     value: "AV-7FuRgECaAvA3otp-gv25WgtdXz6SBWUEJr-vBnwaZG8iYtIIsryuXXait3dKUDw8rplHf2s83hGmG"
