@@ -242,7 +242,7 @@ export default async function handler(req, res) {
       invoiceId,
       hostedUrl,
       paypalInvoiceNumber: invoiceNumber, // == customId or customId-RXXXX when forceNew
-      existingStatus,                     // for UI (SENT/DRAFT/PAID…)
+      existingStatus,                     
     });
   } catch (e) {
     console.error("[create-invoice] Error:", e);
