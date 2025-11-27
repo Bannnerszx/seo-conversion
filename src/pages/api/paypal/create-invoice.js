@@ -195,10 +195,11 @@ export default async function handler(req, res) {
 
         console.log("[PayPal] Posting message to chat:", chatId);
 
-        const messageText = 
-          "The PayPal invoice has been made.\n\n" + 
-          "If popup fails please kindly check your email to see the invoice for paypal we have sent to you.";
-
+        const messageText =
+          "The PayPal invoice has been made.\n\n" +
+          "If popup fails please kindly check your email to see the invoice for paypal we have sent to you.\n\n" +
+          "You can also pay directly via this link:\n" +
+          hostedUrl;
         const msg = {
           sender: "system@paypal-webhook",
           text: messageText,
@@ -242,7 +243,7 @@ export default async function handler(req, res) {
       invoiceId,
       hostedUrl,
       paypalInvoiceNumber: invoiceNumber, // == customId or customId-RXXXX when forceNew
-      existingStatus,                     
+      existingStatus,
     });
   } catch (e) {
     console.error("[create-invoice] Error:", e);
