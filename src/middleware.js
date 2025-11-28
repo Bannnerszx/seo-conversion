@@ -16,150 +16,146 @@ export const config = {
     '/SearchCarDesign',
     '/chats/:path*',
     '/stock_detail',
-    // ✅ ensure middleware runs on /stock and all subroutes
+    // ensure middleware runs on /stock and all subroutes
     '/stock/:path*',
+    // payment-cart needs middleware to guard empty carts
+    '/payment-cart',
   ],
 }
 
 export async function middleware(request) {
   const { nextUrl: url, cookies } = request
   const { origin, pathname } = url
-  const ORINAL_URL = process.env.NEXT_PUBLIC_APP_URL
+  const ORINAL_URL = process.env.NEXT_PUBLIC_APP_URL || origin
   const OLD_NAMES_ENV = process.env.OLD_SESSION_COOKIE_NAMES || ""
   const OLD_NAMES = OLD_NAMES_ENV.split(",").map((s) => s.trim()).filter(Boolean)
 
   const COOKIE_NAME = process.env.SESSION_COOKIE_NAME
 
-  // ──────────────
-  // 0️⃣  Drop any old "session" cookie immediately (legacy clean-up)
-  // ──────────────
-  const oldValue = cookies.get(OLD_NAMES)?.value
-  if (oldValue) {
-    const resp = NextResponse.next()
-    resp.cookies.delete(OLD_NAMES, { path: "/" })
-    return resp
+  // 0) Drop any old session cookie names (legacy cleanup)
+  for (const name of OLD_NAMES) {
+    const val = cookies.get(name)?.value
+    if (val) {
+      const resp = NextResponse.next()
+      resp.cookies.delete(name, { path: '/' })
+      return resp
+    }
   }
 
-  // ───────────────────────────────────────────────────────
-  // 1️⃣  Determine if this path is “protected” (requires login)
-  // ───────────────────────────────────────────────────────
+  // 1) Protected prefixes require a verified session
   const protectedPrefixes = [
     '/orders',
     '/favorites',
     '/profile',
     '/chats',
   ]
-  const isProtected = protectedPrefixes.some(prefix =>
-    pathname.startsWith(prefix)
-  )
+  const isProtected = protectedPrefixes.some(prefix => pathname.startsWith(prefix))
 
-  // ───────────────────────────────────────────────────────
-  // 2️⃣  If protected, verify the "session_v2" cookie
-  // ───────────────────────────────────────────────────────
   if (isProtected) {
     const sessionCookie = cookies.get(COOKIE_NAME)?.value ?? null
 
-    // 2a) If there's no session_v2 at all, redirect immediately:
     if (!sessionCookie) {
       return NextResponse.redirect(new URL('/login', ORINAL_URL))
     }
 
-    // 2b) If session_v2 exists, call /api/verify-session
     let apiJson = { valid: false }
     try {
       const verifyRes = await fetch(`${ORINAL_URL}/api/verify-session`, {
         method: 'GET',
         headers: {
-          // Forward the raw session_v2 cookie so the API can read req.cookies.session_v2
           cookie: `${COOKIE_NAME}=${sessionCookie}`,
         },
         cache: 'no-store',
       })
       apiJson = await verifyRes.json()
-    } catch {
+    } catch (e) {
       apiJson = { valid: false }
     }
 
-    // 2c) If invalid, /api/verify-session has already deleted session_v2.
-    //       Redirect to /login.
     if (!apiJson.valid) {
       return NextResponse.redirect(new URL('/login', ORINAL_URL))
     }
   }
 
-  // ───────────────────────────────────────────────────────
-  // 3️⃣  Redirect away from /login & /signup if already authenticated
-  // ───────────────────────────────────────────────────────
-  const sessionCookie = cookies.get(COOKIE_NAME)?.value ?? null
-  let isVerified = false
-
-  if (sessionCookie) {
-    try {
-      const verifyRes = await fetch(`${ORINAL_URL}/api/verify-session`, {
-        method: 'GET',
-        headers: {
-          cookie: `${COOKIE_NAME}=${sessionCookie}`,
-        },
-        cache: 'no-store',
-      })
-      const apiJson = await verifyRes.json()
-      if (apiJson.valid) {
-        isVerified = true
+  // 2) Redirect away from /login & /signup if already authenticated
+  {
+    const sessionCookie = cookies.get(COOKIE_NAME)?.value ?? null
+    if (sessionCookie) {
+      try {
+        const verifyRes = await fetch(`${ORINAL_URL}/api/verify-session`, {
+          method: 'GET',
+          headers: { cookie: `${COOKIE_NAME}=${sessionCookie}` },
+          cache: 'no-store',
+        })
+        const apiJson = await verifyRes.json()
+        if (apiJson.valid && (pathname === '/login' || pathname === '/signup')) {
+          return NextResponse.redirect(new URL('/', ORINAL_URL))
+        }
+      } catch (e) {
+        // ignore and continue
       }
-    } catch {
-      isVerified = false
     }
   }
 
-  if (isVerified && (pathname === '/login' || pathname === '/signup')) {
-    return NextResponse.redirect(new URL('/', ORINAL_URL))
-  }
-
-  // ───────────────────────────────────────────────────────
-  // 4️⃣  SSR-safe stock filters persistence for /stock/**
-  //     If country/port are missing in the URL, inject from cookies and redirect once.
-  // ───────────────────────────────────────────────────────
+  // 3) SSR-safe stock filters persistence for /stock/**
   if (pathname.startsWith('/stock')) {
-    const hasCountry = url.searchParams.has('country');
-    const hasPort = url.searchParams.has('port');
-    const hasInspection = url.searchParams.has('inspection');
-    const hasInsurance = url.searchParams.has('insurance');   // <-- NEW
+    // Existing checks
+    const hasCountry = url.searchParams.has('country')
+    const hasPort = url.searchParams.has('port')
+    const hasInspection = url.searchParams.has('inspection')
+    const hasInsurance = url.searchParams.has('insurance')
+    
+    // NEW: Check for Clearing and Delivery params
+    const hasClearing = url.searchParams.has('clearing')
+    const hasDelivery = url.searchParams.has('delivery')
 
-    const cookieCountry = cookies.get('stock_country')?.value;
-    const cookiePort = cookies.get('stock_port')?.value;
-    const cookieInspection = cookies.get('stock_inspection')?.value; // "1" or "0"
-    const cookieInsurance = cookies.get('stock_insurance')?.value;  // "1" or "0" <-- NEW
+    // Existing cookies
+    const cookieCountry = cookies.get('stock_country')?.value
+    const cookiePort = cookies.get('stock_port')?.value
+    const cookieInspection = cookies.get('stock_inspection')?.value 
+    const cookieInsurance = cookies.get('stock_insurance')?.value 
+    
+    // NEW: Get Clearing and Delivery cookies
+    const cookieClearing = cookies.get('stock_clearing')?.value // "1" or "0"
+    const cookieDelivery = cookies.get('stock_delivery')?.value // "CityName"
 
-    let mutated = false;
+    let mutated = false
 
     if (!hasCountry && cookieCountry) {
-      url.searchParams.set('country', cookieCountry);
-      mutated = true;
+      url.searchParams.set('country', cookieCountry)
+      mutated = true
     }
     if (!hasPort && cookiePort) {
-      url.searchParams.set('port', cookiePort);
-      mutated = true;
+      url.searchParams.set('port', cookiePort)
+      mutated = true
     }
     if (!hasInspection && cookieInspection === '1') {
-      url.searchParams.set('inspection', '1');
-      mutated = true;
+      url.searchParams.set('inspection', '1')
+      mutated = true
     }
-    // 🔐 Insurance: restore from cookie if URL lacks it
     if (!hasInsurance && cookieInsurance === '1') {
-      url.searchParams.set('insurance', '1');
-      mutated = true;
+      url.searchParams.set('insurance', '1')
+      mutated = true
+    }
+
+    // NEW: Apply persistence for Clearing
+    if (!hasClearing && cookieClearing === '1') {
+      url.searchParams.set('clearing', '1')
+      mutated = true
+    }
+
+    // NEW: Apply persistence for Delivery (City Name)
+    if (!hasDelivery && cookieDelivery) {
+      url.searchParams.set('delivery', cookieDelivery)
+      mutated = true
     }
 
     if (mutated) {
-      return NextResponse.redirect(url);
+      return NextResponse.redirect(url)
     }
   }
 
-  // ───────────────────────────────────────────────────────
-  // 5️⃣  NEW: Conversion URL rewrites (no OLD_GUARD redirects)
-  //     Keep the visible URL (/chats/ordered|payment/:chatId) so GTM can fire,
-  //     but render /chats/:chatId under the hood.
-  // ───────────────────────────────────────────────────────
+  // 4) Conversion URL rewrites for chats (keep visible URL but render chat)
   {
     const mOrdered = pathname.match(/^\/chats\/ordered\/([^\/\?#]+)/)
     if (mOrdered) {
@@ -178,40 +174,38 @@ export async function middleware(request) {
     }
   }
 
-  // ───────────────────────────────────────────────────────
-  // 6️⃣  Other non-chat redirects (unchanged)
-  // ───────────────────────────────────────────────────────
-  let response
+  // 5) Other non-chat redirects
   if (pathname.startsWith('/ProductScreen/')) {
     const [, , id] = pathname.split('/')
-    response = NextResponse.redirect(new URL(`/product/${id}`, origin))
-  } else if (pathname.startsWith('/ProfileFormChatGroup')) {
-    response = NextResponse.redirect(new URL('/chats', origin))
-  } else if (pathname.startsWith('/HowToBuy')) {
-    response = NextResponse.redirect(new URL('/howtobuy', origin))
-  } else if (pathname === '/auth/login') {
-    response = NextResponse.redirect(new URL('/login', origin))
-  } else if (pathname.startsWith('/AboutUs')) {
-    response = NextResponse.redirect(new URL('/about', origin))
-  } else if (pathname.startsWith('/LocalIntroduction')) {
-    response = NextResponse.redirect(new URL('/localintroduction', origin))
-  } else if (
-    pathname === '/LocalInformation' &&
-    url.searchParams.has('country')
-  ) {
+    return NextResponse.redirect(new URL(`/product/${id}`, origin))
+  }
+  if (pathname.startsWith('/ProfileFormChatGroup')) {
+    return NextResponse.redirect(new URL('/chats', origin))
+  }
+  if (pathname.startsWith('/HowToBuy')) {
+    return NextResponse.redirect(new URL('/howtobuy', origin))
+  }
+  if (pathname === '/auth/login') {
+    return NextResponse.redirect(new URL('/login', origin))
+  }
+  if (pathname.startsWith('/AboutUs')) {
+    return NextResponse.redirect(new URL('/about', origin))
+  }
+  if (pathname.startsWith('/LocalIntroduction')) {
+    return NextResponse.redirect(new URL('/localintroduction', origin))
+  }
+  if (pathname === '/LocalInformation' && url.searchParams.has('country')) {
     const country = url.searchParams.get('country')
-    response = NextResponse.redirect(
-      new URL(`/localinformation/${country}`, origin)
-    )
-  } else if (
-    pathname.startsWith('/car_list/All/') &&
-    pathname.endsWith('/All')
-  ) {
+    return NextResponse.redirect(new URL(`/localinformation/${country}`, origin))
+  }
+  if (pathname.startsWith('/car_list/All/') && pathname.endsWith('/All')) {
     const [, , , make] = pathname.split('/')
-    response = NextResponse.redirect(new URL(`/stock/${make}`, origin))
-  } else if (pathname === '/car_list/car') {
-    response = NextResponse.redirect(new URL('/stock', origin))
-  } else if (pathname === '/SearchCarDesign') {
+    return NextResponse.redirect(new URL(`/stock/${make}`, origin))
+  }
+  if (pathname === '/car_list/car') {
+    return NextResponse.redirect(new URL('/stock', origin))
+  }
+  if (pathname === '/SearchCarDesign') {
     const make = url.searchParams.get('make')
     const model = url.searchParams.get('model')
     const carMakes = url.searchParams.get('carMakes')
@@ -227,19 +221,12 @@ export async function middleware(request) {
     } else {
       dest = '/stock'
     }
-    response = NextResponse.redirect(new URL(dest, origin))
-  } else if (pathname === '/stock_detail') {
-    // catch anything under /stock_detail?id=…&target_site=…
-    response = NextResponse.redirect(new URL('/stock', origin))
-  } else {
-    response = NextResponse.next()
+    return NextResponse.redirect(new URL(dest, origin))
+  }
+  if (pathname === '/stock_detail') {
+    return NextResponse.redirect(new URL('/stock', origin))
   }
 
-  // ───────────────────────────────────────────────────────
-  // 7️⃣  (REMOVED) OLD_GUARD:
-  //     - Tracker-based redirects from /chats/:chatId → /chats/ordered|payment/...
-  //     - Rewrite “deep” chats → /chats
-  // ───────────────────────────────────────────────────────
-
-  return response
+  // Allow the request to continue
+  return NextResponse.next()
 }

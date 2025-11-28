@@ -191,7 +191,7 @@ export default function AboutContent() {
           <div className="grid md:grid-cols-2 gap-8">
             <div className="relative h-[300px] rounded-lg overflow-hidden shadow-lg">
               <Image
-                src="https://firebasestorage.googleapis.com/v0/b/samplermj.appspot.com/o/assets%2FIMG_8047.webp?alt=media&token=e84a35db-4d23-4ddb-99ec-6fa8de2588ea"
+                src="https://firebasestorage.googleapis.com/v0/b/real-motor-japan.appspot.com/o/assets%2FIMG_8047.webp?alt=media&token=e84a35db-4d23-4ddb-99ec-6fa8de2588ea"
                 alt="Premium Vehicle Selection at Real Motor Japan"
                 fill
                 style={{ objectFit: "cover" }}
@@ -213,7 +213,7 @@ export default function AboutContent() {
           <div className="relative h-[400px] rounded-lg overflow-hidden shadow-lg">
             <Image
               src={
-                "https://firebasestorage.googleapis.com/v0/b/samplermj.appspot.com/o/assets%2F20240105%E5%88%9D%E9%A1%94%E5%90%88%E3%82%8F%E3%81%9B%E3%83%BC%EF%BC%91%20(1).webp?alt=media&token=1508ddf1-eb86-45bb-a4fe-1ced2bed9415"
+                "https://firebasestorage.googleapis.com/v0/b/real-motor-japan.appspot.com/o/assets%2F20240105%E5%88%9D%E9%A1%94%E5%90%88%E3%82%8F%E3%81%9B%E3%83%BC%EF%BC%91%20(1).webp?alt=media&token=1508ddf1-eb86-45bb-a4fe-1ced2bed9415"
               }
               alt="The Real Motor Japan Team"
               fill

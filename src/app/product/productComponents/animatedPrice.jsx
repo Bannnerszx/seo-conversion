@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 
-export function AnimatedPrice({ value, duration = 1000, symbol = "", className = "font-bold", selectedPort, roundMethod = 'trunc' }) {
+export function AnimatedPrice({ value, duration = 1000, symbol = "", className = "font-bold", selectedPort }) {
     // Start at 0 to force an animation on mount.
     const [displayValue, setDisplayValue] = useState(0);
     // Keep track of the previous value; initially 0.
@@ -10,14 +10,28 @@ export function AnimatedPrice({ value, duration = 1000, symbol = "", className =
     // A flag to detect the first render.
     const isFirstRender = useRef(true);
     const startTime = useRef(null);
+    const animationFrame = useRef(null);
+    const displayValueRef = useRef(displayValue);
 
     useEffect(() => {
-        // If it's not the first render and the value hasn't changed, skip the animation.
+        // If the value didn't change since last settled value, skip.
         if (!isFirstRender.current && previousValue.current === value) return;
 
-        // On first render, we animate from 0 to value.
+        // Cancel any previous animation frame to avoid overlap
+        if (animationFrame.current) {
+            cancelAnimationFrame(animationFrame.current);
+            animationFrame.current = null;
+        }
+
+        // On first render, we animate from 0 to value. On subsequent updates,
+        // start the animation from the currently displayed value so rapid
+        // updates transition smoothly from whatever the user currently sees.
         isFirstRender.current = false;
         startTime.current = null;
+
+        // Use the current displayed value as the animation start point.
+        const startVal = typeof displayValueRef.current === 'number' ? displayValueRef.current : previousValue.current || 0;
+        previousValue.current = startVal;
 
         const animate = (timestamp) => {
             if (startTime.current === null) {
@@ -32,16 +46,24 @@ export function AnimatedPrice({ value, duration = 1000, symbol = "", className =
             const currentValue = previousValue.current + (value - previousValue.current) * easeOutQuart;
 
             setDisplayValue(currentValue);
+            displayValueRef.current = currentValue;
 
             if (progress < 1) {
-                requestAnimationFrame(animate);
+                animationFrame.current = requestAnimationFrame(animate);
             } else {
                 setDisplayValue(value);
+                displayValueRef.current = value;
                 previousValue.current = value;
+                animationFrame.current = null;
             }
         };
 
-        requestAnimationFrame(animate);
+        animationFrame.current = requestAnimationFrame(animate);
+
+        return () => {
+            if (animationFrame.current) cancelAnimationFrame(animationFrame.current);
+            animationFrame.current = null;
+        };
     }, [value, duration]);
 
     return (
@@ -53,7 +75,7 @@ export function AnimatedPrice({ value, duration = 1000, symbol = "", className =
             ) : (
                 <>
                     <span className="text-md">{symbol}</span>{" "}
-                    <span className="text-4xl">{(Math[roundMethod] ? Math[roundMethod](displayValue) : Math.trunc(displayValue)).toLocaleString()}</span>
+                    <span className="text-4xl">{Math.trunc(displayValue).toLocaleString()}</span>
 
                 </>
             )}
@@ -62,17 +84,16 @@ export function AnimatedPrice({ value, duration = 1000, symbol = "", className =
     );
 }
 
-export function AnimatedCurrencyPrice({ selectedPort, basePrice, selectedCurrency, duration = 1000, className = "font-bold", roundMethod = 'trunc' }) {
-    const computedPrice = (basePrice) * selectedCurrency.value;
+export function AnimatedCurrencyPrice({ selectedPort, basePrice, selectedCurrency, duration = 1000, className = "font-bold" }) {
+    const computedPrice = Number(basePrice || 0) * (selectedCurrency?.value ?? 1);
 
     return (
         <AnimatedPrice
             selectedPort={selectedPort}
             value={computedPrice}
             duration={duration}
-            symbol={selectedCurrency.symbol}
+            symbol={selectedCurrency?.symbol ?? ""}
             className={className}
-            roundMethod={roundMethod}
         />
     );
 }

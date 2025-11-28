@@ -1,6 +1,6 @@
 export default async function handler(req, res) {
     try {
-      const response = await fetch('https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time', {
+      const response = await fetch('https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

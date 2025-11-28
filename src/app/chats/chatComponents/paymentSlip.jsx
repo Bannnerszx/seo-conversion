@@ -14,6 +14,7 @@ import Modal from "@/app/components/Modal"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import WarningDialog from "./warningDialog"
 import { httpsCallable } from "firebase/functions"
+import PayPalInvoiceBlock from "./PayPalInvoiceBlock"
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
 
 
@@ -191,8 +192,7 @@ export default function PaymentSlip({ context = 'payment', chatId, selectedChatD
     const callUpdatePaymentNotifications = httpsCallable(functions, "updatePaymentNotifications");
 
 
-
-   //Idempotency helpers
+    //Idempotency helpers
     const rand = () =>
         (typeof crypto !== 'undefined' && crypto.randomUUID)
             ? crypto.randomUUID()
@@ -402,7 +402,7 @@ ${newMessage.trim()}
 
             {payment && (
                 <Modal context={'payment'} showModal={paymentVisible} setShowModal={setPaymentVisible}>
-                    <Card className="w-full !max-w-none relative animate-zoomIn bg-white">
+                    <Card className="w-full !max-w-none relative animate-zoomIn bg-white max-h-[85vh] sm:max-h-none overflow-hidden">
                         <Button
                             variant="ghost"
                             size="icon"
@@ -410,38 +410,49 @@ ${newMessage.trim()}
                             className="absolute right-2 top-2 h-8 w-8 rounded-full"
                             aria-label="Close"
                             onClick={() => setPaymentVisible(false)}
+                            type="button"
                         >
                             <X className="h-4 w-4" />
                         </Button>
-                        <CardHeader className="text-center pb-2">
-                            <CardTitle className="text-blue-600 text-xl font-bold">PAYMENT NOTIFICATIONS</CardTitle>
-                            <div className="h-0.5 bg-blue-600 w-full mt-1 mb-4"></div>
-                            <CardDescription className="text-black text-lg font-medium">
+
+                        {/* Sticky, compact header */}
+                        <CardHeader className="text-center pb-2 pt-3 sticky top-0 bg-white z-10">
+                            <CardTitle className="text-blue-600 text-lg font-bold">PAYMENT NOTIFICATIONS</CardTitle>
+                            <div className="h-0.5 bg-blue-600 w-full mt-1 mb-2"></div>
+                            <CardDescription className="text-black text-base font-medium">
                                 Amount {formattedTotal}
                             </CardDescription>
                         </CardHeader>
 
-                        <CardContent className="space-y-4">
+                        {/* Scrollable content area on mobile */}
+                        <CardContent className="space-y-3 px-4 pb-4 overflow-y-auto max-h-[calc(85vh-96px)] sm:max-h-none">
                             <Popover open={isDateOpen} onOpenChange={setIsDateOpen}>
                                 <PopoverTrigger asChild>
                                     <Button
                                         variant="outline"
                                         className={cn(
-                                            "w-full justify-start text-left font-normal",
+                                            "w-full justify-start text-left font-normal h-10 text-sm",
                                             !date && "text-muted-foreground",
-                                            errors.date ? "border-red-500 animate-shake" : " border-gray-300"
+                                            errors.date ? "border-red-500 animate-shake" : "border-gray-300"
                                         )}
+                                        type="button"
                                     >
                                         <CalendarIcon className="mr-2 h-4 w-4 text-blue-600" />
                                         {date ? format(date, "yyyy/MM/dd") : "WIRE DATE"}
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0 z-[9999]" align="start">
-                                    <Calendar disabled={disableFutureDates} mode="single" selected={date} onSelect={(d) => { setDate(d); if (errors.date) clearError('date'); setIsDateOpen(false); }} initialFocus />
+                                    <Calendar
+                                        disabled={disableFutureDates}
+                                        mode="single"
+                                        selected={date}
+                                        onSelect={(d) => { setDate(d); if (errors.date) clearError('date'); setIsDateOpen(false); }}
+                                        initialFocus
+                                    />
                                 </PopoverContent>
                             </Popover>
                             {errors.date && (
-                                <p className="text-sm text-red-600 mt-1">Please select wire date.</p>
+                                <p className="text-xs text-red-600 mt-1">Please select wire date.</p>
                             )}
 
                             <div>
@@ -449,16 +460,14 @@ ${newMessage.trim()}
                                     id="remitterName"
                                     placeholder="Name of Remitter"
                                     className={cn(
-                                        "w-full",
-                                        errors.name
-                                            ? "border-red-500 animate-shake"
-                                            : "border-gray-300"
+                                        "w-full h-10 text-sm",
+                                        errors.name ? "border-red-500 animate-shake" : "border-gray-300"
                                     )}
                                     value={nameOfRemitter}
                                     onChange={(e) => { setNameOfRemitter(e.target.value); if (errors.name) clearError('name'); }}
                                 />
                                 {errors.name && (
-                                    <p className="text-sm text-red-600 mt-1">Please enter remitter name.</p>
+                                    <p className="text-xs text-red-600 mt-1">Please enter remitter name.</p>
                                 )}
                             </div>
 
@@ -466,19 +475,19 @@ ${newMessage.trim()}
                                 <Textarea
                                     id="textMessage"
                                     placeholder="Text Message (optional)"
-                                    className="min-h-[100px] border-gray-300"
+                                    className="min-h-[80px] text-sm border-gray-300"
                                     value={newMessage}
                                     onChange={(e) => setNewMessage(e.target.value)}
                                 />
                             </div>
 
-                            <div className="grid grid-cols-1 gap-4 pt-2">
+                            <div className="grid grid-cols-1 gap-3 pt-1">
                                 {attachedFile && (
-                                    <div className="mb-3 p-2 bg-gray-50 rounded flex items-center justify-between">
-                                        <div className="flex items-center space-x-2">
-                                            <Paperclip className="h-4 w-4 text-gray-500" />
-                                            <span className="text-sm font-medium">
-                                                <span title={attachedFile.name} className="inline-block max-w-[250px] truncate">
+                                    <div className="p-2 bg-gray-50 rounded flex items-center justify-between">
+                                        <div className="flex items-center space-x-2 min-w-0">
+                                            <Paperclip className="h-4 w-4 text-gray-500 shrink-0" />
+                                            <span className="text-sm font-medium truncate">
+                                                <span title={attachedFile.name} className="inline-block max-w-[220px] truncate">
                                                     {attachedFile.name}
                                                 </span>
                                                 <span className="text-gray-500 text-xs ml-1">
@@ -486,55 +495,109 @@ ${newMessage.trim()}
                                                 </span>
                                             </span>
                                         </div>
-                                        <Button type="button" variant="ghost" size="sm" onClick={() => setAttachedFile(null)} className="h-6 w-6 p-0">
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setAttachedFile(null)}
+                                            className="h-6 w-6 p-0 shrink-0"
+                                        >
                                             <X className="h-4 w-4" />
                                         </Button>
                                     </div>
                                 )}
-                                <Button
-                                    className={cn(
-                                        "w-full transition-all duration-200",
-                                        errors.file
-                                            ? "border-2 border-red-500 bg-red-500 hover:bg-red-600 text-white"
-                                            : "bg-blue-600 hover:bg-blue-700 text-white"
+
+                                <div className="space-y-2">
+                                    <Button
+                                        className={cn(
+                                            "w-full transition-all duration-200 h-10 text-sm",
+                                            errors.file
+                                                ? "border-2 border-red-500 bg-red-500 hover:bg-red-600 text-white"
+                                                : "bg-blue-600 hover:bg-blue-700 text-white"
+                                        )}
+                                        onClick={() => fileInputRef.current?.click()}
+                                        disabled={isLoading}
+                                        type="button"
+                                    >
+                                        {errors.file ? (
+                                            <>
+                                                <AlertCircle className="mr-2 h-4 w-4" />
+                                                Upload Failed - Try Again
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Upload className="mr-2 h-4 w-4" />
+                                                Upload Payment Slip
+                                            </>
+                                        )}
+                                    </Button>
+
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        onChange={handleFileUpload}
+                                        className="hidden"
+                                        aria-label="Upload file"
+                                    />
+
+                                    {errors.file && (
+                                        <p className="text-xs text-red-600 mt-1">
+                                            Please upload a payment slip file.
+                                        </p>
                                     )}
-                                    onClick={() => fileInputRef.current?.click()}
-                                    disabled={isLoading}
-                                >
-                                    {errors.file ? (
-                                        <>
-                                            <AlertCircle className="mr-2 h-4 w-4" />
-                                            Upload Failed - Try Again
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Upload className="mr-2 h-4 w-4" />
-                                            Upload Payment Slip
-                                        </>
-                                    )}
-                                </Button>
-                                <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" aria-label="Upload file" />
-                                {errors.file && (
-                                    <p className="text-sm text-red-600 mt-1">Please upload a payment slip file.</p>
-                                )}
-                                <Button
-                                    onClick={(e) => handleSendMessage(e)}
-                                    disabled={isSubmitting}
-                                    variant="outline"
-                                    className="border-blue-600 text-blue-600 hover:bg-blue-50 w-full"
-                                >
-                                    {isSubmitting ? (
-                                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-t-transparent border-blue-600 mx-auto" />
-                                    ) : (
-                                        <>
-                                            <RefreshCw className="mr-2 h-4 w-4" />
-                                            Send Notification
-                                        </>
-                                    )}
-                                </Button>
+
+                                    <Button
+                                        onClick={(e) => handleSendMessage(e)}
+                                        disabled={isSubmitting}
+                                        variant="outline"
+                                        className="border-blue-600 text-blue-600 hover:bg-blue-50 w-full h-10 text-sm"
+                                        type="button"
+                                    >
+                                        {isSubmitting ? (
+                                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-t-transparent border-blue-600 mx-auto" />
+                                        ) : (
+                                            <>
+                                                <RefreshCw className="mr-2 h-4 w-4" />
+                                                Send Notification
+                                            </>
+                                        )}
+                                    </Button>
+
+                                    <span className="block text-center text-xs">or</span>
+
+                                    {/* PayPal section - compact */}
+                                    {/* <div className="w-full pt-1 flex flex-col items-center">
+                                        <div className="text-center text-[11px] text-slate-600 mb-1.5">
+                                            Pay securely with
+                                        </div>
+
+                                        <Button
+                                            variant="paypal"
+                                            className="w-full h-12 text-base transition-all duration-200 shadow-md hover:shadow-lg flex items-center justify-center bg-[#ffd140] hover:bg-[#f7c600] border-0 mx-auto"
+                                            aria-label="Pay with PayPal"
+                                            type="button"
+                                        >
+                                            <img src="/paypal-button.png" alt="PayPal" className="h-4 w-auto" />
+                                        </Button>
+
+                                        <p className="text-[11px] text-center text-slate-500 mt-1.5 flex items-center justify-center gap-1.5">
+                                            <svg className="w-3.5 h-3.5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                                                <path
+                                                    fillRule="evenodd"
+                                                    d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+                                                    clipRule="evenodd"
+                                                />
+                                            </svg>
+                                            Fast &amp; secure checkout
+                                        </p>
+                                    </div> */}
+
+                                    <PayPalInvoiceBlock chatId={chatId} invoiceNumber={selectedChatData?.invoiceNumber} carData={selectedChatData?.carData} renderTextWithLinks={''} message={''}  invoiceData={invoiceData} userEmail={userEmail} />
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
+
 
                 </Modal>
 

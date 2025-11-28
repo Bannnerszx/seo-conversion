@@ -17,7 +17,7 @@ export async function generateMetadata({ params }) {
 
 // This replaces getStaticProps in App Router
 async function getData() {
-  const res = await fetch("https://firebasestorage.googleapis.com/v0/b/samplermj.appspot.com/o/assets%2Ffeatures.json?alt=media&token=33d672f7-7d46-426c-abbc-0ea44de45fbd", {
+  const res = await fetch("https://firebasestorage.googleapis.com/v0/b/real-motor-japan.appspot.com/o/assets%2Ffeatures.json?alt=media&token=33d672f7-7d46-426c-abbc-0ea44de45fbd", {
     next: { revalidate: 60 } // Similar to revalidate: 60 in Pages Router
   });
   

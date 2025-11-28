@@ -8,7 +8,7 @@ import { doc, updateDoc } from "firebase/firestore"
 import { subscribeToChatDoc } from "./chatSubscriptions"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Paperclip, Send, X, Download, CheckCircle, Loader, Loader2 } from "lucide-react"
+import { Paperclip, Send, X, Download, CheckCircle, Loader, Loader2, CreditCard } from "lucide-react"
 import { toast } from 'sonner';
 import { Textarea } from "@/components/ui/textarea"
 import CarDetails from "./carDetails"
@@ -20,6 +20,8 @@ import ChatMessage from "./messageLinks"
 import WarningDialog from "./warningDialog"
 import ProductReview from "./ProductReview"
 import TransactionCSRLoader from "./TransactionCSRLoader"
+import PayPalInvoiceBlock from "./PayPalInvoiceBlock"
+
 // import { AssistiveTouch } from "./AssistiveTouch"
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
 // Network helpers to improve reliability on slow (3G) networks
@@ -276,6 +278,26 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
         return () => unsubscribe();
     }, [chatId, isDetailView]);
 
+
+
+    //web crypto
+    const rand = () =>
+        (typeof crypto !== 'undefined' && crypto.randomUUID)
+            ? crypto.randomUUID()
+            : `r_${Data.now()}_${Math.random().toString(36).slice(2)}`;
+
+    async function hashFile(file) {
+        try {
+            const buf = await file.arrayBuffer();
+            const digest = await crypto.subtle.digest('SHA-256', buf);
+            return Array.from(new Uint8Array(digest))
+                .map(b => b.toString(16).padStart(2, '0'))
+                .join('');
+        } catch (error) {
+            return `${file.name}|${file.size}|${file.lastModified}`;
+        }
+    }
+
     async function hashText(text) {
         try {
             const enc = new TextEncoder().encode(text);
@@ -287,6 +309,7 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
             return `${text.length}|${text.slice(0, 16)}`
         }
     }
+
     // Persist a key so a page refresh uses the same idempotencyKey during auto-retry
     function saveIdem(key, meta = {}) {
         try { localStorage.setItem(`idem:${key}`, JSON.stringify({ status: 'pending', ...meta })); } catch { }
@@ -544,6 +567,43 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
     const insuranceSurcharge = contact?.insurance === true ? 50 * currencyInside.value : 0
     const finalPrice = (baseFinalPrice * currencyInside.value + inspectionSurcharge + insuranceSurcharge);
 
+
+
+
+    async function createAndSendInvoice() {
+        const res = await fetch("/api/paypal/invoice", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                customer: { name: "John Doe", email: "zambiaperson@personal.example.com" },
+                currency: "USD",
+                memo: "RMJ Order #12345",
+                invoiceNumber: "RMJ-12345-3",
+                terms: "Payment due on receipt.",
+                due_date: "2025-12-31",
+                send: true,
+                items: [
+                    { name: "Toyota Prius 2018", quantity: 1, unitAmount: "8500.00" },
+                    { name: "Shipping", quantity: 1, unitAmount: "1200.00" },
+                ],
+            }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+            console.error("Invoice error:", data);
+            alert("Invoice failed: " + (data?.error?.message || data?.error || "unknown"));
+            return;
+        }
+
+        // ✅ With the updated API you should have id + payer_view
+        console.log("Invoice created:", data.id, data.payer_view);
+        if (data.payer_view) window.open(data.payer_view, "_blank");
+    }
+
+
+
+
     return (
         isLoadingTransaction ? <TransactionCSRLoader /> : (
             <div className="flex flex-col h-full">
@@ -722,9 +782,11 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
                                 <div className={`flex w-full ${message.sender === userEmail ? "justify-end" : "justify-start"}`}>
 
                                     <div
-                                        className={`max-w-[75%] p-3 rounded-lg ${message.sender === userEmail
-                                            ? "bg-blue-500 text-white rounded-br-none"
-                                            : "bg-white text-gray-800 rounded-bl-none"
+                                        className={`max-w-[75%] p-3 rounded-lg ${message.messageType === "paypalPayment"
+                                            ? "bg-white text-inherit w-[355px]"
+                                            : message.sender === userEmail
+                                                ? "bg-blue-500 text-white rounded-br-none"
+                                                : "bg-white text-gray-800 rounded-bl-none"
                                             }`}
                                     >
 
@@ -772,7 +834,7 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
                                                 </p>
                                                 <div className={`mt-2 flex justify-${message.sender === userEmail ? "end" : "start"}`}>
 
-                                                    <PreviewInvoice userEmail={userEmail} chatId={chatId} accountData={accountData} selectedChatData={contact} invoiceData={invoiceData} />
+                                                    <PreviewInvoice tokyoTime={tokyoTime} ipInfo={ipInfo} userEmail={userEmail} chatId={chatId} accountData={accountData} selectedChatData={contact} invoiceData={invoiceData} />
                                                 </div>
                                             </>
 
@@ -788,6 +850,18 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
                                                 <div className={`mt-2 flex justify-${message.sender === userEmail ? "end" : "start"}`}>
                                                     <DeliveryAddress accountData={accountData} countryList={countryList} chatId={chatId} userEmail={userEmail} />
                                                 </div>
+                                            </>
+
+                                        )}
+                                        {message.messageType === "paypalPayment" && (
+                                            <>
+                                                <p
+                                                    style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+                                                    className={message.sender === userEmail ? "text-white" : "text-gray-800"}
+                                                >
+                                                    {renderTextWithLinks(message.text)}
+                                                </p>
+                                                <PayPalInvoiceBlock tokyoTime={tokyoTime} chatId={chatId} invoiceNumber={contact?.invoiceNumber} carData={contact?.carData} invoiceData={invoiceData} renderTextWithLinks={renderTextWithLinks} message={message} userEmail={userEmail} />
                                             </>
 
                                         )}
