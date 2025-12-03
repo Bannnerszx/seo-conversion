@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Image from "next/image"
 import {
   X,
   Zap,
@@ -264,14 +265,15 @@ export default function PayPalBanner() {
         onMouseEnter={ensureFM}
         onFocus={ensureFM}
       >
-        <div
-          className="relative w-full h-full text-white overflow-hidden rounded-lg"
-          style={{
-            backgroundImage: `url(${slide.content.background})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-          }}
-        >
+        <div className="relative w-full h-full text-white overflow-hidden rounded-lg">
+          <Image
+            src={slide.content.background}
+            alt="Background"
+            fill
+            className="object-cover object-center -z-10"
+            quality={60}
+            sizes="(max-width: 768px) 100vw, 800px" // Only fetch size needed for banner
+          />
           <div className={`absolute inset-0 ${overlayClass}`} />
           <Button
             variant="ghost"
@@ -397,14 +399,15 @@ export default function PayPalBanner() {
           onMouseEnter={ensureFM}
           onFocus={ensureFM}
         >
-          <div
-            className="relative w-full h-full text-white overflow-hidden rounded-lg"
-            style={{
-              backgroundImage: `url(${slide.content.background})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-            }}
-          >
+          <div className="relative w-full h-full text-white overflow-hidden rounded-lg">
+            <Image
+              src={slide.content.background}
+              alt="Background"
+              fill
+              className="object-cover object-center -z-10"
+              quality={60}
+              sizes="(max-width: 768px) 100vw, 800px"
+            />
             <div className={`absolute inset-0 ${overlayClass}`} />
             <Button
               variant="ghost"

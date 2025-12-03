@@ -341,7 +341,7 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
     const pathname = usePathname()
 
     useEffect(() => {
-      
+
         const timer = setTimeout(() => {
             fetch('/api/show-banner', {
                 credentials: 'same-origin',
@@ -380,9 +380,9 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
                                     alt="REAL MOTOR JAPAN"
                                     width={250}
                                     height={70} // ✅ OPTIMIZATION: Match the style height (70px)
-                                    quality={75}
+                                    quality={65}
                                     priority // Keep priority for logo above fold
-                                    sizes="250px" // ✅ OPTIMIZATION: Match the fixed style width
+                                    sizes="(max-width: 640px) 200px, 250px"
                                     style={{ width: "250px", height: "70px", objectFit: "cover" }}
                                 />
                             </Link>
@@ -428,10 +428,10 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
                                 src={rmj}
                                 alt="REAL MOTOR JAPAN"
                                 width={250}
-                                height={70} // ✅ OPTIMIZATION
-                                quality={75}
-                                priority
-                                sizes="250px" // ✅ OPTIMIZATION
+                                height={70} // ✅ OPTIMIZATION: Match the style height (70px)
+                                quality={65}
+                                priority // Keep priority for logo above fold
+                                sizes="(max-width: 640px) 200px, 250px"
                                 style={{ width: "250px", height: "70px", objectFit: "cover" }}
                             />
                         </Link>
