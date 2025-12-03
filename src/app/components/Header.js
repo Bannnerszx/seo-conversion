@@ -251,74 +251,77 @@ function MobileMenu({ isOpen, setIsOpen }) {
                     <SheetHeader>
                         <SheetTitle className="sr-only">Menu</SheetTitle>
                     </SheetHeader>
-                    <div className="flex flex-col space-y-4 mt-8">
-                        <div className="items-center space-x-2 mx-auto">
-                            <span className="text-gray-700 font-bold whitespace-nowrap">Proud members of</span>
-                            <Link href="https://www.jumvea.or.jp/jpn/members/Yanagisawa-706" target="_blank" className="block mt-4">
-                                <img src={jumvea.src} alt="JUMVEA" width={120} height={39} className="block" />
-                            </Link>
-                        </div>
-                        {NAV_LINKS.map((link) => {
-                            if (link.href === "/stock") {
-                                return (
-                                    <div key={link.href}>
-                                        <button onClick={() => setExpandedItem(expandedItem === link.label ? null : link.label)} className="flex items-center justify-between w-full text-left block py-2 text-lg font-medium hover:bg-gray-100 px-4 rounded-lg">
-                                            {link.label}
-                                            <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${expandedItem === link.label ? "rotate-180" : ""}`} />
-                                        </button>
-                                        {expandedItem === link.label && (
-                                            <>
-                                                <Link href="/stock" onClick={() => { setIsOpen(false); setExpandedItem(null); }} className="ml-4 mt-2 p-2 block text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors">All Stock</Link>
-                                                <Link href="/stock/recommended" onClick={() => { setIsOpen(false); setExpandedItem(null); }} className="ml-4 mt-2 p-2 block text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors">Recommended</Link>
-                                                <Link href="/stock/sale" onClick={() => { setIsOpen(false); setExpandedItem(null); }} className="ml-4 mt-2 p-2 block text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors">Sale</Link>
-                                            </>
-                                        )}
-                                    </div>
-                                )
-                            }
-                            return (
-                                <Link key={link.href} href={link.href} className="block py-2 text-lg font-medium hover:bg-gray-100 px-4 rounded-lg" onClick={() => setIsOpen(false)}>
-                                    {link.label}
+                    {isOpen && (
+                        <div className="flex flex-col space-y-4 mt-8">
+                            <div className="items-center space-x-2 mx-auto">
+                                <span className="text-gray-700 font-bold whitespace-nowrap">Proud members of</span>
+                                <Link href="https://www.jumvea.or.jp/jpn/members/Yanagisawa-706" target="_blank" className="block mt-4">
+                                    <img src={jumvea.src} alt="JUMVEA" width={120} height={39} className="block" />
                                 </Link>
-                            )
-                        })}
-                        <div className="border-t pt-4 flex flex-col space-y-4">
-                            {user ? (
-                                <>
-                                    <Link href="/chats" className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg" onClick={() => setIsOpen(false)}>
-                                        <div className="relative">
-                                            <MessageSquare className="w-5 h-5" />
-                                            <span className="absolute -top-2 -right-2 inline-flex items-center justify-center w-4 h-4 text-[10px] font-semibold text-white bg-red-500 rounded-full">
-                                                <NotificationCount userEmail={user} />
-                                            </span>
+                            </div>
+                            {NAV_LINKS.map((link) => {
+                                if (link.href === "/stock") {
+                                    return (
+                                        <div key={link.href}>
+                                            <button onClick={() => setExpandedItem(expandedItem === link.label ? null : link.label)} className="flex items-center justify-between w-full text-left block py-2 text-lg font-medium hover:bg-gray-100 px-4 rounded-lg">
+                                                {link.label}
+                                                <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${expandedItem === link.label ? "rotate-180" : ""}`} />
+                                            </button>
+                                            {expandedItem === link.label && (
+                                                <>
+                                                    <Link href="/stock" onClick={() => { setIsOpen(false); setExpandedItem(null); }} className="ml-4 mt-2 p-2 block text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors">All Stock</Link>
+                                                    <Link href="/stock/recommended" onClick={() => { setIsOpen(false); setExpandedItem(null); }} className="ml-4 mt-2 p-2 block text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors">Recommended</Link>
+                                                    <Link href="/stock/sale" onClick={() => { setIsOpen(false); setExpandedItem(null); }} className="ml-4 mt-2 p-2 block text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors">Sale</Link>
+                                                </>
+                                            )}
                                         </div>
-                                        <span>Transactions</span>
+                                    )
+                                }
+                                return (
+                                    <Link key={link.href} href={link.href} className="block py-2 text-lg font-medium hover:bg-gray-100 px-4 rounded-lg" onClick={() => setIsOpen(false)}>
+                                        {link.label}
                                     </Link>
-                                    <Link href="/profile" className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg" onClick={() => setIsOpen(false)}>
-                                        <CircleUser className="w-5 h-5" />
-                                        Profile
-                                    </Link>
-                                    <Link href="/orders" className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg" onClick={() => setIsOpen(false)}>
-                                        <ShoppingBag className="w-5 h-5" />
-                                        My Orders
-                                    </Link>
-                                    <Link href="/favorites" className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg" onClick={() => setIsOpen(false)}>
-                                        <Heart className="w-5 h-5" />
-                                        Favorites
-                                    </Link>
-                                    <button onClick={() => { logOut(); setIsOpen(false); }} className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg text-left">
-                                        <LogOut className="w-5 h-5" />
-                                        Log Out
-                                    </button>
-                                </>
-                            ) : (
-                                <>
-                                    <Link href="/login" className="text-center py-2 text-blue-600 hover:bg-blue-50 rounded-lg" onClick={() => setIsOpen(false)}>Login</Link>
-                                    <Link href="/signup" className="text-center py-2 text-blue-600 hover:bg-blue-50 rounded-lg" onClick={() => setIsOpen(false)}>Sign Up</Link>
-                                </>
-                            )}
+                                )
+                            })}
+                            <div className="border-t pt-4 flex flex-col space-y-4">
+                                {user ? (
+                                    <>
+                                        <Link href="/chats" className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg" onClick={() => setIsOpen(false)}>
+                                            <div className="relative">
+                                                <MessageSquare className="w-5 h-5" />
+                                                <span className="absolute -top-2 -right-2 inline-flex items-center justify-center w-4 h-4 text-[10px] font-semibold text-white bg-red-500 rounded-full">
+                                                    <NotificationCount userEmail={user} />
+                                                </span>
+                                            </div>
+                                            <span>Transactions</span>
+                                        </Link>
+                                        <Link href="/profile" className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg" onClick={() => setIsOpen(false)}>
+                                            <CircleUser className="w-5 h-5" />
+                                            Profile
+                                        </Link>
+                                        <Link href="/orders" className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg" onClick={() => setIsOpen(false)}>
+                                            <ShoppingBag className="w-5 h-5" />
+                                            My Orders
+                                        </Link>
+                                        <Link href="/favorites" className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg" onClick={() => setIsOpen(false)}>
+                                            <Heart className="w-5 h-5" />
+                                            Favorites
+                                        </Link>
+                                        <button onClick={() => { logOut(); setIsOpen(false); }} className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg text-left">
+                                            <LogOut className="w-5 h-5" />
+                                            Log Out
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Link href="/login" className="text-center py-2 text-blue-600 hover:bg-blue-50 rounded-lg" onClick={() => setIsOpen(false)}>Login</Link>
+                                        <Link href="/signup" className="text-center py-2 text-blue-600 hover:bg-blue-50 rounded-lg" onClick={() => setIsOpen(false)}>Sign Up</Link>
+                                    </>
+                                )}
+                            </div>
                         </div>
-                    </div>
+                    )}
+
                 </SheetContent>
             </Sheet>
         </div>

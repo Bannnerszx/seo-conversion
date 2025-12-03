@@ -3,7 +3,11 @@ import Image from "next/image"
 import { Facebook, Instagram, Mail, Phone } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import ContactModal from "./ContacUsModal"
+import dynamic from "next/dynamic" // Import dynamic
+const ContactModal = dynamic(() => import('./ContacUsModal'), {
+  ssr: false, // Modal is client-only
+  loading: () => null // No loader needed, it pops up
+})
 import { useState } from "react"
 // import { emailUs } from "../actions/actions" // Uncomment if used
 
