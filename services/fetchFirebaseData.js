@@ -1,8 +1,9 @@
 import { db } from "@/lib/firebaseAdmin";
 import { getDb } from "@/lib/mongodbClient";
+import { error } from "console";
+import { tracingChannel } from "diagnostics_channel";
 import { FieldPath } from "firebase-admin/firestore";
 import { unstable_cache as cache } from "next/cache";
-import { comment } from "postcss";
 const dbMong = await getDb()
 const vehicleColl = dbMong.collection("VehicleProducts");
 
@@ -44,20 +45,37 @@ export async function fetchCarBodytype() {
   }
 }
 
-export const getUnsoldVehicleCount = async () => {
-  try {
-    const snapshot = await db.collection('VehicleProducts')
-      .where('stockStatus', '==', 'On-Sale')
-      .where('imageCount', '>', 0)
-      .count()
-      .get();
+export const getUnsoldVehicleCount = cache(
+  async () => {
+    try {
+      const snapshot = await db.collection('VehicleProducts')
+        .where('stockStatus', '==', 'On-Sale')
+        .where('imageCount', '>', 0)
+        .count()
+        .get()
 
-    return snapshot.data()?.count ?? 0;
-  } catch (error) {
-    console.error('Error fetching document count:', error);
-    return 0; // Return null instead of 0 to indicate an error
-  }
-};
+      return snapshot.data()?.count ?? 0;
+    } catch (err) {
+      console.error('Error fetching document count:', error);
+      return 0;
+    }
+  },
+  ['unsold-vehicle-count'],
+  { revalidate: 60, tags: ['stock-count'] }
+);
+
+export const  fetchHomepageStock = cache(
+  async () => {
+    return await fetchVehicleProductsByPage({
+      itemsPerPage: 50,
+      page: 1,
+      sortField: "dateAdded",
+      sortDirection: "asc"
+    });
+  },
+  ['homepage-stock-list'],
+  {revalidate: 60, tags: ['homepage-stock']}
+);
 
 // export async function fetchCountries() {
 //   try {
@@ -478,7 +496,7 @@ const cursorCache = {};
 
 
 
-export const fetchVehicleProductsByPage = 
+export const fetchVehicleProductsByPage =
   async ({
     searchKeywords = "",
     page = 1,

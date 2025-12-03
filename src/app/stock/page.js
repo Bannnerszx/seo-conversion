@@ -86,7 +86,7 @@ export async function generateMetadata({ params, searchParams }) {
 
 
     // 7) build your metadata
-    const title = bodytype ? `Used Japanese ${bodytype} for Sale - REAL MOTOR JAPAN` : `Car Stock (${totalCount.toLocaleString() ?? 0} units) - REAL MOTOR JAPAN`
+    const title = bodytype ? `Used Japanese ${bodytype} for Sale` : `Car Stock (${totalCount.toLocaleString() ?? 0} units)`
 
 
     const description = `Browse our stock. Used Japanese Cars`

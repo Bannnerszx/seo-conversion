@@ -100,8 +100,11 @@ h1 {
 
 .text-shadow-custom {
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.75);
+  /* 👇 ADD THESE 3 LINES */
+  min-height: 1.2em; /* Reserves space for at least 1 line of text */
+  line-height: 1.2;  /* Locks the line height so font swapping doesn't change vertical size */
+  display: block;    /* Ensures min-height is respected */
 }
-
 @media (prefers-color-scheme: dark) {
   html {
     color-scheme: light;

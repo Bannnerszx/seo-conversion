@@ -5,7 +5,7 @@ export const dynamic = 'force-static';
 
 export async function generateMetadata({ params }) {
   return {
-      title: 'About Us | REAL MOTOR JAPAN',
+      title: 'About Us',
       keywords: 'REAL MOTOR JAPAN, contact information, Japanese car exports, Toyota city, used cars Japan',
       openGraph: {
           title: 'About Us | REAL MOTOR JAPAN',

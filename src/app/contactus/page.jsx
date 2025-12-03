@@ -3,7 +3,7 @@ import ContactUs from "./contactUsComponents/ContactUsCSR";
 
 export async function generateMetadata({ params }) {
     return {
-        title: 'Contact Us | REAL MOTOR JAPAN',
+        title: 'Contact Us',
         description: 'Get in touch with REAL MOTOR JAPAN. Contact our team via phone, email, or visit our location in Toyota City, Aichi, Japan. Business hours: Mon-Sat, 9AM-6PM JST.',
         keywords: 'REAL MOTOR JAPAN, contact information, Japanese car exports, Toyota city, used cars Japan',
         openGraph: {

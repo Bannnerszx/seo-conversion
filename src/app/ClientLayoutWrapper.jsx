@@ -3,7 +3,7 @@ import { usePathname } from "next/navigation";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
 import { DynamicBreadcrumbs } from "./components/Breadcrumbs";
-import React, { useRef, useState, useLayoutEffect, } from 'react';
+import React, { useRef, useState, useEffect, } from 'react';
 
 export default function ClientLayoutWrapper({ children, currency, userEmail }) {
   const pathname = usePathname();
@@ -53,14 +53,11 @@ export default function ClientLayoutWrapper({ children, currency, userEmail }) {
   const headerRef = useRef(null);
   const [breadcrumbTop, setBreadcrumbTop] = useState(0);
 
-  useLayoutEffect(() => {
+ useEffect(() => {
     const updateBreadcrumbTop = () => {
       const el = headerRef.current;
       if (el) {
-        // offsetTop = distance from parent container’s top
-        // offsetHeight = height of that div (zero if nothing is rendered)
         const bottom = el.offsetTop + el.offsetHeight;
-        console.log(bottom, 'y axis')
         setBreadcrumbTop(bottom);
       } else {
         setBreadcrumbTop(0);

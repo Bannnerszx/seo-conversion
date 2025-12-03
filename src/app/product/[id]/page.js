@@ -9,34 +9,45 @@ import { admin } from '@/lib/firebaseAdmin';
 import { cookies } from "next/headers";
 import ClientAppCheck from '../../../../firebase/ClientAppCheck';
 import { notFound } from 'next/navigation';
-export async function generateMetadata({ params }) {
-  // no await needed here:
-  const { id } = await params
+import { title } from 'process';
 
-  // call the loader, it will never throw
+
+export async function generateMetadata({ params }) {
+  const { id } = await params
+  const baseUrl = "https://dev.realmotor.jp"
+
+  const canonicalUrl = `${baseUrl}/product/${id}`;
+
   const product = await fetchCarDataAdmin(id)
+
   if (!product) {
     return {
       title: "Product Not Found",
-      description: "The product you’re looking for doesn’t exist.",
-    };
+      description: "The product you're looking for doesn't exist.",
+      robots: {
+        index: false,
+        follow: false
+      }
+    }
   }
 
-  // 2) otherwise, return the real metadata
   return {
-    title: `Used ${product.carName} for Sale - REAL MOTOR JAPAN`,
+    title: `Used ${product.carName} for Sale`,
     description: product.carDescription || "Product description",
+    alternates: {
+      canonical: canonicalUrl
+    },
     openGraph: {
       title: product.carName,
       description: product.carDescription,
       images: [
         {
-          url: product.imageUrl || "/defaultImage.png",
+          url: product.thumbnailImage || '/placeholder.jpg',
           width: 800,
           height: 600,
-          alt: product.carName,
-        },
-      ],
+          alt: product.carName
+        }
+      ]
     },
     twitter: {
       card: "summary_large_image",
@@ -100,12 +111,56 @@ export default async function ProductPage({ params, searchParams }) {
 
   const D2DCountries = await fetchD2DCountries()
 
+  const yenPrice = carData?.fobPriceNumber || 0;
+  const exchangeRate = currency?.jpyToUsd || 0; // Fallback rate if fetch fails
+  const priceInUSD = Math.round(yenPrice * exchangeRate);
+  //product schema
+  const productSchema = {
+    "@context": "https://schema.org/",
+    "@type": "Vehicle",
+    "name": carData.carName,
+    "image": carData.thumbnailImage,
+    "description": carData.carDescription,
+    "brand": {
+      "@type": "Brand",
+      "name": carData.make
+    },
+    "model": carData.model,
+    "vehicelModelDate": carData.year,
+    "mileageFromOdometer": {
+      "@type": "QuantitativeValue",
+      "value": carData.mileage,
+      "unitCode": "KMT"
+    },
+    "vehicleIdentificationNumber": carData.chassisNumber,
+    "offers": {
+      "@type": "Offer",
+      "url": `https://www.realmotor.jp/product/${id}`,
+      "priceCurrency": "USD",
+      "price": priceInUSD,
+      "itemCondition": "https://schema.org/UsedCondition",
+      "availability": carData.stockStatus === "On-Sale"
+        ? "https://schema.org/InStock"
+        : "https://schema.org/SoldOut",
+      "seller": {
+        "@type": "AutoDealer",
+        "name": "REAL MOTOR JAPAN"
+      }
+    }
+  }
+
+
+
 
   // 4️⃣ If any legacy cookie still exists, render guest UI immediately
   for (const legacyName of oldNames) {
     if (cookieStore.get(legacyName)?.value) {
       return (
         <SortProvider>
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+          />
           <div className="z-10 mt-2">
             <div style={{ zoom: 0.8, transformOrigin: "top left" }} className='-mt-12'>
               <CarProductPageCSR
@@ -134,6 +189,10 @@ export default async function ProductPage({ params, searchParams }) {
   if (!sessionCookie) {
     return (
       <SortProvider>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+        />
         <div className="z-10 mt-2">
           <div style={{ zoom: 0.8, transformOrigin: "top left" }} className='-mt-12'>
             <CarProductPageCSR
@@ -177,6 +236,10 @@ export default async function ProductPage({ params, searchParams }) {
       // If invalid, render guest UI
       return (
         <SortProvider>
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+          />
           <div className="z-10 mt-2">
             <div style={{ zoom: 0.8, transformOrigin: "top left" }} className='-mt-12'>
               <CarProductPageCSR
@@ -203,6 +266,10 @@ export default async function ProductPage({ params, searchParams }) {
     // On any error, render guest UI
     return (
       <SortProvider>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+        />
         <div className="z-10 mt-2">
           <div style={{ zoom: 0.8, transformOrigin: "top left" }} className='-mt-12'>
             <CarProductPageCSR
@@ -230,6 +297,10 @@ export default async function ProductPage({ params, searchParams }) {
   // 9️⃣ Render authenticated UI
   return (
     <SortProvider>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+      />
       <ClientAppCheck />
       <div className="z-10 mt-2">
         <div style={{ zoom: 0.8, transformOrigin: "top left" }} className='-mt-12'>

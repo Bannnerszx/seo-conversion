@@ -1,52 +1,54 @@
+// src/app/providers/AuthProvider.jsx
 'use client'
-import { PayPalScriptProvider } from "@paypal/react-paypal-js";
 import { createContext, useState, useContext, useEffect } from "react";
 
 const AuthContext = createContext({
   user: null,
   loading: false,
   logOut: async () => { },
-
+  counts: 0
 });
 
 export const useAuth = () => useContext(AuthContext);
 
-export default function AuthProvider({ children, decodedToken }) {
-  // Use initialUser from cookies/token as the user state
-  const [user, setUser] = useState(decodedToken);
-
-  const [counts, setCounts] = useState(0)
-
-
-
-  useEffect(() => {
-    if (!decodedToken) {
-      setUser(null)
-    }
-  }, [decodedToken])
-
+// 1. Accept new props: initialUser and hasSessionCookie
+export default function AuthProvider({ children, initialUser, hasSessionCookie }) {
+  const [user, setUser] = useState(initialUser); // Starts as null (Guest)
+  const [counts, setCounts] = useState(0);
   const [loading, setLoading] = useState(false);
+
+  // 2. Client-Side Verification Effect
+  useEffect(() => {
+    // Only fetch if we have a cookie AND we haven't verified the user yet
+    if (hasSessionCookie && !user) {
+      verifySession();
+    }
+  }, [hasSessionCookie]);
+
+  const verifySession = async () => {
+    try {
+      // This fetch happens in the browser, unblocking the initial page load
+      const res = await fetch('/api/verify-session');
+      const data = await res.json();
+      
+      if (data.valid) {
+        // Update state to "Logged In"
+        setUser(data.claims.email);
+        
+        // Optional: Fetch notification counts here now that we have the user
+        // fetchNotificationCounts(data.claims.email).then(setCounts);
+      }
+    } catch (error) {
+      console.error("Session verification failed", error);
+    }
+  };
 
   const logOut = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/logout-api', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'same-origin',
-
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Logout failed:", errorData.message);
-      } else {
-        // Clear user state after a successful logout
+      const response = await fetch('/api/logout-api', { method: 'POST' });
+      if (response.ok) {
         setUser(null);
-        console.log("User successfully logged out");
-        // Optionally, redirect to a login or home page:
         window.location.href = '/';
       }
     } catch (error) {
@@ -56,12 +58,9 @@ export default function AuthProvider({ children, decodedToken }) {
     }
   };
 
-
   return (
     <AuthContext.Provider value={{ user, setLoading, loading, logOut, counts }}>
-
         {children}
-
     </AuthContext.Provider>
   );
 };

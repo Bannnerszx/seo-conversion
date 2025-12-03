@@ -2,7 +2,7 @@ import HowToBuyCom from "./howtobuyComponents/HowToBuyCom";
 
 export async function generateMetadata({ params }) {
     return {
-        title: 'How To Buy | REAL MOTOR JAPAN',
+        title: 'How To Buy',
         keywords: 'REAL MOTOR JAPAN, contact information, Japanese car exports, Toyota city, used cars Japan',
         openGraph: {
             title: 'How To Buy | REAL MOTOR JAPAN',

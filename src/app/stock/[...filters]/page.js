@@ -16,36 +16,48 @@ import RequestCarBanner from "../stockComponents/request-car-banner";
 export async function generateMetadata({ params, searchParams }) {
     const p = await params;
     const filters = await p.filters || [];
+
+    const baseUrl = 'https://dev.realmotor.jp';
+
+    const path = filters.join('/');
+    const canonicalUrl = `${baseUrl}/stock/${path}`;
+
     const isRecommended = filters.includes("recommended");
     const isSale = filters.includes("sale");
-    // Known makers list
+
     const makersList = await fetchCarMakes();
     const makerToken = filters.find(f => !["recommended", "sale"].includes(f) && makersList.includes(f.toUpperCase()));
     const modelToken = makerToken ? filters[filters.indexOf(makerToken) + 1] : null;
     const maker = makerToken ? makerToken.toUpperCase() : null;
     const model = modelToken ? modelToken.toUpperCase() : null;
 
-    let title = "REAL MOTOR JAPAN - Car Stock";
+    let title = "Car Stock";
     let description = "Browse our used Japanese cars.";
 
     if (isRecommended && maker) {
-        title = `Recommended ${maker} Cars for Sale - REAL MOTOR JAPAN`;
-        description = `Browse recommended ${maker} stock. Find top picks from Japan.`;
+        title = `Recommended ${maker} Cars for Sale`;
+        description = `Browse rcommended ${maker} stock. Find top picks from Japan.`;
     } else if (isRecommended) {
-        title = `Recommended Japanese Cars for Sale - REAL MOTOR JAPAN`;
-        description = `Browse our recommended stock. Top picks from Japan.`;
+        title = `Recommended Japanese Cars for Sale`;
+        description = `Browse our recommended stock. Top picks from Japan.`
     } else if (maker && model) {
-        title = `Used ${maker} ${model} Cars for Sale - REAL MOTOR JAPAN`;
-        description = `Browse our ${maker} ${model} stock. Used Japanese cars.`;
+        title = `Used ${maker} ${model} Cars for Sale`;
+        description = `Browse our ${maker} ${model} stock. Used Japanese cars.`
     } else if (maker) {
-        title = `Used ${maker} Cars for Sale - REAL MOTOR JAPAN`;
-        description = `Browse our ${maker} stock. Used Japanese cars.`;
+        title = `Used ${maker} Cars for Sale`;
+        description = `Browse our ${maker} stock. Used Japanese cars.`
     } else if (isSale) {
-        title = `Discounted Used Japanese Cars for Sale - REAL MOTOR JAPAN`;
-        description = `Browse discounted stock. Find discounted picks from Japan.`;
+        title = `Discounted Used Japanese Cars for Sale`;
+        description = `Browse discounted stock. Find discounted picks from Japan.`
     }
 
-    return { title, description };
+    return {
+        title,
+        description,
+        alternates: {
+            canonical: canonicalUrl
+        }
+    }
 }
 
 // Catch-all page for /stock/*
