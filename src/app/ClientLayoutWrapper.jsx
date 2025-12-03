@@ -19,10 +19,10 @@ export default function ClientLayoutWrapper({ children, currency, userEmail }) {
 
   // Paths where we never show the footer
   const footerHideExact = [
-    "/login", "/login/","/favorites","/orders","/profile",
+    "/login", "/login/", "/favorites", "/orders", "/profile",
     "/accountCreation", "/accountCreation/",
     "/forgotpassword", "/forgotpassword/",
-    "/signup", "/signup/", "/chats", "/chats/","/error"
+    "/signup", "/signup/", "/chats", "/chats/", "/error"
   ];
 
   // Breadcrumbs logic stays the same
@@ -53,7 +53,7 @@ export default function ClientLayoutWrapper({ children, currency, userEmail }) {
   const headerRef = useRef(null);
   const [breadcrumbTop, setBreadcrumbTop] = useState(0);
 
- useEffect(() => {
+  useEffect(() => {
     const updateBreadcrumbTop = () => {
       const el = headerRef.current;
       if (el) {
@@ -81,8 +81,11 @@ export default function ClientLayoutWrapper({ children, currency, userEmail }) {
 
       <div className="relative">
         {!hideBreadcrumbs && (
-          <div className={`${showBanner ? `mt-32`:`mt-28`} px-6`}>
-            <DynamicBreadcrumbs maxItems={5} />
+          <div className={`relative transition-[margin] duration-300 ${showBanner ? 'mt-32' : 'mt-28'} px-6`}>
+    
+            <div className="min-h-[24px]">
+              <DynamicBreadcrumbs maxItems={5} />
+            </div>
           </div>
         )}
         {children}

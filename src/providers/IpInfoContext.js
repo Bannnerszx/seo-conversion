@@ -11,22 +11,26 @@ export const IpInfoProvider = ({ children }) => {
     const controller = new AbortController();
     const signal = controller.signal;
 
-    Promise.all([
-      fetch("https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo", { signal }).then(r => r.json()),
-      fetch("https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time", { signal }).then(r => r.json()),
-    ])
-      .then(([ip, time]) => {
-        setIpInfo(ip);
-      })
-      .catch(err => {
-        if (err.name === 'AbortError') {
-          console.log("Fetch aborted");
-        } else {
-          console.error("Preload fetch failed", err);
-        }
-      });
+    // 1. DELAY the fetch by 2 seconds to let LCP finish first
+    const timer = setTimeout(() => {
+      Promise.all([
+        fetch("https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo", { signal }).then(r => r.json()),
+        fetch("https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time", { signal }).then(r => r.json()),
+      ])
+        .then(([ip, time]) => {
+          setIpInfo(ip); // You might want to store 'time' too if you need it
+        })
+        .catch(err => {
+          if (err.name !== 'AbortError') {
+            console.error("IP fetch failed", err);
+          }
+        });
+    }, 2000); // 👈 2000ms delay
 
-    return () => controller.abort();
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, []);
 
   return (
@@ -36,6 +40,4 @@ export const IpInfoProvider = ({ children }) => {
   );
 };
 
-export const useIpInfo = () => {
-  return useContext(IpInfoContext);
-};
+export const useIpInfo = () => useContext(IpInfoContext);
