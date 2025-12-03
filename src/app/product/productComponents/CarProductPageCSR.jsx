@@ -261,14 +261,14 @@ const getFileExtension = (url) => {
 export default function CarProductPageCSR({ d2dCountries, chatCount, carData, countryArray, currency, useAuth, resultsIsFavorited, }) {
     const searchParams = useSearchParams();
     const router = useRouter();
-    
+
     // 1. Parse URL Params for Clearing and Delivery
     const urlClearingOn = searchParams.get("clearing") === '1';
     const urlDeliveryCity = searchParams.get("delivery");
 
     const [d2dCities, setD2dCities] = useState([]);
     const [loadingCities, setLoadingCities] = useState(false);
-    
+
     // 2. Initialize State from URL
     const [clearingEnabled, setClearingEnabled] = useState(() => urlClearingOn);
     const [deliveryEnabled, setDeliveryEnabled] = useState(() => !!urlDeliveryCity);
@@ -361,7 +361,7 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
     const port = searchParams.get("port");
     const inspection = searchParams.get("inspection")
     const insurance = searchParams.get("insurance")
-    
+
     // Initialize state using the query parameters
     const [dropdownValuesLocations, setDropdownValuesLocations] = useState({
         "Select Country": country,
@@ -415,7 +415,7 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
     useEffect(() => {
         // Sync Clearing
         setClearingEnabled(urlClearingOn);
-        
+
         // Sync Delivery
         if (urlDeliveryCity) {
             setDeliveryEnabled(true);
@@ -464,7 +464,7 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
         inspectionData?.toggle,
         selectedCountry, selectedPort
     ]);
-    
+
     const disableInspection =
         isRequired ||
         inspectionData?.isToggleDisabled === true ||
@@ -472,7 +472,7 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
         carData?.stockStatus === "Reserved";
 
     const [freightOrigPrice, setFreightOrigPrice] = useState('');
-    
+
     useEffect(() => {
         const getPortInspection = async () => {
             if (selectedPort === 'none' || !selectedPort) {
@@ -508,7 +508,7 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
     useEffect(() => {
         const getPorts = async () => {
             if (!selectedCountry) {
-                setPorts([]); 
+                setPorts([]);
                 return;
             };
             setIsDataLoading(true);
@@ -529,42 +529,49 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
     const setPersist = (k, v) => { document.cookie = `${k}=${encodeURIComponent(v)}; path=/; max-age=31536000`; localStorage.setItem(k, v); };
     const clearPersist = (k) => { document.cookie = `${k}=; path=/; max-age=0`; localStorage.removeItem(k); };
 
-    const handleDropdownChangeLocation = (key, value) => {
-        setDropdownValuesLocations((prevValues) => {
-            let nextCountry = prevValues["Select Country"];
-            let nextPort = prevValues["Select Port"];
-            
-            if (key === "Select Country") {
-                nextCountry = value;
-                nextPort = "";
-            } else {
-                nextPort = value;
-            }
+  const handleDropdownChangeLocation = (key, value) => {
+        // 1. Calculate the new values immediately
+        let nextCountry = dropdownValuesLocations["Select Country"];
+        let nextPort = dropdownValuesLocations["Select Port"];
 
-            const params = new URLSearchParams(window.location.search);
-            if (nextCountry && nextCountry !== 'none') {
-                params.set('country', nextCountry);
-                setPersist('stock_country', nextCountry);
-            } else {
-                params.delete('country');
-                clearPersist('stock_country');
-            }
+        if (key === "Select Country") {
+            nextCountry = value;
+            nextPort = ""; // Reset port if country changes
+        } else {
+            nextPort = value;
+        }
 
-            if (nextPort && nextPort !== 'none') {
-                params.set('port', nextPort);
-                setPersist('stock_port', nextPort);
-            } else {
-                params.delete('port');
-                clearPersist('stock_port');
-            }
+        // 2. Perform Side Effects (URL update & Persistence)
+        // CRITICAL: Do this BEFORE setting state so it runs in the event handler, not the render phase
+        const params = new URLSearchParams(window.location.search);
+        
+        if (nextCountry && nextCountry !== 'none') {
+            params.set('country', nextCountry);
+            setPersist('stock_country', nextCountry);
+        } else {
+            params.delete('country');
+            clearPersist('stock_country');
+        }
 
-            const q = params.toString();
-            router.replace(q ? `${window.location.pathname}?${q}` : window.location.pathname, { scroll: false });
+        if (nextPort && nextPort !== 'none') {
+            params.set('port', nextPort);
+            setPersist('stock_port', nextPort);
+        } else {
+            params.delete('port');
+            clearPersist('stock_port');
+        }
 
-            return { "Select Country": nextCountry, "Select Port": nextPort };
+        const q = params.toString();
+        // Safe to call router here because we are in the event handler
+        router.replace(q ? `${window.location.pathname}?${q}` : window.location.pathname, { scroll: false });
+
+        // 3. Update Local State (Purely)
+        setDropdownValuesLocations({ 
+            "Select Country": nextCountry, 
+            "Select Port": nextPort 
         });
     };
-    
+
     const dropdownGroupsLocations = [
         [
             {
@@ -607,13 +614,13 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
     const isOtherPort = selectedPort === "Others";
 
     const isButtonDisabled =
-        isDataLoading ||                              
-        loadingChat ||                                
-        !selectedCountry ||                           
-        !selectedPort ||                              
+        isDataLoading ||
+        loadingChat ||
+        !selectedCountry ||
+        !selectedPort ||
         (
-            !isOtherPort &&                           
-            (                                       
+            !isOtherPort &&
+            (
                 !freightOrigPrice ||
                 !profitMap
             )
@@ -632,7 +639,7 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
     const thumbnailCount = Math.max(safeImages.length, THUMB_COUNT);
     const [ipInfo, setIpInfo] = useState(null);
     const [tokyoTimeData, setTokyoTimeData] = useState(null);
-    
+
     useEffect(() => {
         let mounted = true;
         Promise.all([
@@ -650,7 +657,7 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
             });
         return () => { mounted = false; };
     }, []);
-    
+
     function formatStockStatus(rawStatus) {
         if (!rawStatus) return "";
         if (rawStatus.startsWith("Sold")) {
@@ -715,10 +722,10 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
             <FloatingAlertPortal
                 show={showAlert}
                 onClose={() => setShowAlert(false)}
-                duration={5000} 
+                duration={5000}
             />
             {loadingChat && <Loader />}
-            
+
             <div className="max-w-screen-2xl mx-auto p-4 font-sans">
                 <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-8">
                     {/* Left side - Car images and thumbnails */}
@@ -1074,7 +1081,7 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
                                                         onClick={() => {
                                                             const next = !clearingEnabled;
                                                             setClearingEnabled(next);
-                                                            
+
                                                             const params = new URLSearchParams(window.location.search);
 
                                                             if (!next) {
@@ -1082,7 +1089,7 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
                                                                 setDeliveryEnabled(false);
                                                                 setDeliveryCity('');
                                                                 setDeliveryAddress('');
-                                                                
+
                                                                 // Remove both from URL
                                                                 params.delete('clearing');
                                                                 params.delete('delivery');
@@ -1090,7 +1097,7 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
                                                                 // If turning ON:
                                                                 params.set('clearing', '1');
                                                             }
-                                                            
+
                                                             const q = params.toString();
                                                             router.replace(q ? `${location.pathname}?${q}` : location.pathname, {
                                                                 scroll: false,
@@ -1112,19 +1119,19 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
                                                             </span>
                                                         )}
                                                     </button>
-                                                    
+
                                                     {/* Delivery pill with URL Sync */}
                                                     <button
                                                         type="button"
                                                         onClick={() => {
                                                             if (!clearingEnabled) return;
-                                                            
+
                                                             if (deliveryEnabled) {
                                                                 // Turning OFF
                                                                 setDeliveryEnabled(false);
                                                                 setDeliveryCity('');
                                                                 setDeliveryAddress('');
-                                                                
+
                                                                 const params = new URLSearchParams(window.location.search);
                                                                 params.delete('delivery');
                                                                 const q = params.toString();
@@ -1138,10 +1145,10 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
                                                         }}
                                                         disabled={!clearingEnabled}
                                                         className={`relative rounded-full border-2 px-6 py-2.5 text-sm font-semibold transition-all ${!clearingEnabled
-                                                                ? 'border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed'
-                                                                : deliveryEnabled
-                                                                    ? 'border-[#155DFC] bg-[#155DFC] text-primary-foreground'
-                                                                    : 'border-[#155DFC] bg-card text-foreground hover:bg-[#155DFC] hover:text-primary-foreground'
+                                                            ? 'border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed'
+                                                            : deliveryEnabled
+                                                                ? 'border-[#155DFC] bg-[#155DFC] text-primary-foreground'
+                                                                : 'border-[#155DFC] bg-card text-foreground hover:bg-[#155DFC] hover:text-primary-foreground'
                                                             }`}
                                                     >
                                                         Delivery
@@ -1228,7 +1235,7 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
                                                 id="terms"
                                                 checked={agreed}
                                                 onCheckedChange={val => setAgreed(val)}
-                                                className="mt-1 border-2 border-input data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                                                className="mt-1 border-2 border-input data-[state=checked]:bg-[#155dfc] data-[state=checked]:border-[#155dfc]"
                                             />
                                             <Label htmlFor="terms" className="text-sm pt-0.5">
                                                 I agree to{' '}
@@ -1295,7 +1302,8 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
                                             deliveryAddOn
                                         )
                                     }
-                                    className="w-full rounded-md bg-primary py-6 text-lg font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="w-full rounded-md bg-[#155dfc] py-6 text-lg font-bold text-white hover:bg-[#155dfc]/90 disabled:opacity-50 disabled:cursor-not-allowed"
+
                                 >
                                     Send Inquiry
                                 </Button>
@@ -1403,11 +1411,11 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
                                                     if (!deliveryCity || !deliveryAddress) return;
                                                     setDeliveryEnabled(true);
                                                     setShowDeliveryModal(false)
-                                                    
+
                                                     // Update URL
                                                     const params = new URLSearchParams(window.location.search);
                                                     params.set('delivery', deliveryCity);
-                                                    
+
                                                     const q = params.toString();
                                                     router.replace(q ? `${location.pathname}?${q}` : location.pathname, {
                                                         scroll: false,

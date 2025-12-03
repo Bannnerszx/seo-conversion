@@ -88,13 +88,13 @@ export default function OrderButton({ handlePreviewInvoiceModal, context, setIsH
 
     const rates = {
         USD: 1,
-        EUR: toNumber(selectedChatData?.currency?.usdToEur, NaN), 
-        JPY: toNumber(selectedChatData?.currency?.usdToJpy, NaN), 
+        EUR: toNumber(selectedChatData?.currency?.usdToEur, NaN),
+        JPY: toNumber(selectedChatData?.currency?.usdToJpy, NaN),
         CAD: toNumber(selectedChatData?.currency?.usdToCad, NaN),
         AUD: toNumber(selectedChatData?.currency?.usdToAud, NaN),
         GBP: toNumber(selectedChatData?.currency?.usdToGbp, NaN),
         ZAR: toNumber(selectedChatData?.currency?.usdToZar, NaN),
-        jpyToUsd: toNumber(selectedChatData?.currency?.jpyToUsd, NaN), 
+        jpyToUsd: toNumber(selectedChatData?.currency?.jpyToUsd, NaN),
     };
 
     const fromUSD = (usdAmount, toCode = 'USD') => {
@@ -125,18 +125,18 @@ export default function OrderButton({ handlePreviewInvoiceModal, context, setIsH
     const baseFinalUSD = hasInvoiceTotal ? invoiceTotalUSD : fallbackUSD;
 
     let amountInTarget = fromUSD(baseFinalUSD, targetCurrencyCode);
-    
+
     // --- UPDATE 1: Add Clearing & Delivery to fallback calculation ---
     if (!hasInvoiceTotal) {
         // Use inspectionPrice from chat if available
         const inspPrice = selectedChatData?.inspectionPrice ? selectedChatData.inspectionPrice : 300;
-        
+
         const inspection = selectedChatData?.inspection ? fromUSD(inspPrice, targetCurrencyCode) : 0;
         const insurance = selectedChatData?.insurance ? fromUSD(50, targetCurrencyCode) : 0;
-        
+
         // New costs
-        const clearing = selectedChatData?.clearing ? fromUSD(selectedChatData.clearingPrice || 0, targetCurrencyCode) : 0;
-        const delivery = selectedChatData?.delivery ? fromUSD(selectedChatData.deliveryPrice || 0, targetCurrencyCode) : 0;
+        const clearing = selectedChatData?.doorToDoor?.clearing ? fromUSD(selectedChatData.doorToDoor.clearingPrice || 0, targetCurrencyCode) : 0;
+        const delivery = selectedChatData?.doorToDoor?.delivery ? fromUSD(selectedChatData.doorToDoor.deliveryPrice || 0, targetCurrencyCode) : 0;
 
         amountInTarget = toNumber(amountInTarget, 0) + inspection + insurance + clearing + delivery;
     }

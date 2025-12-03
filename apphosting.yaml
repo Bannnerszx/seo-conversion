@@ -34,15 +34,14 @@ env:
   - variable: NEXT_PUBLIC_PAYPAL_SANDBOX_CLIENT_ID
     secret: NEXT_PUBLIC_PAYPAL_SANDBOX_CLIENT_ID
 
-  - variable: PAYPAL_CLIENT_ID
-    value: "AV-7FuRgECaAvA3otp-gv25WgtdXz6SBWUEJr-vBnwaZG8iYtIIsryuXXait3dKUDw8rplHf2s83hGmG"
-
-
   - variable: NEXT_PUBLIC_PAYPAL_SECRET
     secret: NEXT_PUBLIC_PAYPAL_SECRET
 
   - variable: NEXT_PUBLIC_PAYPAL_BASE
     secret: NEXT_PUBLIC_PAYPAL_BASE
+
+  - variable: NEXT_PUBLIC_MONGO_DB
+    secret: NEXT_PUBLIC_MONGO_DB
 
 
 

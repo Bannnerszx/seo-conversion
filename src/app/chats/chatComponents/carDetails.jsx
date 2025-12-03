@@ -93,8 +93,9 @@ export default function CarDetails({ chatId, handleBackToList, isMobileView, isD
         const insurance = contact?.insurance ? fromUSD(50, targetCurrencyCode) : 0;
 
         // Add Clearing & Delivery
-        const clearing = contact?.clearing ? fromUSD(contact.clearingPrice || 0, targetCurrencyCode) : 0;
-        const delivery = contact?.delivery ? fromUSD(contact.deliveryPrice || 0, targetCurrencyCode) : 0;
+        const clearing = contact?.doorToDoor?.clearing ? fromUSD(contact.doorToDoor.clearingPrice || 0, targetCurrencyCode) : 0;
+        const delivery = contact?.doorToDoor?.delivery ? fromUSD(contact.doorToDoor.deliveryPrice || 0, targetCurrencyCode) : 0;
+
 
         amountInTarget = toNumber(amountInTarget, 0) + inspection + insurance + clearing + delivery;
     }
@@ -233,8 +234,8 @@ export default function CarDetails({ chatId, handleBackToList, isMobileView, isD
                                 ? (invoiceData?.paymentDetails?.incoterms === 'C&F' ? 'C&F' : 'CIF')
                                 : (contact?.insurance ? 'CIF' : 'C&F')),
                             (invoiceData?.paymentDetails?.warrantyIsChecked ?? contact?.warranty) ? 'WARRANTY' : null,
-                            contact?.clearing ? 'CLEARING' : null,
-                            contact?.delivery ? 'DELIVERY' : null
+                            contact?.doorToDoor?.clearing ? 'CLEARING' : null,
+                            contact?.doorToDoor?.delivery ? 'DELIVERY' : null
                         ].filter(Boolean).join(' + ')}
                     </div>
                     <div className="text-xs text-red-500">Due Date: {dueDate ? dueDate : `No due date available`}</div>

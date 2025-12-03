@@ -1,7 +1,6 @@
 // import { MongoClient } from "mongodb";
 
 
-// const uri = "mongodb://realmototorjapan-read:c8dvZIF2H8fvzVSSCkrNeSH692cFymAHgYFAKvGGv8fJOZXI@758f241f-9cca-4dbd-a976-e89a49a78ce3.asia-northeast2.firestore.goog:443/mongodb-prod?loadBalanced=true&tls=true&authMechanism=SCRAM-SHA-256&retryWrites=false"
 
 // // 3. Throw an error if neither variable was defined.
 // if (!uri) {
@@ -29,14 +28,26 @@
 
 //
 
+
+
+
 // lib/mongo.js
-import { MongoClient } from "mongodb";
 
 // ⚠️ For security, put this in an environment variable instead of hardcoding.
-const uri =
-  "mongodb://marcvan12:kvynkwKexyXac21LXOPjieGe9XZOB-0LhDpT6s1LmMRTdbpg@1cb538ec-3061-46d9-b9da-8e12231c58c0.asia-northeast2.firestore.goog:443/mongodb?authSource=admin&loadBalanced=true&tls=true&authMechanism=SCRAM-SHA-256&retryWrites=false";
+
+
+
+import { MongoClient } from "mongodb";
+
+// 1. Load from environment variable (Local or Secret Manager)
+const uri = process.env.NEXT_PUBLIC_MONGO_DB;
 const DB_NAME = "mongodb";
-// let uri;
+
+if (!uri) {
+  throw new Error(
+    'Invalid/Missing environment variable: "NEXT_PUBLIC_MONGO_DB"'
+  );
+}
 
 let client;
 let clientPromise;
