@@ -256,7 +256,13 @@ function MobileMenu({ isOpen, setIsOpen }) {
                             <div className="items-center space-x-2 mx-auto">
                                 <span className="text-gray-700 font-bold whitespace-nowrap">Proud members of</span>
                                 <Link href="https://www.jumvea.or.jp/jpn/members/Yanagisawa-706" target="_blank" className="block mt-4">
-                                    <img src={jumvea.src} alt="JUMVEA" width={120} height={39} className="block" />
+                                    <Image
+                                        src={jumvea}
+                                        alt="JUMVEA"
+                                        fill
+                                        className="object-contain"
+                                        sizes="120px"
+                                    />
                                 </Link>
                             </div>
                             {NAV_LINKS.map((link) => {
@@ -334,31 +340,30 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
 
     useEffect(() => {
         const handleScroll = () => {
-            setIsFixed(window.scrollY > 0)
+            const fixed = window.scrollY > 0;
+
+            // OPTIMIZATION: Check 'prev' to avoid unnecessary re-renders
+            setIsFixed(prev => (prev !== fixed ? fixed : prev));
         }
-        handleScroll()
-        window.addEventListener("scroll", handleScroll)
-        return () => window.removeEventListener("scroll", handleScroll)
-    }, [])
+
+        // 1. Run once on mount to handle page refreshes where scroll is already > 0
+        handleScroll();
+
+        // 2. Add the optimized listener
+        window.addEventListener("scroll", handleScroll, { passive: true });
+
+        // 3. CLEANUP: Remove listener when component unmounts (Critical!)
+        return () => window.removeEventListener("scroll", handleScroll);
+    }, []);
 
     const pathname = usePathname()
 
     useEffect(() => {
-
-        const timer = setTimeout(() => {
-            fetch('/api/show-banner', {
-                credentials: 'same-origin',
-            })
-                .then(res => res.json())
-                .then(({ showBanner }) => {
-                    setShowBanner(showBanner)
-                })
-                .catch(() => {
-                    // Fail silently if fetch errors
-                })
-        }, 2500);
-
-        return () => clearTimeout(timer);
+        // ✅ Fetch immediately to minimize layout shift duration
+        fetch('/api/show-banner', { credentials: 'same-origin' })
+            .then(res => res.json())
+            .then(({ showBanner }) => setShowBanner(showBanner))
+            .catch(() => { });
     }, [])
 
     // --- RENDER LOGIC ---
@@ -384,7 +389,7 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
                                     width={250}
                                     height={70} // ✅ OPTIMIZATION: Match the style height (70px)
                                     quality={65}
-                                  
+
                                     sizes="250px"
                                     style={{ width: "250px", height: "70px", objectFit: "cover" }}
                                 />
@@ -400,7 +405,7 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
                                         width={72}  // ✅ OPTIMIZATION: Scaled to match height of 35px
                                         height={35} // ✅ OPTIMIZATION: Matches max-h-[35px]
                                         quality={75}
-                                       
+
                                         sizes="100px"
                                         className="max-h-[35px] w-auto mx-auto"
                                     />
@@ -433,7 +438,7 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
                                 width={250}
                                 height={70} // ✅ OPTIMIZATION: Match the style height (70px)
                                 quality={65}
-                               
+
                                 sizes="250px"
                                 style={{ width: "250px", height: "70px", objectFit: "cover" }}
                             />
@@ -450,7 +455,7 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
                                     width={72} // ✅ OPTIMIZATION
                                     height={35} // ✅ OPTIMIZATION
                                     quality={80}
-                                  
+
                                     sizes="100px"
                                     className="max-h-[35px] w-auto mx-auto"
                                 />

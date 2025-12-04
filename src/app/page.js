@@ -5,8 +5,16 @@ import dynamic from 'next/dynamic'; // 1. Import dynamic
 // 2. Keep "Above the Fold" components as standard imports (Critical for LCP)
 import HeroBanner from './homeComponents/HeroBanner';
 const SearchQuery = dynamic(() => import('./homeComponents/SearchQuery'), {
-  loading: () => <div className="h-32 bg-gray-100 animate-pulse rounded-lg max-w-7xl mx-auto" />,
-  ssr: true // Keep true for SEO, but the hydration split helps TBT
+  // FIX: Use responsive height and matching negative margins
+  loading: () => (
+    <div className="w-full max-w-7xl mx-auto px-1 relative z-[8000] md:-top-20">
+      {/* Mobile Height: ~540px (Stacked rows)
+         Desktop Height: ~400px (Grid rows)
+      */}
+      <div className="w-full h-[540px] md:h-[400px] bg-white/80 animate-pulse rounded-lg shadow-lg" />
+    </div>
+  ),
+  ssr: true
 });
 import MobileSignupBanner from './homeComponents/mobileSignUpBanner';
 import DesktopSignUpBanner from './homeComponents/desktopSignUpBanner';
