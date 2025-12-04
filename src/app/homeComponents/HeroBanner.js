@@ -1,9 +1,8 @@
-
 import Image from "next/image";
 import Car from "../components/Car";
 import samplebanner3 from "../../../public/samplebanner3.webp"
-export default function HeroBanner({ unsoldVehicleCount }) {
 
+export default function HeroBanner({ unsoldVehicleCount }) {
   return (
     <div className="relative w-full overflow-hidden z-10">
       <div className="absolute bottom-16 right-4 z-20 font-semibold px-3 py-1 rounded-full shadow-md flex items-center gap-3">
@@ -20,7 +19,9 @@ export default function HeroBanner({ unsoldVehicleCount }) {
           <h2 className="text-[1rem] md:text-[1.5rem] text-shadow-custom text-white">Units Available</h2>
         </div>
       </div>
-      <div className="relative w-full h-[350px] md:h-[720px]">
+      
+      <div className="relative w-full h-[450px] md:h-[720px]">
+        {/* FIX: Lower quality to 50 to drastically reduce file size */}
         <Image
           src={samplebanner3}
           alt="Hero banner"
@@ -29,7 +30,7 @@ export default function HeroBanner({ unsoldVehicleCount }) {
           className="h-full w-full object-cover object-center"
           fetchPriority="high"
           placeholder="blur"
-          quality={50}
+          quality={50} 
           priority={true}
         />
       </div>
@@ -45,6 +46,5 @@ export default function HeroBanner({ unsoldVehicleCount }) {
         </div>
       </div>
     </div>
-
   );
 }

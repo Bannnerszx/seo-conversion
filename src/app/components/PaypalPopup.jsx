@@ -164,7 +164,8 @@ export default function PayPalBanner() {
         <DialogContent className="w-[90vw] max-w-sm mx-auto text-white border-blue-400 rounded-xl p-0 overflow-hidden">
           <div className="relative h-full w-full p-4">
             
-            {/* ✅ FIXED: Added priority to fix LCP lazy-loading issue */}
+            {/* FIX 1: Priority = true (Fixes LCP Lazy Load) */}
+            {/* FIX 2: Quality = 50 (Fixes Large File Size) */}
             <Image
               src={slide.content.background}
               alt="Background"
@@ -179,7 +180,7 @@ export default function PayPalBanner() {
             <div className={`absolute inset-0 ${overlayClass} -z-10 rounded-xl`} />
 
             <div className="space-y-3 relative z-10">
-              {/* ✅ FIXED: Converted Logo to Next Image */}
+              {/* Logo - Optimized */}
               {slide.content.logo && (
                 <div className="relative h-10 w-32 mx-auto mb-2">
                   <Image 
@@ -255,13 +256,14 @@ export default function PayPalBanner() {
       >
         <div className="relative w-full h-full text-white overflow-hidden rounded-lg">
           
-          {/* ✅ FIXED: Added priority for desktop LCP */}
+          {/* FIX 1: Priority = true */}
+          {/* FIX 2: Quality = 50 */}
           <Image
             src={slide.content.background}
             alt="Background"
             fill
             className="object-cover object-center -z-20"
-            quality={60}
+            quality={50}
             sizes="100vw"
             priority={true}
           />
@@ -278,7 +280,6 @@ export default function PayPalBanner() {
 
           <div className="px-6 py-4 relative z-10 h-full">
             <div className="flex items-center justify-between h-full max-w-6xl mx-auto">
-              {/* ✅ FIXED: Converted Logo to Next Image */}
               <div className="flex-shrink-0 relative h-16 w-32">
                 {slide.content.logo && (
                   <Image
@@ -359,13 +360,14 @@ export default function PayPalBanner() {
         >
           <div className="relative w-full h-full text-white overflow-hidden rounded-lg">
             
-            {/* ✅ FIXED: Added priority for desktop LCP */}
+            {/* FIX 1: Priority = true */}
+            {/* FIX 2: Quality = 50 */}
             <Image
               src={slide.content.background}
               alt="Background"
               fill
               className="object-cover object-center -z-20"
-              quality={60}
+              quality={50}
               sizes="100vw"
               priority={true}
             />
@@ -382,7 +384,6 @@ export default function PayPalBanner() {
 
             <div className="px-6 py-4 relative z-10 h-full">
               <div className="flex items-center justify-between h-full max-w-6xl mx-auto">
-                {/* ✅ FIXED: Converted Logo to Next Image */}
                 <div className="flex-shrink-0 relative h-16 w-32">
                   {slide.content.logo && (
                     <Image

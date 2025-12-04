@@ -385,7 +385,7 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
                                     height={70} // ✅ OPTIMIZATION: Match the style height (70px)
                                     quality={65}
                                     priority // Keep priority for logo above fold
-                                    sizes="(max-width: 640px) 200px, 250px"
+                                    sizes="250px"
                                     style={{ width: "250px", height: "70px", objectFit: "cover" }}
                                 />
                             </Link>
@@ -434,7 +434,7 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
                                 height={70} // ✅ OPTIMIZATION: Match the style height (70px)
                                 quality={65}
                                 priority // Keep priority for logo above fold
-                                sizes="(max-width: 640px) 200px, 250px"
+                                sizes="250px"
                                 style={{ width: "250px", height: "70px", objectFit: "cover" }}
                             />
                         </Link>
