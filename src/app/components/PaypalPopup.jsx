@@ -164,7 +164,7 @@ export default function PayPalBanner() {
         <DialogContent className="w-[90vw] max-w-sm mx-auto text-white border-blue-400 rounded-xl p-0 overflow-hidden">
           <div className="relative h-full w-full p-4">
             
-            {/* ✅ OPTIMIZATION: Reduced quality to 50 for mobile background */}
+            {/* ✅ FIXED: Added priority to fix LCP lazy-loading issue */}
             <Image
               src={slide.content.background}
               alt="Background"
@@ -172,16 +172,23 @@ export default function PayPalBanner() {
               className="object-cover object-center -z-20"
               quality={50}
               sizes="(max-width: 480px) 100vw, 400px" 
+              priority={true} 
             />
             
             {/* Overlay */}
             <div className={`absolute inset-0 ${overlayClass} -z-10 rounded-xl`} />
 
             <div className="space-y-3 relative z-10">
-              {/* Logo */}
+              {/* ✅ FIXED: Converted Logo to Next Image */}
               {slide.content.logo && (
-                <div className="flex justify-center mb-2">
-                  <img src={slide.content.logo} alt="Logo" className="h-10 object-contain" />
+                <div className="relative h-10 w-32 mx-auto mb-2">
+                  <Image 
+                    src={slide.content.logo} 
+                    alt="Logo" 
+                    fill
+                    className="object-contain"
+                    sizes="150px"
+                  />
                 </div>
               )}
 
@@ -248,7 +255,7 @@ export default function PayPalBanner() {
       >
         <div className="relative w-full h-full text-white overflow-hidden rounded-lg">
           
-          {/* ✅ OPTIMIZATION: Desktop Static Background */}
+          {/* ✅ FIXED: Added priority for desktop LCP */}
           <Image
             src={slide.content.background}
             alt="Background"
@@ -256,6 +263,7 @@ export default function PayPalBanner() {
             className="object-cover object-center -z-20"
             quality={60}
             sizes="100vw"
+            priority={true}
           />
           <div className={`absolute inset-0 ${overlayClass} -z-10`} />
 
@@ -270,12 +278,15 @@ export default function PayPalBanner() {
 
           <div className="px-6 py-4 relative z-10 h-full">
             <div className="flex items-center justify-between h-full max-w-6xl mx-auto">
-              <div className="flex-shrink-0">
+              {/* ✅ FIXED: Converted Logo to Next Image */}
+              <div className="flex-shrink-0 relative h-16 w-32">
                 {slide.content.logo && (
-                  <img
+                  <Image
                     src={slide.content.logo || "/placeholder.svg"}
                     alt="Logo"
-                    className="h-16 w-auto object-contain"
+                    fill
+                    className="object-contain object-left"
+                    sizes="200px"
                   />
                 )}
               </div>
@@ -348,7 +359,7 @@ export default function PayPalBanner() {
         >
           <div className="relative w-full h-full text-white overflow-hidden rounded-lg">
             
-            {/* ✅ OPTIMIZATION: Desktop Animated Background */}
+            {/* ✅ FIXED: Added priority for desktop LCP */}
             <Image
               src={slide.content.background}
               alt="Background"
@@ -356,6 +367,7 @@ export default function PayPalBanner() {
               className="object-cover object-center -z-20"
               quality={60}
               sizes="100vw"
+              priority={true}
             />
             <div className={`absolute inset-0 ${overlayClass} -z-10`} />
 
@@ -370,12 +382,15 @@ export default function PayPalBanner() {
 
             <div className="px-6 py-4 relative z-10 h-full">
               <div className="flex items-center justify-between h-full max-w-6xl mx-auto">
-                <div className="flex-shrink-0">
+                {/* ✅ FIXED: Converted Logo to Next Image */}
+                <div className="flex-shrink-0 relative h-16 w-32">
                   {slide.content.logo && (
-                    <img
+                    <Image
                       src={slide.content.logo || "/placeholder.svg"}
                       alt="Logo"
-                      className="h-16 w-auto object-contain"
+                      fill
+                      className="object-contain object-left"
+                      sizes="200px"
                     />
                   )}
                 </div>
