@@ -170,7 +170,7 @@ export default function PayPalBanner() {
               alt="Background"
               fill
               className="object-cover object-center -z-20"
-              quality={50}
+              quality={30}
               sizes="(max-width: 480px) 100vw, 400px"
             />
 
@@ -262,7 +262,7 @@ export default function PayPalBanner() {
             alt="Background"
             fill
             className="object-cover object-center -z-20"
-            quality={50}
+            quality={30}
             sizes="100vw"
 
           />
@@ -367,7 +367,7 @@ export default function PayPalBanner() {
               alt="Background"
               fill
               className="object-cover object-center -z-20"
-              quality={50}
+              quality={30}
               sizes="100vw"
    
             />
