@@ -20,7 +20,7 @@ export default function HeroBanner({ unsoldVehicleCount }) {
           <h2 className="text-[1rem] md:text-[1.5rem] text-shadow-custom text-white">Units Available</h2>
         </div>
       </div>
-      <div className="relative w-full h-[720px]">
+      <div className="relative w-full h-[350px] md:h-[720px]">
         <Image
           src={samplebanner3}
           alt="Hero banner"
@@ -29,7 +29,7 @@ export default function HeroBanner({ unsoldVehicleCount }) {
           className="h-full w-full object-cover object-center"
           fetchPriority="high"
           placeholder="blur"
-          quality={40}
+          quality={50}
           priority={true}
         />
       </div>

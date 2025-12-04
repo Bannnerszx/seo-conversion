@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import Image from "next/image" // ✅ Ensure this is imported
+import Image from "next/image"
 import {
   X,
   Zap,
@@ -164,14 +164,14 @@ export default function PayPalBanner() {
         <DialogContent className="w-[90vw] max-w-sm mx-auto text-white border-blue-400 rounded-xl p-0 overflow-hidden">
           <div className="relative h-full w-full p-4">
             
-            {/* ✅ OPTIMIZATION: Use Next.js Image instead of CSS background */}
+            {/* ✅ OPTIMIZATION: Reduced quality to 50 for mobile background */}
             <Image
               src={slide.content.background}
               alt="Background"
               fill
               className="object-cover object-center -z-20"
-              quality={60}
-              sizes="(max-width: 768px) 100vw, 400px"
+              quality={50}
+              sizes="(max-width: 480px) 100vw, 400px" 
             />
             
             {/* Overlay */}
