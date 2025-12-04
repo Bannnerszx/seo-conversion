@@ -1,8 +1,7 @@
 "use client"
 
+import { getFirebaseFunctions } from "../../../../firebase/clientApp"
 import moment from "moment"
-import { functions } from "../../../../firebase/clientApp"
-import { httpsCallable } from 'firebase/functions'
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import Image from "next/image"
 import { Download, Heart, ChevronLeft, ChevronRight, Loader2, UserPlus, Users, TrendingUp, Eye, ChevronDown, X } from "lucide-react"
@@ -11,7 +10,6 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useSearchParams } from 'next/navigation';
 import { useCurrency } from "@/providers/CurrencyContext"
@@ -79,7 +77,7 @@ const Dropdown = ({ placeholder, options, value, onChange, className = '' }) => 
 // --- UPDATED FUNCTION SIGNATURE ---
 async function handleCreateConversation(
     acceptPaypal,
-    addChat,
+    // Remove addChat from params since we load it inside
     router,
     setLoadingChat,
     setShowAlert,
@@ -199,6 +197,13 @@ async function handleCreateConversation(
         };
 
         if (exists && (!missingFields || missingFields.length === 0)) {
+            // 4. Load Functions Dynamically here
+            const [functionsInstance, { httpsCallable }] = await Promise.all([
+                getFirebaseFunctions(),
+                import("firebase/functions")
+            ]);
+            const addChat = httpsCallable(functionsInstance, 'addChat');
+            
             const res = await addChat(chatData);
             console.log("Chat created:", res.data.chatId);
             setLoadingChat(false);
@@ -261,14 +266,14 @@ const getFileExtension = (url) => {
 export default function CarProductPageCSR({ d2dCountries, chatCount, carData, countryArray, currency, useAuth, resultsIsFavorited, }) {
     const searchParams = useSearchParams();
     const router = useRouter();
-
+    
     // 1. Parse URL Params for Clearing and Delivery
     const urlClearingOn = searchParams.get("clearing") === '1';
     const urlDeliveryCity = searchParams.get("delivery");
 
     const [d2dCities, setD2dCities] = useState([]);
     const [loadingCities, setLoadingCities] = useState(false);
-
+    
     // 2. Initialize State from URL
     const [clearingEnabled, setClearingEnabled] = useState(() => urlClearingOn);
     const [deliveryEnabled, setDeliveryEnabled] = useState(() => !!urlDeliveryCity);
@@ -276,7 +281,9 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
     const [deliveryAddress, setDeliveryAddress] = useState('');
     const [showDeliveryModal, setShowDeliveryModal] = useState(false);
 
-    const addChat = httpsCallable(functions, 'addChat')
+    // 5. Remove top-level addChat definition
+    // const addChat = httpsCallable(functions, 'addChat')
+
     const [acceptPaypal, setAcceptPaypal] = useState(false)
     const [agreed, setAgreed] = useState(false)
     const [doorToDoorEnabled, setDoorToDoorEnabled] = useState(false);
@@ -298,6 +305,7 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
 
     const images = carData?.images
 
+    // ... (Keep all existing image handling callbacks) ...
     const handlePrevImage = useCallback(() => {
         setCurrentImageIndex((prev) => (prev === 0 ? images?.length - 1 : prev - 1))
     }, [images?.length])
@@ -361,7 +369,7 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
     const port = searchParams.get("port");
     const inspection = searchParams.get("inspection")
     const insurance = searchParams.get("insurance")
-
+    
     // Initialize state using the query parameters
     const [dropdownValuesLocations, setDropdownValuesLocations] = useState({
         "Select Country": country,
@@ -415,7 +423,7 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
     useEffect(() => {
         // Sync Clearing
         setClearingEnabled(urlClearingOn);
-
+        
         // Sync Delivery
         if (urlDeliveryCity) {
             setDeliveryEnabled(true);
@@ -464,7 +472,7 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
         inspectionData?.toggle,
         selectedCountry, selectedPort
     ]);
-
+    
     const disableInspection =
         isRequired ||
         inspectionData?.isToggleDisabled === true ||
@@ -472,7 +480,7 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
         carData?.stockStatus === "Reserved";
 
     const [freightOrigPrice, setFreightOrigPrice] = useState('');
-
+    
     useEffect(() => {
         const getPortInspection = async () => {
             if (selectedPort === 'none' || !selectedPort) {
@@ -508,7 +516,7 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
     useEffect(() => {
         const getPorts = async () => {
             if (!selectedCountry) {
-                setPorts([]);
+                setPorts([]); 
                 return;
             };
             setIsDataLoading(true);
@@ -529,49 +537,42 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
     const setPersist = (k, v) => { document.cookie = `${k}=${encodeURIComponent(v)}; path=/; max-age=31536000`; localStorage.setItem(k, v); };
     const clearPersist = (k) => { document.cookie = `${k}=; path=/; max-age=0`; localStorage.removeItem(k); };
 
-  const handleDropdownChangeLocation = (key, value) => {
-        // 1. Calculate the new values immediately
-        let nextCountry = dropdownValuesLocations["Select Country"];
-        let nextPort = dropdownValuesLocations["Select Port"];
+    const handleDropdownChangeLocation = (key, value) => {
+        setDropdownValuesLocations((prevValues) => {
+            let nextCountry = prevValues["Select Country"];
+            let nextPort = prevValues["Select Port"];
+            
+            if (key === "Select Country") {
+                nextCountry = value;
+                nextPort = "";
+            } else {
+                nextPort = value;
+            }
 
-        if (key === "Select Country") {
-            nextCountry = value;
-            nextPort = ""; // Reset port if country changes
-        } else {
-            nextPort = value;
-        }
+            const params = new URLSearchParams(window.location.search);
+            if (nextCountry && nextCountry !== 'none') {
+                params.set('country', nextCountry);
+                setPersist('stock_country', nextCountry);
+            } else {
+                params.delete('country');
+                clearPersist('stock_country');
+            }
 
-        // 2. Perform Side Effects (URL update & Persistence)
-        // CRITICAL: Do this BEFORE setting state so it runs in the event handler, not the render phase
-        const params = new URLSearchParams(window.location.search);
-        
-        if (nextCountry && nextCountry !== 'none') {
-            params.set('country', nextCountry);
-            setPersist('stock_country', nextCountry);
-        } else {
-            params.delete('country');
-            clearPersist('stock_country');
-        }
+            if (nextPort && nextPort !== 'none') {
+                params.set('port', nextPort);
+                setPersist('stock_port', nextPort);
+            } else {
+                params.delete('port');
+                clearPersist('stock_port');
+            }
 
-        if (nextPort && nextPort !== 'none') {
-            params.set('port', nextPort);
-            setPersist('stock_port', nextPort);
-        } else {
-            params.delete('port');
-            clearPersist('stock_port');
-        }
+            const q = params.toString();
+            router.replace(q ? `${window.location.pathname}?${q}` : window.location.pathname, { scroll: false });
 
-        const q = params.toString();
-        // Safe to call router here because we are in the event handler
-        router.replace(q ? `${window.location.pathname}?${q}` : window.location.pathname, { scroll: false });
-
-        // 3. Update Local State (Purely)
-        setDropdownValuesLocations({ 
-            "Select Country": nextCountry, 
-            "Select Port": nextPort 
+            return { "Select Country": nextCountry, "Select Port": nextPort };
         });
     };
-
+    
     const dropdownGroupsLocations = [
         [
             {
@@ -614,13 +615,13 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
     const isOtherPort = selectedPort === "Others";
 
     const isButtonDisabled =
-        isDataLoading ||
-        loadingChat ||
-        !selectedCountry ||
-        !selectedPort ||
+        isDataLoading ||                              
+        loadingChat ||                                
+        !selectedCountry ||                           
+        !selectedPort ||                              
         (
-            !isOtherPort &&
-            (
+            !isOtherPort &&                           
+            (                                       
                 !freightOrigPrice ||
                 !profitMap
             )
@@ -639,7 +640,7 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
     const thumbnailCount = Math.max(safeImages.length, THUMB_COUNT);
     const [ipInfo, setIpInfo] = useState(null);
     const [tokyoTimeData, setTokyoTimeData] = useState(null);
-
+    
     useEffect(() => {
         let mounted = true;
         Promise.all([
@@ -657,7 +658,7 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
             });
         return () => { mounted = false; };
     }, []);
-
+    
     function formatStockStatus(rawStatus) {
         if (!rawStatus) return "";
         if (rawStatus.startsWith("Sold")) {
@@ -715,7 +716,6 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
             setD2dCities([]);
         }
     }, [d2dMatch]);
-
 
     return (
         <div className=" mx-auto px-4 py-8 z-[9999]">

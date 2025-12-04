@@ -13,9 +13,7 @@ import { useSort } from "./sortContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import RecommendedBadge from "./recommendedBage";
 import SalesOffDisplay from "./salesOffDisplay";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "../../../../firebase/clientApp";
-
+import { getFirebaseFunctions } from "../../../../firebase/clientApp";
 // Skeleton placeholder for loading (unchanged)
 export function CarCardSkeleton() {
   return (
@@ -281,28 +279,35 @@ function CarCard({
 
 
 export default function CarListings({ resultsIsFavorited, products, currency, country, port, userEmail }) {
-  const router = useRouter()
+ const router = useRouter()
   const searchParams = useSearchParams();
   
-  // Read Existing Params
   const inspectionParam = searchParams.get('inspection') === '1' ? '1' : undefined;
   const insuranceParam = searchParams.get('insurance') === '1' ? '1' : undefined;
   
-  // NEW: Read Clearing and Delivery Params from URL
   const clearingParam = searchParams.get('clearing') === '1' ? '1' : undefined;
-  const deliveryParam = searchParams.get('delivery'); // returns string (e.g., "Lusaka") or null
+  const deliveryParam = searchParams.get('delivery');
 
   const { withPhotosOnly } = useSort();
   const filtered = products
     ?.filter(car => car.fobPriceNumber)
     .filter(car => !withPhotosOnly || (car.images?.length ?? 0) > 0);
     
-  const incrementView = httpsCallable(functions, 'incrementViewCounter')
+  // 3. Remove top-level function call
+  // const incrementView = httpsCallable(functions, 'incrementViewCounter')
+
   const handleViewDetailsClick = async (productId) => {
     const viewLoggedKey = `viewed_${productId}`;
 
     if (!sessionStorage.getItem(viewLoggedKey)) {
       try {
+        // 4. Dynamic load inside click handler
+        const [functionsInstance, { httpsCallable }] = await Promise.all([
+            getFirebaseFunctions(),
+            import("firebase/functions")
+        ]);
+        const incrementView = httpsCallable(functionsInstance, 'incrementViewCounter');
+        
         incrementView({ docId: productId });
 
         sessionStorage.setItem(viewLoggedKey, 'true');
@@ -311,7 +316,6 @@ export default function CarListings({ resultsIsFavorited, products, currency, co
       }
     }
   }
-
   return (
     <div className="space-y-4 p-2 mx-auto w-full">
       <ScrollToTop />

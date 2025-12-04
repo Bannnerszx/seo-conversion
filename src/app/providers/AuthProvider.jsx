@@ -1,47 +1,50 @@
-// src/app/providers/AuthProvider.jsx
 'use client'
 import { createContext, useState, useContext, useEffect } from "react";
+// 1. Import the async getter
+import { getFirebaseAuth } from "../../../firebase/clientApp"; 
 
 const AuthContext = createContext({
   user: null,
-  loading: false,
+  loading: true, // Start loading as true
   logOut: async () => { },
   counts: 0
 });
 
 export const useAuth = () => useContext(AuthContext);
 
-// 1. Accept new props: initialUser and hasSessionCookie
-export default function AuthProvider({ children, initialUser, hasSessionCookie }) {
-  const [user, setUser] = useState(initialUser); // Starts as null (Guest)
-  const [counts, setCounts] = useState(0);
-  const [loading, setLoading] = useState(false);
+export default function AuthProvider({ children, initialUser }) {
+  const [user, setUser] = useState(initialUser);
+  const [loading, setLoading] = useState(true); // Default to true until auth loads
+  const [authInstance, setAuthInstance] = useState(null);
 
-  // 2. Client-Side Verification Effect
+  // 2. Initialize Auth Asynchronously
   useEffect(() => {
-    // Only fetch if we have a cookie AND we haven't verified the user yet
-    if (hasSessionCookie && !user) {
-      verifySession();
-    }
-  }, [hasSessionCookie]);
+    let unsubscribe;
+    
+    const initAuth = async () => {
+        try {
+            const auth = await getFirebaseAuth();
+            setAuthInstance(auth);
+            
+            // Listen for changes
+            const { onAuthStateChanged } = await import('firebase/auth');
+            unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+                if (firebaseUser) {
+                    setUser(firebaseUser.email);
+                } else {
+                    setUser(null);
+                }
+                setLoading(false);
+            });
+        } catch (error) {
+            console.error("Auth Init Failed", error);
+            setLoading(false);
+        }
+    };
 
-  const verifySession = async () => {
-    try {
-      // This fetch happens in the browser, unblocking the initial page load
-      const res = await fetch('/api/verify-session');
-      const data = await res.json();
-      
-      if (data.valid) {
-        // Update state to "Logged In"
-        setUser(data.claims.email);
-        
-        // Optional: Fetch notification counts here now that we have the user
-        // fetchNotificationCounts(data.claims.email).then(setCounts);
-      }
-    } catch (error) {
-      console.error("Session verification failed", error);
-    }
-  };
+    initAuth();
+    return () => unsubscribe && unsubscribe();
+  }, []);
 
   const logOut = async () => {
     setLoading(true);
@@ -59,7 +62,7 @@ export default function AuthProvider({ children, initialUser, hasSessionCookie }
   };
 
   return (
-    <AuthContext.Provider value={{ user, setLoading, loading, logOut, counts }}>
+    <AuthContext.Provider value={{ user, setLoading, loading, logOut }}>
         {children}
     </AuthContext.Provider>
   );

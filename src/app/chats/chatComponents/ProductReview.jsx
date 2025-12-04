@@ -14,8 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { functions } from "../../../../firebase/clientApp"
-import { httpsCallable } from "firebase/functions"
+
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 
@@ -24,7 +23,8 @@ const ALLOWED_TYPES = new Set(["image/jpeg", "image/png"])
 const ALLOWED_EXT = /\.(jpe?g|png)$/i
 
 export default function ProductReview({ chatId, accountName, invoiceData, carData, step }) {
-  const submitTestimony = httpsCallable(functions, "submitTestimony")
+  // 3. Remove top-level callable definition
+  // const submitTestimony = httpsCallable(functions, "submitTestimony")
 
   // ---- Lazy-load Framer Motion when needed
   const [FM, setFM] = useState(null) // { motion, AnimatePresence }
@@ -225,6 +225,14 @@ export default function ProductReview({ chatId, accountName, invoiceData, carDat
 
     try {
       console.log("Sending data to Cloud Function...", testimonyData)
+      
+      // 4. Dynamic Loading inside submit handler
+      const [functionsInstance, { httpsCallable }] = await Promise.all([
+          getFirebaseFunctions(),
+          import("firebase/functions")
+      ]);
+      const submitTestimony = httpsCallable(functionsInstance, "submitTestimony");
+
       const result = await submitTestimony(testimonyData)
       console.log("Function returned successfully:", result.data)
     } catch (error) {

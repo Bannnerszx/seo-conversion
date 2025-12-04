@@ -1,13 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { functions } from "../../../../firebase/clientApp";
-import { signInAnonymously, onAuthStateChanged } from "firebase/auth";
-import { httpsCallable } from "firebase/functions";
+import { useState } from "react";
+// 1. Remove static import
 
-
-// Get a reference to the callable function
-const addDeliveryLocation = httpsCallable(functions, "addDeliveryLocation");
+// 2. Import Async Getter
+import { getFirebaseFunctions } from "../../../../firebase/clientApp";
 
 export default function DeliveryClient({ userEmail }) {
   // State for form inputs
@@ -22,10 +19,8 @@ export default function DeliveryClient({ userEmail }) {
     isError: false,
     show: false,
   });
+  // Auth state management can likely be simplified if AuthProvider handles it
   const [isAuthReady, setIsAuthReady] = useState(true);
-
-  // Effect for handling authentication
-
 
   // Form submission handler
   const handleSubmit = async (e) => {
@@ -56,12 +51,19 @@ export default function DeliveryClient({ userEmail }) {
     setResponse({ message: "", isError: false, show: false });
 
     try {
+      // 3. Dynamic Loading inside submit handler
+      const [functionsInstance, { httpsCallable }] = await Promise.all([
+          getFirebaseFunctions(),
+          import("firebase/functions")
+      ]);
+      const addDeliveryLocation = httpsCallable(functionsInstance, "addDeliveryLocation");
+
       // Call the cloud function with the data
       const result = await addDeliveryLocation({
         countryName,
         cityName,
         deliveryPrice: price,
-        userEmail, // optional extra field if you want it in your CF
+        userEmail, 
       });
 
       console.log("Function result:", result.data);

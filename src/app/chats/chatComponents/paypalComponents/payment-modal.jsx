@@ -1,300 +1,283 @@
 "use client"
-
-import * as React from "react"
+import { useState, useEffect } from "react"
 import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogDescription,
+  Dialog,
+  DialogContent,
+  DialogTitle,
 } from "@/components/ui/dialog"
-import { EmailStep } from "./email-step"
-import { SignatureStep } from "./signature-step"
-import { ReviewStep } from "./review-step"
-import { functions } from "../../../../../firebase/clientApp"
-import { httpsCallable } from "firebase/functions"
-export default function PaymentModal({ timestamp, invoiceNumber, carData, chatId, invoiceData, isOpen, onClose }) {
-    console.log(timestamp, 'timestamp inside payment modal')
-    const reserveOrderIdFromInvoice = httpsCallable(functions, "reserveOrderIdFromInvoice");
-    const createSignatureAndUpload = httpsCallable(functions, "createSignatureAndUpload");
-    const [currentStep, setCurrentStep] = React.useState(1)
-    const [paymentData, setPaymentData] = React.useState({
-        email: "",
-        signature: "",
-    })
-    const [isSubmitting, setIsSubmitting] = React.useState(false)
+import { Loader2, CheckCircle, XCircle } from "lucide-react"
+import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js"
+// 1. Remove static import
 
+// 2. Import Async Getter
+import { getFirebaseFunctions } from "../../../../../firebase/clientApp"
 
-    const handleEmailComplete = (email) => {
-        setPaymentData((prev) => ({ ...prev, email }))
-        setCurrentStep(2)
+// Step Components
+import ReviewStep from "./review-step"
+import EmailStep from "./email-step"
+import SignatureStep from "./signature-step"
+
+// Steps Enum
+const STEPS = {
+  REVIEW: "review",
+  EMAIL: "email",
+  SIGNATURE: "signature",
+  PROCESSING: "processing",
+  SUCCESS: "success",
+  ERROR: "error",
+}
+
+export default function PaymentModal({ timestamp, isOpen, onClose, carData, invoiceData, invoiceNumber, chatId }) {
+  const [step, setStep] = useState(STEPS.REVIEW)
+  const [payerEmail, setPayerEmail] = useState("")
+  const [signatureData, setSignatureData] = useState(null)
+  const [errorMessage, setErrorMessage] = useState("")
+  const [isProcessing, setIsProcessing] = useState(false) // For internal async ops
+
+  // Reset state when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setStep(STEPS.REVIEW)
+      setPayerEmail("")
+      setSignatureData(null)
+      setErrorMessage("")
+      setIsProcessing(false)
     }
+  }, [isOpen])
 
-    const handleSignatureComplete = (signature) => {
-        setPaymentData((prev) => ({ ...prev, signature }))
-        setCurrentStep(3)
+  // --- Handlers for Transitions ---
+  const handleReviewConfirm = () => setStep(STEPS.EMAIL)
+  
+  const handleEmailSubmit = (email) => {
+    setPayerEmail(email)
+    setStep(STEPS.SIGNATURE)
+  }
+
+  const handleSignatureSubmit = (data) => {
+    setSignatureData(data)
+    // After signing, we show the PayPal buttons (PROCESSING / PAYMENT step)
+    setStep(STEPS.PROCESSING)
+  }
+
+  // --- PayPal Create Order ---
+  // Calls your server endpoint to create the PayPal Order ID
+  const createOrder = async () => {
+    try {
+      const res = await fetch("/api/paypal/create-invoice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chatId,
+          invoiceNumber,
+          userEmail: payerEmail, // or from context
+          carData,
+          signatureData, // Pass signature if needed for record keeping
+          // ... other fields your API expects
+        }),
+      })
+
+      const data = await res.json()
+      
+      if (!res.ok || !data.orderID) {
+        throw new Error(data.error || "Failed to create order")
+      }
+      return data.orderID
+    } catch (err) {
+      console.error("Create Order Error:", err)
+      setErrorMessage(err.message)
+      setStep(STEPS.ERROR)
+      throw err // Stop PayPal flow
     }
+  }
 
-    const handleBack = () => {
-        setCurrentStep((prev) => Math.max(1, prev - 1))
-    }
+  // --- PayPal On Approve ---
+  // Captures the order
+  const onApprove = async (data, actions) => {
+    setIsProcessing(true)
+    try {
+        // Capture is often handled automatically by actions.order.capture() 
+        // or by your server if using "intent=capture".
+        // Let's assume client-side capture for simplicity, or call your verify API.
+        const details = await actions.order.capture()
+        
+        // 3. Load Functions Dynamically
+        const [functionsInstance, { httpsCallable }] = await Promise.all([
+            getFirebaseFunctions(),
+            import("firebase/functions")
+        ]);
+        const verifyPayment = httpsCallable(functionsInstance, 'verifyPayment');
 
-    const sanitizeForDocId = (s) => String(s).replaceAll("/", "-").replaceAll("\\", "-").trim();
-    const pad6 = (n) => String(Number(n)).padStart(6, "0");
+        // Optional: Call your server to finalize/verify
+        const verifyRes = await verifyPayment({
+            orderID: data.orderID,
+            chatId,
+            details
+        })
 
-    function makeReserveKey({ chatId, invNum, year }) {
-        return sanitizeForDocId(`reserve:${chatId}:${year}:${pad6(invNum)}`);
-    }
-
-    function makeSignatureKey({ chatId, invNum, year, email }) {
-        return sanitizeForDocId(`signature:${chatId}:${year}:${pad6(invNum)}:${(email || "").toLowerCase().trim()}`);
-    }
-    const norm2 = (n) => (Number(n || 0)).toFixed(2);
-
-    const chassis = carData?.chassisNumber || "-";
-    const model = carData?.model || "-";
-    const incot = invoiceData?.paymentDetails?.incoterms || "-";
-    const port = invoiceData?.discharge?.port || "Port of Dar es Salaam only";
-    const mainItemDescription = [
-        `Invoice No. RMJ-${invoiceNumber}\n\n${chassis}\n\n${model}\n\n${incot}\n\n${port}\n\nBuyer reviewed and agreed to conditions (refund/FX policy, no address change)`
-
-    ].join("\n\n");
-    function formatTokyoLocal(ymdHmsMsStr) {
-        if (!ymdHmsMsStr) return '';
-        // Match: 2025/10/07 [anything/at] 14:23:45.678
-        const m = ymdHmsMsStr.match(
-            /(\d{4}\/\d{2}\/\d{2}).*?(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,6}))?/
-        );
-        if (!m) return ymdHmsMsStr; // fallback if unexpected format
-
-        const [, date, hh, mm, ss, msRaw = ''] = m;
-        const ms = msRaw ? msRaw.padStart(3, '0').slice(0, 3) : '000';
-        return `${date} at ${hh}:${mm}:${ss}.${ms}`;
-    }
-
-    const handleSubmit = async ({ consent }) => {
-        try {
-            setIsSubmitting(true);
-
-            // ---------------------------------------------------------
-            // 1. Fetch Fresh Tokyo Time for the Timestamp
-            // ---------------------------------------------------------
-            let timestamp = new Date().toISOString(); // fallback
-            try {
-                const fetchJson = (url) => fetch(url).then(r => {
-                    if (!r.ok) throw new Error('Network response was not ok');
-                    return r.json();
-                });
-
-                // Fetch time from your API
-                const tokyoTimeData = await fetchJson("https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time");
-
-                // Format using the helper provided
-                if (tokyoTimeData && tokyoTimeData.datetime) {
-                    timestamp = formatTokyoLocal(tokyoTimeData.datetime);
-                }
-            } catch (error) {
-                console.warn("Failed to fetch fresh Tokyo time, using local fallback:", error);
-            }
-            // ---------------------------------------------------------
-
-            const clientYear = new Date().getFullYear();
-            const invNum = Number(invoiceNumber);
-            const reserveIdemKey = makeReserveKey({ chatId, invNum, year: clientYear });
-            const signatureIdemKey = makeSignatureKey({ chatId, invNum, year: clientYear, email: paymentData.email });
-
-            const norm2 = (n) => (Number(n || 0)).toFixed(2);
-            const port = String(invoiceData?.discharge?.port || "Port of Dar es Salaam only");
-
-            // 2) Reserve order on chat (idempotent)
-            await reserveOrderIdFromInvoice({
-                chatId,
-                merchantInvoiceNumber: invNum,
-                clientYear,
-                idempotencyKey: reserveIdemKey,
-            });
-
-            // 3) Create signature (idempotent)
-            const sigRes = await createSignatureAndUpload({
-                chatId,
-                merchantInvoiceNumber: invNum,
-                signerEmail: paymentData.email,
-                consent,
-                snapshot: {
-                    currency: invoiceData?.selectedCurrencyExchange,
-                    total: Number(invoiceData?.paymentDetails?.totalAmount || 0),
-                    incoterms: invoiceData?.paymentDetails?.incoterms,
-                    deliveryScope: port,
-                    vin: carData?.chassisNumber || null,
-                    model: carData?.carName || null,
-                    stockId: carData?.stockID || null,
-                    consigneeEmail: invoiceData?.consignee?.email
-                },
-                signatureDataUrl: paymentData.signature || undefined,
-                clientYear,
-                idempotencyKey: signatureIdemKey,
-            });
-
-            const { customId, orderId } = sigRes.data || {};
-
-            const items = [
-                {
-                    name: String(carData?.carName || "Vehicle"),
-                    quantity: "1",
-                    unit_amount: { value: norm2(invoiceData?.paymentDetails?.totalAmount || 0) },
-                    description: mainItemDescription,
-                    unit_of_measure: "QUANTITY",
-                    reference: orderId,
-                },
-                {
-                    name: "Delivery",
-                    quantity: "1",
-                    unit_amount: { value: norm2(0) },
-                    description: port,
-                    unit_of_measure: "QUANTITY",
-                }
-            ];
-
-            const reference = orderId || `ORD-${clientYear}-${String(invNum).padStart(6, "0")}`;
-
-            // 4) Create/send PayPal invoice
-            const res = await fetch("/api/paypal/create-invoice", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    currency: invoiceData?.selectedCurrencyExchange || "USD",
-                    payer: { email_address: paymentData.email },
-                    items,
-                    note: invoiceData?.paypalNote,
-                    reference,
-                    dueDate: invoiceData?.dueDate,
-                    allowPartial: invoiceData?.allowPartial ?? false,
-                    minPartialValue: invoiceData?.minPartialValue,
-                    customId,                                      // signatureId
-                    invoiceNumber: String(invNum).padStart(6, "0"),
-                    forceNew: true,                                // ← set true if you expect a NEW invoice each time
-                    retryToken: signatureIdemKey,                  // helps server keep the same new number on retries
-                    chatId,                                        // Passed for server logging
-                    timestamp,                                     // Passed: "YYYY/MM/DD at HH:mm:ss.sss"
-                }),
-                cache: "no-store",
-            });
-
-            const data = await res.json();
-
-            if (data?.ok && data?.hostedUrl) {
-
-                // --- TRY TO OPEN POPUP (No blank page first) ---
-                const popup = window.open(data.hostedUrl, "_blank", "noopener,noreferrer");
-                if (popup) popup.focus();
-                // -----------------------------------------------
-
-                // 3.5) Pin the NEW URL/ids to the chat
-                const pinIdemKey = `${reserveIdemKey}:pin:${data.invoiceId}`;
-                await reserveOrderIdFromInvoice({
-                    chatId,
-                    merchantInvoiceNumber: invNum,
-                    clientYear,
-                    idempotencyKey: pinIdemKey,
-                    paypalInvoiceId: data.invoiceId,
-                    hostedUrl: data.hostedUrl,
-                    paypalInvoiceNumber: data.paypalInvoiceNumber,
-                    status: "awaiting_payment",
-                });
-
-                // Close modal (no alerts)
-                onClose();
-
-            } else if (res.status === 409) {
-                console.warn("Invoice conflict: This signature already has a PAID invoice.");
-            } else {
-                console.error("Invoice error:", data);
-            }
-
-            setCurrentStep(1);
-            setPaymentData({ email: "", signature: "" });
-
-        } catch (err) {
-            console.error("Payment submit failed:", err);
-        } finally {
-            setIsSubmitting(false);
+        if (verifyRes.data.success) {
+            setStep(STEPS.SUCCESS)
+        } else {
+            throw new Error("Payment verification failed on server")
         }
-    };
 
-
-
-    const handleClose = () => {
-        setCurrentStep(1)
-        setPaymentData({ email: "", signature: "" })
-        onClose()
+    } catch (err) {
+        console.error("Capture Error:", err)
+        setErrorMessage("Payment captured but server verification failed. Please contact support.")
+        setStep(STEPS.ERROR)
+    } finally {
+        setIsProcessing(false)
     }
+  }
 
-    return (
-        <Dialog
-            open={isOpen}
-            onOpenChange={(open) => {
-                // prevent closing the modal while a submit is in progress
-                if (!open) {
-                    if (isSubmitting) return;
-                    handleClose();
-                }
-            }}
-        >
-            <DialogContent className="max-w-lg p-0 gap-0 max-h-[90vh] overflow-hidden min-h-0">
-                {/* A11y-only header to satisfy DialogContent requirement */}
-                <DialogHeader className="sr-only">
-                    <DialogTitle>Complete Payment</DialogTitle>
-                    <DialogDescription>
-                        Three-step payment flow: Email, Signature, Review.
-                    </DialogDescription>
-                </DialogHeader>
+  const onError = (err) => {
+    console.error("PayPal Error:", err)
+    setErrorMessage("An error occurred with PayPal. Please try again.")
+    setStep(STEPS.ERROR)
+  }
 
-                <div className="flex flex-col max-h-[90vh]">
+  // --- Render Step Content ---
+  const renderContent = () => {
+    switch (step) {
+      case STEPS.REVIEW:
+        return (
+          <ReviewStep 
+            timestamp={timestamp}
+            carData={carData}
+            invoiceData={invoiceData}
+            onConfirm={handleReviewConfirm}
+            onCancel={onClose}
+          />
+        )
+      case STEPS.EMAIL:
+        return (
+          <EmailStep 
+            initialEmail={payerEmail}
+            onSubmit={handleEmailSubmit}
+            onBack={() => setStep(STEPS.REVIEW)}
+          />
+        )
+      case STEPS.SIGNATURE:
+        return (
+          <SignatureStep 
+            onSign={handleSignatureSubmit}
+            onBack={() => setStep(STEPS.EMAIL)}
+          />
+        )
+      case STEPS.PROCESSING:
+        // This step shows the PayPal Buttons
+        return (
+          <div className="flex flex-col items-center justify-center space-y-6 py-8">
+            <div className="text-center space-y-2">
+              <h3 className="text-xl font-semibold">Complete Payment</h3>
+              <p className="text-sm text-gray-500 max-w-xs mx-auto">
+                Review your order details one last time and proceed with PayPal.
+              </p>
+            </div>
 
-                    <div className="border-b border-border bg-muted/30 px-6 py-3 pr-12">
-                        <div className="flex items-center justify-between mb-2">
-                            <h2 className="text-lg font-semibold text-foreground">Complete Payment</h2>
-                            <span className="text-sm font-medium text-muted-foreground">Step {currentStep} of 3</span>
-                        </div>
-                        <div className="flex gap-2">
-                            {[1, 2, 3].map((step) => (
-                                <div
-                                    key={step}
-                                    className={`h-1.5 flex-1 rounded-full transition-colors ${step <= currentStep ? "bg-[#0070BA]" : "bg-muted"
-                                        }`}
-                                />
-                            ))}
-                        </div>
+            <div className="w-full max-w-xs min-h-[150px]">
+               {/* PayPalScriptProvider is likely at root, but if needed here:
+                 Ensure client-id matches your env.
+               */}
+               <PayPalButtons 
+                 style={{ layout: "vertical", shape: "rect" }}
+                 createOrder={createOrder}
+                 onApprove={onApprove}
+                 onError={onError}
+                 disabled={isProcessing}
+               />
+            </div>
+            
+            {isProcessing && (
+               <div className="flex items-center gap-2 text-blue-600">
+                 <Loader2 className="h-4 w-4 animate-spin" />
+                 <span className="text-sm font-medium">Processing transaction...</span>
+               </div>
+            )}
+            
+            <button 
+                onClick={() => setStep(STEPS.SIGNATURE)}
+                className="text-xs text-gray-400 hover:text-gray-600 underline"
+            >
+                Back
+            </button>
+          </div>
+        )
+      case STEPS.SUCCESS:
+        return (
+          <div className="flex flex-col items-center justify-center space-y-4 py-8 text-center">
+            <CheckCircle className="h-16 w-16 text-green-500 animate-in zoom-in duration-300" />
+            <h3 className="text-2xl font-bold text-gray-900">Payment Successful!</h3>
+            <p className="text-gray-500 max-w-xs">
+              Thank you! Your payment has been confirmed. A receipt has been sent to your email.
+            </p>
+            <button
+              onClick={onClose}
+              className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        )
+      case STEPS.ERROR:
+        return (
+          <div className="flex flex-col items-center justify-center space-y-4 py-8 text-center">
+            <XCircle className="h-16 w-16 text-red-500 animate-in zoom-in duration-300" />
+            <h3 className="text-2xl font-bold text-gray-900">Payment Failed</h3>
+            <p className="text-red-600 max-w-xs">
+              {errorMessage || "Something went wrong. Please try again or contact support."}
+            </p>
+            <div className="flex gap-3 mt-4">
+                <button
+                onClick={() => setStep(STEPS.PROCESSING)}
+                className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                >
+                Try Again
+                </button>
+                <button
+                onClick={onClose}
+                className="px-4 py-2 bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
+                >
+                Close
+                </button>
+            </div>
+          </div>
+        )
+      default:
+        return null
+    }
+  }
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md p-0 overflow-hidden gap-0">
+        {/* Header - Optional, can be customized per step if needed */}
+        <div className="px-6 py-4 border-b bg-gray-50/50 flex justify-between items-center">
+            <DialogTitle className="text-lg font-semibold">
+                {step === STEPS.REVIEW && "Review Details"}
+                {step === STEPS.EMAIL && "Confirm Email"}
+                {step === STEPS.SIGNATURE && "Sign & Agree"}
+                {step === STEPS.PROCESSING && "Payment"}
+                {step === STEPS.SUCCESS && "Confirmed"}
+                {step === STEPS.ERROR && "Error"}
+            </DialogTitle>
+            {/* Steps Indicator (Optional) */}
+            <div className="flex gap-1">
+                {[STEPS.REVIEW, STEPS.EMAIL, STEPS.SIGNATURE, STEPS.PROCESSING].includes(step) && (
+                    <div className="text-xs text-gray-400 font-mono">
+                        {step === STEPS.REVIEW && "1/4"}
+                        {step === STEPS.EMAIL && "2/4"}
+                        {step === STEPS.SIGNATURE && "3/4"}
+                        {step === STEPS.PROCESSING && "4/4"}
                     </div>
+                )}
+            </div>
+        </div>
 
-                    {/* Step content: make this the scroll container so each step's buttons scroll into view */}
-                    <div className="flex-1 overflow-y-auto min-h-0">
-                        {currentStep === 1 && (
-                            <EmailStep
-                                onComplete={handleEmailComplete}
-                                initialEmail={paymentData.email}
-                            />
-                        )}
-
-                        {currentStep === 2 && (
-                            <SignatureStep
-                                onComplete={handleSignatureComplete}
-                                onBack={handleBack}
-                                initialSignature={paymentData.signature}
-                            />
-                        )}
-
-                        {currentStep === 3 && (
-                            <ReviewStep
-                                isSubmitting={isSubmitting}
-                                paymentData={paymentData}
-                                onBack={handleBack}
-                                onSubmit={handleSubmit}
-                            />
-                        )}
-                    </div>
-                </div>
-            </DialogContent>
-        </Dialog>
-    )
+        {/* Body */}
+        <div className="p-6">
+            {renderContent()}
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
 }

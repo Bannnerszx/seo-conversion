@@ -8,8 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Car, Sparkles, Shield, FileCheck, Check } from "lucide-react"
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 import { Command, CommandItem, CommandInput, CommandList, CommandEmpty, CommandGroup } from "@/components/ui/command"
-import { functions } from "../../../../firebase/clientApp"
-import { httpsCallable } from "firebase/functions"
+import { getFirebaseFunctions } from "../../../../firebase/clientApp"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { DialogDescription } from "@radix-ui/react-dialog"
 const COLORS = [
@@ -110,11 +109,14 @@ async function warmUpNetwork() {
     }
 }
 export default function RequestForm({ countryArray, carMakes, accountData }) {
-    const [successOpen, setSuccessOpen] = useState(false);
+   const [successOpen, setSuccessOpen] = useState(false);
     const [submitAttempted, setSubmitAttempted] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState(null);
-    const saveCarRequest = httpsCallable(functions, 'saveCarRequest')
+    
+    // 3. Remove top-level callable definition
+    // const saveCarRequest = httpsCallable(functions, 'saveCarRequest')
+    
     const REQUIRED = ["make", "model", "year", "priceRangeMin", "priceRangeMax", "country", "port"];
     const isEmpty = (v) => String(v ?? "").trim() === "";
     const formRef = useRef(null);
@@ -497,6 +499,13 @@ export default function RequestForm({ countryArray, carMakes, accountData }) {
                 requestedBy: accountData.textEmail,
                 submissionId: submissionId
             };
+
+            // 4. Dynamic Loading inside submit handler
+            const [functionsInstance, { httpsCallable }] = await Promise.all([
+                getFirebaseFunctions(),
+                import("firebase/functions")
+            ]);
+            const saveCarRequest = httpsCallable(functionsInstance, 'saveCarRequest');
 
             const result = await saveCarRequest(payload);
             setSubmitAttempted(false);

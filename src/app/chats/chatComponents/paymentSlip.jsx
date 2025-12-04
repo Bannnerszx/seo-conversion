@@ -1,6 +1,5 @@
 "use client"
 import { format } from "date-fns"
-import { functions } from "../../../../firebase/clientApp"
 import { useState, useRef, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -13,7 +12,6 @@ import moment from "moment"
 import Modal from "@/app/components/Modal"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import WarningDialog from "./warningDialog"
-import { httpsCallable } from "firebase/functions"
 import PayPalInvoiceBlock from "./PayPalInvoiceBlock"
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
 
@@ -189,7 +187,8 @@ export default function PaymentSlip({ context = 'payment', chatId, selectedChatD
         return { name: file.name, type: file.type || "application/octet-stream", data: base64 };
     }
 
-    const callUpdatePaymentNotifications = httpsCallable(functions, "updatePaymentNotifications");
+    // 4. Removed the top-level call to httpsCallable
+    // const callUpdatePaymentNotifications = httpsCallable(functions, "updatePaymentNotifications");
 
 
     //Idempotency helpers
@@ -333,6 +332,13 @@ ${newMessage.trim()}
 
             const selectedFilePayload = await fileToBase64Payload(attachedFile);
 
+            // 5. Dynamic Loading inside handler
+            const [functionsInstance, { httpsCallable }] = await Promise.all([
+                getFirebaseFunctions(),
+                import("firebase/functions")
+            ]);
+            const callUpdatePaymentNotifications = httpsCallable(functionsInstance, "updatePaymentNotifications");
+
             const res = await callUpdatePaymentNotifications({
                 chatId,
                 userEmail,
@@ -369,8 +375,6 @@ ${newMessage.trim()}
 
     const convertedTotal = totalUSD * currency.value;
     const formattedTotal = `${currency.symbol}${Math.floor(convertedTotal).toLocaleString()}`;
-
-
     return (
         <>
             <WarningDialog
@@ -592,7 +596,7 @@ ${newMessage.trim()}
                                         </p>
                                     </div> */}
 
-                                    <PayPalInvoiceBlock chatId={chatId} invoiceNumber={selectedChatData?.invoiceNumber} carData={selectedChatData?.carData} renderTextWithLinks={''} message={''}  invoiceData={invoiceData} userEmail={userEmail} />
+                                    <PayPalInvoiceBlock chatId={chatId} invoiceNumber={selectedChatData?.invoiceNumber} carData={selectedChatData?.carData} renderTextWithLinks={''} message={''} invoiceData={invoiceData} userEmail={userEmail} />
                                 </div>
                             </div>
                         </CardContent>

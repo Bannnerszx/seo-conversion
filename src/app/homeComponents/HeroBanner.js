@@ -24,6 +24,7 @@ export default function HeroBanner({ unsoldVehicleCount }) {
         <Image
           src={samplebanner3}
           alt="Hero banner"
+          fill
           sizes="100vw"
           className="h-full w-full object-cover object-center"
           fetchPriority="high"
