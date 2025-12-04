@@ -1,5 +1,5 @@
-import { fetchNewVehicle, fetchCarMakes, fetchCarBodytype, fetchCurrency, fetchTestimonies, fetchHomepageStock, getUnsoldVehicleCount } from '../../services/fetchFirebaseData'; // Ensure you use the cached versions we made!
-import { getMakeCounts } from './actions/actions';
+import { fetchCarMakes, fetchCarBodytype, fetchTestimonies, getUnsoldVehicleCount } from '../../services/fetchFirebaseData'; // Ensure you use the cached versions we made!
+import { Suspense } from 'react';
 import dynamic from 'next/dynamic'; // 1. Import dynamic
 
 // 2. Keep "Above the Fold" components as standard imports (Critical for LCP)
@@ -10,6 +10,9 @@ const SearchQuery = dynamic(() => import('./homeComponents/SearchQuery'), {
 });
 import MobileSignupBanner from './homeComponents/mobileSignUpBanner';
 import DesktopSignUpBanner from './homeComponents/desktopSignUpBanner';
+
+import MakersSection from './homeComponents/MakersSection';
+import NewArrivalsSection from './homeComponents/NewArrivalsSection';
 
 // 3. Lazy Load everything else (Drastically reduces initial bundle size)
 const NewArrivals = dynamic(() => import('./homeComponents/NewArrivals'));
@@ -99,30 +102,18 @@ export default async function Home() {
   const brandNames = ['TOYOTA', 'NISSAN', 'HONDA', 'MITSUBISHI', 'MERCEDES-BENZ', 'BMW', 'SUZUKI', 'SUBARU', 'VOLKSWAGEN', 'MAZDA'];
 
   const [
-    newVehicles,
     carMakes,
     carBodytypes,
-    currency,
-    entries,
     unsoldVehicleCount,
-    homepageData
+    testimonies
   ] = await Promise.all([
-    fetchNewVehicle(),
     fetchCarMakes(),
     fetchCarBodytype(),
-    fetchCurrency(),
-    Promise.all(
-      brandNames.map(name =>
-        getMakeCounts(name).then(count => [name, count])
-      )
-    ),
-    getUnsoldVehicleCount(), // Uses the new cached version
-    fetchHomepageStock()
+    getUnsoldVehicleCount(),
+    fetchTestimonies()
   ]);
   // build { TOYOTA: 42, NISSAN: 17, … }
-  const makeCounts = Object.fromEntries(entries);
-  const testimonies = await fetchTestimonies();
-  const { products, totalCount } = homepageData
+
 
   return (
     <div className="relative z-10">
@@ -182,8 +173,11 @@ export default async function Home() {
       </div>
 
       <ClientWrapper id="by-makers">
-        <div id="by-makers" className="relative z-25">
-          <SearchByMakers makeCounts={makeCounts} />
+        <div id="by-makers" className="relative z-25 min-h-[300px]">
+          {/* Suspense allows the page to load while this fetches in background */}
+          <Suspense fallback={<div className="h-64 w-full bg-gray-100 animate-pulse rounded-lg" />}>
+            <MakersSection />
+          </Suspense>
         </div>
       </ClientWrapper>
 
@@ -206,8 +200,10 @@ export default async function Home() {
       </ClientWrapper>
 
       <ClientWrapper id="new-arrivals">
-        <div id="new-arrivals" className="relative z-50">
-          <NewArrivals newVehicles={newVehicles} currency={currency} />
+        <div id="new-arrivals" className="relative z-50 min-h-[500px]">
+          <Suspense fallback={<div className="h-96 w-full bg-gray-100 animate-pulse rounded-lg" />}>
+            <NewArrivalsSection />
+          </Suspense>
         </div>
       </ClientWrapper>
       {/* <ClientWrapper id="recommended">
