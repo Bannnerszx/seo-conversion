@@ -86,12 +86,7 @@ export default async function RootLayout({ children }) {
       <head>
         {/* 1) GTM head script */}
 
-        <link
-          rel="preload"
-          href="https://samplermj.firebaseapp.com/__/auth/iframe.js"
-          as="script"
- 
-        />
+    
 
 
       </head>
