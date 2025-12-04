@@ -1,7 +1,8 @@
 "use client"
 
 import { getFirebaseFunctions } from "../../../../firebase/clientApp"
-import moment from "moment"
+// 1. Swap moment for date-fns
+import { format, parse } from "date-fns"
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import Image from "next/image"
 import { Download, Heart, ChevronLeft, ChevronRight, Loader2, UserPlus, Users, TrendingUp, Eye, ChevronDown, X } from "lucide-react"
@@ -77,7 +78,7 @@ const Dropdown = ({ placeholder, options, value, onChange, className = '' }) => 
 // --- UPDATED FUNCTION SIGNATURE ---
 async function handleCreateConversation(
     acceptPaypal,
-    // Remove addChat from params since we load it inside
+    // AddChat is loaded dynamically inside, so it is NOT in params
     router,
     setLoadingChat,
     setShowAlert,
@@ -144,10 +145,18 @@ async function handleCreateConversation(
     }
 
     try {
-        const m = moment(tokyoTimeData.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');
-        const formattedTime = m.format('YYYY/MM/DD [at] HH:mm:ss.SSS');
-        const docId = m.format('YYYY-MM');
-        const dayField = m.format('DD');
+        // 2. REPLACED MOMENT: Date parsing logic
+        // Original: const m = moment(tokyoTimeData.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');
+        const parsedDate = parse(tokyoTimeData.datetime, "yyyy/MM/dd HH:mm:ss.SSS", new Date());
+        
+        // Original: const formattedTime = m.format('YYYY/MM/DD [at] HH:mm:ss.SSS');
+        const formattedTime = format(parsedDate, "yyyy/MM/dd 'at' HH:mm:ss.SSS");
+        
+        // Original: const docId = m.format('YYYY-MM');
+        const docId = format(parsedDate, "yyyy-MM");
+        
+        // Original: const dayField = m.format('DD');
+        const dayField = format(parsedDate, "dd");
 
         if (docId && carData && user && dayField && exists && (!missingFields || missingFields.length === 0)) {
             await addOfferStatsCustomer({ docId, carData, userEmail: user, dayField });
@@ -1273,7 +1282,7 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
                                     onClick={() =>
                                         handleCreateConversation(
                                             acceptPaypal,
-                                            addChat,
+                                            // REMOVED 'addChat' here to match function signature
                                             router,
                                             setLoadingChat,
                                             setShowAlert,

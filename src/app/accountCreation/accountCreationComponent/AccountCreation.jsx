@@ -3,7 +3,8 @@ import { useRouter } from "next/navigation";
 import React, { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import moment from "moment"
+// 1. Remove moment, import date-fns
+import { format, parse } from "date-fns";
 import {
     Card,
     CardContent,
@@ -39,12 +40,19 @@ export default function AccounCreationCSR({ countryList, accountData, oldId, cur
             .then((data) => {
                 if (!mounted) return
 
-                // parse the incoming datetime string
-                // assume data.datetime is something like "2025-04-25T14:39:56.000Z"
-                const momentDate = moment(data?.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');
-                const formattedTime = momentDate.format('YYYY/MM/DD [at] HH:mm:ss.SSS');
-
-                setTokyoTime(formattedTime)
+                // 2. REPLACED MOMENT: Date parsing logic
+                // assume data.datetime is something like "2025/04/25 14:39:56.000" (from your API format in other files)
+                // or if it IS ISO, date-fns can handle it too. Based on your other files, it seems to be "YYYY/MM/DD HH:mm:ss.SSS"
+                
+                try {
+                    const parsedDate = parse(data?.datetime, "yyyy/MM/dd HH:mm:ss.SSS", new Date());
+                    const formattedTime = format(parsedDate, "yyyy/MM/dd 'at' HH:mm:ss.SSS");
+                    setTokyoTime(formattedTime)
+                } catch (e) {
+                    console.error("Date parsing error", e);
+                    // Fallback if format is different
+                    setTokyoTime(data?.datetime); 
+                }
             })
             .catch((err) => {
                 if (!mounted) return
@@ -330,4 +338,3 @@ const generateKeywords = (fields) => {
     });
     return Array.from(keywords);
 };
-

@@ -5,7 +5,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import { CheckCircle, AlertTriangle, X, Copy } from "lucide-react"
 import Modal from "@/app/components/Modal"
 import Loader from "@/app/components/Loader"
-import moment from "moment"
+// 1. Remove moment, import date-fns
+import { format, parse } from "date-fns"
 import { submitJackallClient, submitUserData } from "@/app/actions/actions";
 import { FloatingAlertPortal } from "./floatingAlert"
 import { getFirebaseFunctions, getFirebaseFirestore } from "../../../../firebase/clientApp"
@@ -90,8 +91,12 @@ export default function OrderButton({ handlePreviewInvoiceModal, context, setIsH
 
     // ... (performOrder and handleConfirm unchanged) ...
     const performOrder = async (skipReservation = false) => {
-        const momentDate = moment(tokyoTime?.datetime, "YYYY/MM/DD HH:mm:ss.SSS");
-        const formattedSalesDate = momentDate.format('YYYY/MM/DD');
+        // 2. REPLACED MOMENT: Date logic
+        // Original: const momentDate = moment(tokyoTime?.datetime, "YYYY/MM/DD HH:mm:ss.SSS");
+        // Original: const formattedSalesDate = momentDate.format('YYYY/MM/DD');
+        const parsedDate = parse(tokyoTime?.datetime, "yyyy/MM/dd HH:mm:ss.SSS", new Date());
+        const formattedSalesDate = format(parsedDate, 'yyyy/MM/dd');
+
         if (!skipReservation) {
             // Use dynamic call
             const { data } = await callSetOrderItem({ chatId, userEmail, ipInfo, tokyoTime, invoiceNumber: selectedChatData?.invoiceNumber, stockID: selectedChatData?.carData?.stockID });
