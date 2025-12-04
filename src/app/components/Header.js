@@ -340,30 +340,31 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
 
     useEffect(() => {
         const handleScroll = () => {
-            const fixed = window.scrollY > 0;
-
-            // OPTIMIZATION: Check 'prev' to avoid unnecessary re-renders
-            setIsFixed(prev => (prev !== fixed ? fixed : prev));
+            setIsFixed(window.scrollY > 0)
         }
-
-        // 1. Run once on mount to handle page refreshes where scroll is already > 0
-        handleScroll();
-
-        // 2. Add the optimized listener
-        window.addEventListener("scroll", handleScroll, { passive: true });
-
-        // 3. CLEANUP: Remove listener when component unmounts (Critical!)
-        return () => window.removeEventListener("scroll", handleScroll);
-    }, []);
+        handleScroll()
+        window.addEventListener("scroll", handleScroll)
+        return () => window.removeEventListener("scroll", handleScroll)
+    }, [])
 
     const pathname = usePathname()
 
     useEffect(() => {
-        // ✅ Fetch immediately to minimize layout shift duration
-        fetch('/api/show-banner', { credentials: 'same-origin' })
-            .then(res => res.json())
-            .then(({ showBanner }) => setShowBanner(showBanner))
-            .catch(() => { });
+
+        const timer = setTimeout(() => {
+            fetch('/api/show-banner', {
+                credentials: 'same-origin',
+            })
+                .then(res => res.json())
+                .then(({ showBanner }) => {
+                    setShowBanner(showBanner)
+                })
+                .catch(() => {
+                    // Fail silently if fetch errors
+                })
+        }, 3000);
+
+        return () => clearTimeout(timer);
     }, [])
 
     // --- RENDER LOGIC ---
