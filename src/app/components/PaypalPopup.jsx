@@ -79,7 +79,7 @@ export default function PayPalBanner() {
   const [currentSlide, setCurrentSlide] = useState(0)
 
   // ---- Lazy-load Framer Motion for desktop banner
-  const [FM, setFM] = useState(null) 
+  const [FM, setFM] = useState(null)
   const [prefersReduced, setPrefersReduced] = useState(false)
 
   useEffect(() => {
@@ -163,19 +163,17 @@ export default function PayPalBanner() {
         </DialogTitle>
         <DialogContent className="w-[90vw] max-w-sm mx-auto text-white border-blue-400 rounded-xl p-0 overflow-hidden">
           <div className="relative h-full w-full p-4">
-            
-            {/* FIX 1: Priority = true (Fixes LCP Lazy Load) */}
-            {/* FIX 2: Quality = 50 (Fixes Large File Size) */}
+
+
             <Image
               src={slide.content.background}
               alt="Background"
               fill
               className="object-cover object-center -z-20"
               quality={50}
-              sizes="(max-width: 480px) 100vw, 400px" 
-              priority={true} 
+              sizes="(max-width: 480px) 100vw, 400px"
             />
-            
+
             {/* Overlay */}
             <div className={`absolute inset-0 ${overlayClass} -z-10 rounded-xl`} />
 
@@ -183,11 +181,12 @@ export default function PayPalBanner() {
               {/* Logo - Optimized */}
               {slide.content.logo && (
                 <div className="relative h-10 w-32 mx-auto mb-2">
-                  <Image 
-                    src={slide.content.logo} 
-                    alt="Logo" 
+                  <Image
+                    src={slide.content.logo}
+                    alt="Logo"
                     fill
                     className="object-contain"
+                    quality={50}
                     sizes="150px"
                   />
                 </div>
@@ -255,7 +254,7 @@ export default function PayPalBanner() {
         onFocus={ensureFM}
       >
         <div className="relative w-full h-full text-white overflow-hidden rounded-lg">
-          
+
           {/* FIX 1: Priority = true */}
           {/* FIX 2: Quality = 50 */}
           <Image
@@ -265,7 +264,7 @@ export default function PayPalBanner() {
             className="object-cover object-center -z-20"
             quality={50}
             sizes="100vw"
-            priority={true}
+
           />
           <div className={`absolute inset-0 ${overlayClass} -z-10`} />
 
@@ -286,6 +285,7 @@ export default function PayPalBanner() {
                     src={slide.content.logo || "/placeholder.svg"}
                     alt="Logo"
                     fill
+                    quality={50}
                     className="object-contain object-left"
                     sizes="200px"
                   />
@@ -359,7 +359,7 @@ export default function PayPalBanner() {
           onFocus={ensureFM}
         >
           <div className="relative w-full h-full text-white overflow-hidden rounded-lg">
-            
+
             {/* FIX 1: Priority = true */}
             {/* FIX 2: Quality = 50 */}
             <Image
@@ -369,7 +369,7 @@ export default function PayPalBanner() {
               className="object-cover object-center -z-20"
               quality={50}
               sizes="100vw"
-              priority={true}
+   
             />
             <div className={`absolute inset-0 ${overlayClass} -z-10`} />
 
@@ -392,6 +392,7 @@ export default function PayPalBanner() {
                       fill
                       className="object-contain object-left"
                       sizes="200px"
+                      quality={50}
                     />
                   )}
                 </div>

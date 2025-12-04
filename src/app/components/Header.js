@@ -384,7 +384,7 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
                                     width={250}
                                     height={70} // ✅ OPTIMIZATION: Match the style height (70px)
                                     quality={65}
-                                    priority // Keep priority for logo above fold
+                                  
                                     sizes="250px"
                                     style={{ width: "250px", height: "70px", objectFit: "cover" }}
                                 />
@@ -400,7 +400,7 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
                                         width={72}  // ✅ OPTIMIZATION: Scaled to match height of 35px
                                         height={35} // ✅ OPTIMIZATION: Matches max-h-[35px]
                                         quality={75}
-                                        priority
+                                       
                                         sizes="100px"
                                         className="max-h-[35px] w-auto mx-auto"
                                     />
@@ -433,7 +433,7 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
                                 width={250}
                                 height={70} // ✅ OPTIMIZATION: Match the style height (70px)
                                 quality={65}
-                                priority // Keep priority for logo above fold
+                               
                                 sizes="250px"
                                 style={{ width: "250px", height: "70px", objectFit: "cover" }}
                             />
@@ -450,7 +450,7 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
                                     width={72} // ✅ OPTIMIZATION
                                     height={35} // ✅ OPTIMIZATION
                                     quality={80}
-                                    priority
+                                  
                                     sizes="100px"
                                     className="max-h-[35px] w-auto mx-auto"
                                 />
