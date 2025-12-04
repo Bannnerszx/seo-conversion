@@ -90,7 +90,7 @@ export default async function RootLayout({ children }) {
           rel="preload"
           href="https://samplermj.firebaseapp.com/__/auth/iframe.js"
           as="script"
-          crossOrigin="anonymous"
+ 
         />
 
 
