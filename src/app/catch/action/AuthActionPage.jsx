@@ -2,7 +2,8 @@
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { getFirebaseAuth } from "../../../firebase/clientApp";
+
+import { getFirebaseAuth } from "../../../../firebase/clientApp";
 
 export default function AuthActionPage() {
   const params = useSearchParams();
