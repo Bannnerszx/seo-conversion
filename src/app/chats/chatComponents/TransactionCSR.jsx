@@ -90,11 +90,11 @@ async function warmUpNetwork() {
 
 export default function TransactionCSR({ loadingBooking, isLoadingTransaction, vehicleStatus, accountData, isMobileView, isDetailView, handleBackToList, bookingData, countryList, currency, dueDate, handleLoadMore, invoiceData, userEmail, contact, messages, onSendMessage, isLoading, chatId, chatMessages }) {
 
-const [newMessage, setNewMessage] = useState("");
+    const [newMessage, setNewMessage] = useState("");
     // 3. Remove top-level httpsCallable definitions
     // const sendMessage = httpsCallable(functions, 'sendMessage');
     // const updateCustomerFiles = httpsCallable(functions, 'updateCustomerFiles');
-    
+
     const scrollAreaRef = useRef(null)
     const endOfMessagesRef = useRef(null);
     const startOfMessagesRef = useRef(null);
@@ -249,7 +249,7 @@ const [newMessage, setNewMessage] = useState("");
             if (tracker === 4 && !Number.isNaN(tracker)) {
                 try {
                     const alreadyConfirmed = chatData?.confirmedPayment === true;
-                    const isCancelled = chatData?.isCancelled === true; 
+                    const isCancelled = chatData?.isCancelled === true;
                     setShowPaymentModal(!alreadyConfirmed && !isCancelled);
                 } catch (err) {
                     console.error("Failed to handle payment event:", err);
@@ -310,7 +310,7 @@ const [newMessage, setNewMessage] = useState("");
         }
     }
     const sanitizeForDocId = (s) => String(s).replaceAll("/", "-").replaceAll("\\", "-").trim();
-    
+
     const handleSendMessage = async (e) => {
         if (loadingSent || isLoading || (!newMessage.trim() && !attachedFile)) {
             return;
@@ -344,6 +344,7 @@ const [newMessage, setNewMessage] = useState("");
         saveIdem(idempotencyKey, { chatId, type: attachedFile ? 'file' : 'text' });
 
         try {
+            let result;
             let currentIpInfo = ipInfo;
             let currentTokyoTime = tokyoTime;
 
@@ -397,7 +398,6 @@ const [newMessage, setNewMessage] = useState("");
                     idempotencyKey,
                 };
 
-                let result;
                 try {
                     const updateCustomerFiles = httpsCallable(functionsInstance, 'updateCustomerFiles');
                     result = await retryableCall(updateCustomerFiles, fileData, { retries: 3, timeout: 20000, backoff: 1500 });
@@ -408,7 +408,7 @@ const [newMessage, setNewMessage] = useState("");
                     startAutoRetry(pending, { maxAttempts: 5, baseDelay: 3000 });
                     throw error
                 }
-            } else if (newMessage.trim()) {
+                } else if (newMessage.trim()) {
                 const bodyData = {
                     chatId,
                     newMessage,
@@ -584,6 +584,10 @@ const [newMessage, setNewMessage] = useState("");
                                         className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium shadow-sm"
                                         onClick={async () => {
                                             try {
+                                                const [firestore, { doc, updateDoc }] = await Promise.all([
+                                                    getFirebaseFirestore(),
+                                                    import('firebase/firestore')
+                                                ]);
                                                 // Persist confirmation to Firestore so it's durable and cross-device
                                                 await updateDoc(doc(firestore, 'chats', chatId), { confirmedPayment: true })
                                                 try { window.dataLayer = window.dataLayer || [] } catch (e) { }

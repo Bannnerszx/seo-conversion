@@ -13,10 +13,9 @@ import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js"
 import { getFirebaseFunctions } from "../../../../../firebase/clientApp"
 
 // Step Components
-import ReviewStep from "./review-step"
-import EmailStep from "./email-step"
-import SignatureStep from "./signature-step"
-
+import { ReviewStep } from "./review-step"
+import {SignatureStep} from "./signature-step"
+import { EmailStep } from "./email-step"
 // Steps Enum
 const STEPS = {
   REVIEW: "review",

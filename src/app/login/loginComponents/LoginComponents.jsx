@@ -8,8 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
-import { auth } from "../../../../firebase/clientApp";
+
+import { getFirebaseAuth } from "../../../../firebase/clientApp";
 import { useRouter, useSearchParams } from "next/navigation";
 
 export default function LoginForm() {
@@ -32,6 +32,7 @@ export default function LoginForm() {
     });
   };
   const [loading, setLoading] = useState(false);
+
   // Handle login with email and password
   const handleEmailLogin = async (e) => {
     e.preventDefault();
@@ -57,17 +58,26 @@ export default function LoginForm() {
     }
 
     try {
-      // 3) Attempt sign-in
+      // 3) Dynamically load Auth SDK and Instance
+      const [auth, { signInWithEmailAndPassword }] = await Promise.all([
+        getFirebaseAuth(),
+        import("firebase/auth")
+      ]);
+
+      // 4) Attempt sign-in
       await signInWithEmailAndPassword(auth, email, password);
 
-      // 4) If successful, grab token and redirect
-      const token = await auth.currentUser.getIdToken();
-      await sendTokenToServer(token);
-      window.location.href = redirectPath || "/";
+      // 5) If successful, grab token and redirect
+      // Note: auth.currentUser is populated after successful signIn
+      if (auth.currentUser) {
+        const token = await auth.currentUser.getIdToken();
+        await sendTokenToServer(token);
+        window.location.href = redirectPath || "/";
+      }
     } catch (err) {
       // console.error("Email login error:", err);
 
-      // 5) Map Firebase error codes to user-friendly messages
+      // 6) Map Firebase error codes to user-friendly messages
       const code = err.code || err.message;
       switch (code) {
         case "auth/invalid-credential":
@@ -86,32 +96,33 @@ export default function LoginForm() {
           setError(err.message || "An unexpected error occurred.");
       }
     } finally {
-      // 6) Always turn off the loading spinner
+      // 7) Always turn off the loading spinner
       setLoading(false);
     }
   };
 
-
-
   // Handle login with Google
-  const handleGoogleLogin = async () => {
+const handleGoogleLogin = async () => {
     setError(null);
     try {
+      // ✅ REFACTORED: Dynamic import pattern
+      const [auth, { signInWithPopup, GoogleAuthProvider }] = await Promise.all([
+          getFirebaseAuth(),
+          import("firebase/auth")
+      ]);
+
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
 
-      // Optional: send the token if needed
       const token = await auth.currentUser.getIdToken();
       await sendTokenToServer(token);
 
-      // ✅ Full page reload to sync auth context properly
       window.location.href = redirectPath || "/";
     } catch (err) {
       console.error("Google login error:", err);
       setError(err.message);
     }
   };
-
 
   return (
     <Card className="w-full max-w-md shadow-lg z-10 h-[550px] mx-4">

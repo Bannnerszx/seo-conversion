@@ -22,24 +22,27 @@ export default function AuthProvider({ children, initialUser }) {
     let unsubscribe;
     
     const initAuth = async () => {
-        try {
-            const auth = await getFirebaseAuth();
-            setAuthInstance(auth);
-            
-            // Listen for changes
-            const { onAuthStateChanged } = await import('firebase/auth');
-            unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-                if (firebaseUser) {
-                    setUser(firebaseUser.email);
-                } else {
-                    setUser(null);
-                }
-                setLoading(false);
-            });
-        } catch (error) {
-            console.error("Auth Init Failed", error);
-            setLoading(false);
-        }
+      try {
+        const [auth, { onAuthStateChanged }] = await Promise.all([
+          getFirebaseAuth(),
+          import('firebase/auth')
+        ]);
+
+        setAuthInstance(auth);
+
+        // Listen for auth state changes
+        unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+          if (firebaseUser) {
+            setUser(firebaseUser.email);
+          } else {
+            setUser(null);
+          }
+          setLoading(false);
+        });
+      } catch (error) {
+        console.error("Auth Init Failed", error);
+        setLoading(false);
+      }
     };
 
     initAuth();

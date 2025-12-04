@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { handleSignUp } from "@/app/actions/actions"
-import { signInWithPopup, GoogleAuthProvider, getAuth } from "firebase/auth"
+import { getFirebaseAuth } from "../../../../firebase/clientApp"
 
 export default function SignUpForm() {
     const router = useRouter()
@@ -89,7 +89,11 @@ export default function SignUpForm() {
     const handleGoogleSignUp = async () => {
         setLoading(true)
         try {
-            const auth = getAuth()
+            const [auth, { signInWithPopup, GoogleAuthProvider }] = await Promise.all([
+                getFirebaseAuth(),
+                import("firebase/auth")
+            ]);
+
             const provider = new GoogleAuthProvider()
             const result = await signInWithPopup(auth, provider)
 

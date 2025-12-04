@@ -2,12 +2,7 @@
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import {
-  getAuth,
-  applyActionCode,
-  verifyPasswordResetCode,
-  confirmPasswordReset,
-} from "firebase/auth";
+import { getFirebaseAuth } from "../../../firebase/clientApp";
 
 export default function AuthActionPage() {
   const params = useSearchParams();
@@ -23,33 +18,41 @@ export default function AuthActionPage() {
   // Handle incoming action codes
   useEffect(() => {
     if (!mode || !oobCode) return;
-    const auth = getAuth();
+
+    let mounted = true;
     setStatus("working");
 
-    if (mode === "verifyEmail") {
-      applyActionCode(auth, oobCode)
-        .then(() => {
-          setStatus("success");
-          router.push("/");
-        })
-        .catch((err) => {
-          setErrorMsg(err.message);
-          setStatus("error");
-        });
-    } else if (mode === "resetPassword") {
-      verifyPasswordResetCode(auth, oobCode)
-        .then((email) => {
+    (async () => {
+      try {
+        const [auth, sdk] = await Promise.all([
+          getFirebaseAuth(),
+          import('firebase/auth')
+        ]);
+
+        if (!mounted) return;
+
+        if (mode === 'verifyEmail') {
+          await sdk.applyActionCode(auth, oobCode);
+          if (!mounted) return;
+          setStatus('success');
+          router.push('/');
+        } else if (mode === 'resetPassword') {
+          const email = await sdk.verifyPasswordResetCode(auth, oobCode);
+          if (!mounted) return;
           setEmailForReset(email);
-          setStatus("idle");
-        })
-        .catch((err) => {
-          setErrorMsg(err.message);
-          setStatus("error");
-        });
-    } else {
-      setErrorMsg("Unsupported action");
-      setStatus("error");
-    }
+          setStatus('idle');
+        } else {
+          setErrorMsg('Unsupported action');
+          setStatus('error');
+        }
+      } catch (err) {
+        if (!mounted) return;
+        setErrorMsg(err.message);
+        setStatus('error');
+      }
+    })();
+
+    return () => { mounted = false; };
   }, [mode, oobCode, router]);
 
   // Submit new password and redirect on success
@@ -57,14 +60,18 @@ export default function AuthActionPage() {
     e.preventDefault();
     if (!oobCode) return;
 
-    setStatus("working");
+    setStatus('working');
     try {
-      await confirmPasswordReset(getAuth(), oobCode, newPassword);
-      setStatus("success");
-      router.push("/login");
+      const [auth, sdk] = await Promise.all([
+        getFirebaseAuth(),
+        import('firebase/auth')
+      ]);
+      await sdk.confirmPasswordReset(auth, oobCode, newPassword);
+      setStatus('success');
+      router.push('/login');
     } catch (err) {
       setErrorMsg(err.message);
-      setStatus("error");
+      setStatus('error');
     }
   };
 
