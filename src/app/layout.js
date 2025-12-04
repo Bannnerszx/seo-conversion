@@ -124,12 +124,6 @@ export default async function RootLayout({ children }) {
             </Providers>
           </AuthProviderServer>
         </IpInfoProvider>
-
-        <Script
-          id="firebase-auth-iframe"
-          src="https://samplermj.firebaseapp.com/__/auth/iframe.js"
-          strategy="lazyOnload"
-        />
         <GoogleTagManager gtmId="GTM-NJLD22H" />
         <ClarityScript />
       </body>
