@@ -4,7 +4,10 @@ import dynamic from 'next/dynamic'; // 1. Import dynamic
 
 // 2. Keep "Above the Fold" components as standard imports (Critical for LCP)
 import HeroBanner from './homeComponents/HeroBanner';
-import SearchQuery from './homeComponents/SearchQuery';
+const SearchQuery = dynamic(() => import('./homeComponents/SearchQuery'), {
+  loading: () => <div className="h-32 bg-gray-100 animate-pulse rounded-lg max-w-7xl mx-auto" />,
+  ssr: true // Keep true for SEO, but the hydration split helps TBT
+});
 import MobileSignupBanner from './homeComponents/mobileSignUpBanner';
 import DesktopSignUpBanner from './homeComponents/desktopSignUpBanner';
 

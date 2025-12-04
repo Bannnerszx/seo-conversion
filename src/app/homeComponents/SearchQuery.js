@@ -2,12 +2,12 @@
 import * as React from "react"
 import { Button } from "@/components/ui/button"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation" // Adjusted import based on standard Next.js, verify if you use custom router
+import { useState, useEffect, useMemo, memo } from "react"
+import { useRouter } from "next/navigation"
 import { Autocomplete } from "../stock/stockComponents/autoComplete"
-// import { VehicleRequestSection } from "./VehicleRequestSection" // Uncomment if used
 
-const Dropdown = ({ placeholder, options, value, onChange }) => {
+// 1. Optimize Dropdown with React.memo to prevent unnecessary re-renders
+const Dropdown = memo(({ placeholder, options, value, onChange }) => {
   return (
     <div className="relative inline-block w-full">
       <Select value={value} onValueChange={onChange}>
@@ -24,26 +24,29 @@ const Dropdown = ({ placeholder, options, value, onChange }) => {
       </Select>
     </div>
   )
-}
+});
+
+// Display name for debugging
+Dropdown.displayName = "Dropdown";
 
 const SearchQuery = ({ carMakes, db, carBodytypes, initialMaker = "", initialModel = "", initialBodyType = "" }) => {
-  // 1. ALL Hooks must be defined at the top
   const [isMounted, setIsMounted] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  // eslint-disable-next-line no-unused-vars
   const [showRequestNotice, setShowRequestNotice] = useState(false)
   const router = useRouter();
   const [query, setQuery] = useState("");
+  
   const [dropdownValues, setDropdownValues] = useState({
     "Select Make": initialMaker.replace(/\s+/g, " "),
     "Select Model": initialModel.replace(/\s+/g, " "),
     "Body Type": initialBodyType.replace(/\s+/g, " "),
   })
+  
   const [carModels, setCarModels] = useState([]) || []
-  const [inspection, setInspection] = React.useState(false)
-  const [insurance, setInsurance] = React.useState(false)
+  // eslint-disable-next-line no-unused-vars
   const [isFetchingModels, setIsFetchingModels] = useState(false)
 
-  // 2. Effects
   useEffect(() => {
     setIsMounted(true);
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -75,7 +78,6 @@ const SearchQuery = ({ carMakes, db, carBodytypes, initialMaker = "", initialMod
     getModels()
   }, [selectedMake])
 
-  // 3. Logic Helpers
   const handleDropdownChange = (key, value) => {
     setDropdownValues((prevValues) => {
       if (key === "Select Make") {
@@ -92,118 +94,107 @@ const SearchQuery = ({ carMakes, db, carBodytypes, initialMaker = "", initialMod
     })
   }
 
-  const currentYear = new Date().getFullYear()
-  const minYearStart = 1970
-  const years = Array.from({ length: currentYear - minYearStart + 1 }, (_, index) => currentYear - index)
+  // 2. Memoize expensive data calculations
+  const years = useMemo(() => {
+    const currentYear = new Date().getFullYear()
+    const minYearStart = 1970
+    return Array.from({ length: currentYear - minYearStart + 1 }, (_, index) => currentYear - index)
+  }, []);
 
-  const dropdownGroups = [
+  // 3. Memoize Option Arrays
+  const makeOptions = useMemo(() => [
+    { value: "none", label: "Select Make" },
+    ...carMakes.map((make) => ({
+      value: make.toUpperCase(),
+      label: make,
+    })),
+  ], [carMakes]);
+
+  const modelOptions = useMemo(() => [
+    { value: "none", label: "Select Model" },
+    ...carModels.map((model) => ({
+      value: model.toUpperCase(),
+      label: model,
+    })),
+  ], [carModels]);
+
+  const bodyTypeOptions = useMemo(() => [
+    { value: "none", label: "Body Type" },
+    ...carBodytypes.map((bodytype) => ({
+      value: bodytype,
+      label: bodytype,
+    })),
+  ], [carBodytypes]);
+
+  const yearOptions = useMemo(() => [
+    { value: "none", label: "Year" }, // Generic label for reuse
+    ...years.map((year) => ({
+      value: year.toString(),
+      label: year.toString(),
+    })),
+  ], [years]);
+
+  // Static options (moved out of render loop effectively via useMemo with empty deps or static definition)
+  const priceOptionsMin = useMemo(() => [
+    { value: "none", label: "Min Price" },
+    { value: "500", label: "$500" },
+    { value: "1000", label: "$1000" },
+    { value: "3000", label: "$3,000" },
+    { value: "5000", label: "$5,000" },
+    { value: "10000", label: "$10,000" },
+    { value: "15000", label: "$15,000" },
+    { value: "20000", label: "$20,000" },
+  ], []);
+
+  const priceOptionsMax = useMemo(() => [
+    { value: "none", label: "Max Price" },
+    { value: "500", label: "$500" },
+    { value: "1000", label: "$1000" },
+    { value: "3000", label: "$3,000" },
+    { value: "5000", label: "$5,000" },
+    { value: "10000", label: "$10,000" },
+    { value: "15000", label: "$15,000" },
+    { value: "20000", label: "$20,000" },
+  ], []);
+
+  const mileageOptionsMin = useMemo(() => [
+    { value: "none", label: "Min Mileage" },
+    { value: "50000", label: "50,000 km" },
+    { value: "100000", label: "100,000 km" },
+    { value: "150000", label: "150,000 km" },
+  ], []);
+
+  const mileageOptionsMax = useMemo(() => [
+    { value: "none", label: "Max Mileage" },
+    { value: "200000", label: "200,000 km" },
+    { value: "250000", label: "250,000 km" },
+    { value: "300000", label: "300,000 km" },
+  ], []);
+
+  // 4. Construct the group structure using memoized parts
+  const dropdownGroups = useMemo(() => [
     [
-      {
-        placeholder: "Select Make",
-        options: [
-          { value: "none", label: "Select Make" },
-          ...carMakes.map((make) => ({
-            value: make.toUpperCase(),
-            label: make,
-          })),
-        ],
-      },
-      {
-        placeholder: "Select Model",
-        options: [
-          { value: "none", label: "Select Model" },
-          ...carModels.map((model) => ({
-            value: model.toUpperCase(),
-            label: model,
-          })),
-        ],
-      },
-      {
-        placeholder: "Body Type",
-        options: [
-          { value: "none", label: "Body Type" },
-          ...carBodytypes.map((bodytype) => ({
-            value: bodytype,
-            label: bodytype,
-          })),
-        ],
-      },
+      { placeholder: "Select Make", options: makeOptions },
+      { placeholder: "Select Model", options: modelOptions },
+      { placeholder: "Body Type", options: bodyTypeOptions },
     ],
     [
-      {
-        placeholder: "Min Price",
-        options: [
-          { value: "none", label: "Min Price" },
-          { value: "500", label: "$500" },
-          { value: "1000", label: "$1000" },
-          { value: "3000", label: "$3,000" },
-          { value: "5000", label: "$5,000" },
-          { value: "10000", label: "$10,000" },
-          { value: "15000", label: "$15,000" },
-          { value: "20000", label: "$20,000" },
-        ],
-      },
-      {
-        placeholder: "Min Year",
-        options: [
-          { value: "none", label: "Min Year" },
-          ...years.map((year) => ({
-            value: year.toString(),
-            label: year.toString(),
-          })),
-        ],
-      },
-      {
-        placeholder: "Min Mileage",
-        options: [
-          { value: "none", label: "Min Mileage" },
-          { value: "50000", label: "50,000 km" },
-          { value: "100000", label: "100,000 km" },
-          { value: "150000", label: "150,000 km" },
-        ],
-      },
+      { placeholder: "Min Price", options: priceOptionsMin },
+      { placeholder: "Min Year", options: yearOptions.map(o => ({...o, label: o.value === "none" ? "Min Year" : o.label})) },
+      { placeholder: "Min Mileage", options: mileageOptionsMin },
     ],
     [
-      {
-        placeholder: "Max Price",
-        options: [
-          { value: "none", label: "Max Price" },
-          { value: "500", label: "$500" },
-          { value: "1000", label: "$1000" },
-          { value: "3000", label: "$3,000" },
-          { value: "5000", label: "$5,000" },
-          { value: "10000", label: "$10,000" },
-          { value: "15000", label: "$15,000" },
-          { value: "20000", label: "$20,000" },
-        ],
-      },
-      {
-        placeholder: "Max Year",
-        options: [
-          { value: "none", label: "Max Year" },
-          ...years.map((year) => ({
-            value: year.toString(),
-            label: year.toString(),
-          })),
-        ],
-      },
-      {
-        placeholder: "Max Mileage",
-        options: [
-          { value: "none", label: "Max Mileage" },
-          { value: "200000", label: "200,000 km" },
-          { value: "250000", label: "250,000 km" },
-          { value: "300000", label: "300,000 km" },
-        ],
-      },
+      { placeholder: "Max Price", options: priceOptionsMax },
+      { placeholder: "Max Year", options: yearOptions.map(o => ({...o, label: o.value === "none" ? "Max Year" : o.label})) },
+      { placeholder: "Max Mileage", options: mileageOptionsMax },
     ],
-  ]
+  ], [makeOptions, modelOptions, bodyTypeOptions, yearOptions, priceOptionsMin, priceOptionsMax, mileageOptionsMin, mileageOptionsMax]);
 
   const handleSearch = (values = dropdownValues) => {
     if (typeof values !== "object" || values === null) {
       values = dropdownValues;
     }
-    // ... existing logic ...
+
     const selectedMake = values["Select Make"];
     const model = values["Select Model"];
     const bodytypeRaw = values["Body Type"];
@@ -216,10 +207,7 @@ const SearchQuery = ({ carMakes, db, carBodytypes, initialMaker = "", initialMod
 
     const finalMaker = selectedMake === "none" ? "" : selectedMake;
     const finalModel = model === "none" ? "" : decodeURIComponent(model);
-    const finalBodytype =
-      bodytypeRaw && bodytypeRaw !== "none"
-        ? decodeURIComponent(bodytypeRaw)
-        : "";
+    const finalBodytype = bodytypeRaw && bodytypeRaw !== "none" ? decodeURIComponent(bodytypeRaw) : "";
     const finalMinYear = minYear === "none" ? "" : minYear;
     const finalMaxYear = maxYear === "none" ? "" : maxYear;
     const finalMinPrice = minPrice === "none" ? "" : minPrice;
@@ -251,7 +239,6 @@ const SearchQuery = ({ carMakes, db, carBodytypes, initialMaker = "", initialMod
     router.push(finalUrl);
   };
 
-  // 4. NOW we can return early if not mounted
   if (!isMounted) {
     return <div className="max-w-7xl mx-auto w-full h-80 bg-white/50 animate-pulse rounded-lg relative md:-top-20"></div>;
   }

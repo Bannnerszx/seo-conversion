@@ -1,6 +1,7 @@
 'use server'
 import { unstable_cache as cache } from "next/cache";
-import moment from "moment";
+// 1. Changed import from moment to date-fns
+import { parse, format } from "date-fns"; 
 import { db, admin, storage, auth } from "@/lib/firebaseAdmin";
 import { FieldValue, FieldPath } from "firebase-admin/firestore";
 import nodemailer from 'nodemailer';
@@ -268,9 +269,12 @@ export async function setOrderItem(chatId, selectedChatData, userEmail) {
             tokyoTimeResponse.json()
         ]);
 
-        // Format the time using moment
-        const momentDate = moment(tokyoTime?.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');
-        const formattedTime = momentDate.format('YYYY/MM/DD [at] HH:mm:ss.SSS');
+        // 2. REPLACED MOMENT with date-fns
+        // Original: const momentDate = moment(tokyoTime?.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');
+        const date = parse(tokyoTime?.datetime, 'yyyy/MM/dd HH:mm:ss.SSS', new Date());
+
+        // Original: const formattedTime = momentDate.format('YYYY/MM/DD [at] HH:mm:ss.SSS');
+        const formattedTime = format(date, "yyyy/MM/dd 'at' HH:mm:ss.SSS");
 
         // console.log(formattedTime, ipInfo);
 
@@ -331,8 +335,12 @@ export async function setOrderItem(chatId, selectedChatData, userEmail) {
 
 
 
-        const docId = `${momentDate.format('YYYY')}-${momentDate.format('MM')}`;
-        const dayField = momentDate.format('DD');
+        // 3. REPLACED MOMENT format for docId and dayField
+        // Original: const docId = `${momentDate.format('YYYY')}-${momentDate.format('MM')}`;
+        const docId = format(date, 'yyyy-MM');
+        
+        // Original: const dayField = momentDate.format('DD');
+        const dayField = format(date, 'dd');
 
         const orderStatsData = {
             carName: selectedChatData?.carData?.carName || '',
@@ -519,9 +527,12 @@ export async function docDelivery(form1Data, chatId, userEmail) {
     const ipInfo = await ipInfoResponse.json();
     const tokyoTime = await tokyoTimeResponse.json();
 
-    // Format the received Tokyo time using moment.js
-    const momentDate = moment(tokyoTime?.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');
-    const formattedTime = momentDate.format('YYYY/MM/DD [at] HH:mm:ss.SSS');
+    // 4. REPLACED MOMENT with date-fns
+    // Original: const momentDate = moment(tokyoTime?.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');
+    const date = parse(tokyoTime?.datetime, 'yyyy/MM/dd HH:mm:ss.SSS', new Date());
+
+    // Original: const formattedTime = momentDate.format('YYYY/MM/DD [at] HH:mm:ss.SSS');
+    const formattedTime = format(date, "yyyy/MM/dd 'at' HH:mm:ss.SSS");
 
     // Combine the form data passed from the client with the server-side fetched data.
 
@@ -1054,9 +1065,14 @@ export async function fetchServerTime() {
         ]);
         const tokyoTime = await tokyoTimeResponse.json();
 
-        // data.datetime is expected in "YYYY/MM/DD HH:mm:ss.SSS"
-        const momentDate = moment(tokyoTime.datetime, "YYYY/MM/DD HH:mm:ss.SSS");
-        return momentDate.format("MMMM D, YYYY [at] h:mm:ss A [UTC]Z");
+        // 5. REPLACED MOMENT with date-fns
+        // Original: const momentDate = moment(tokyoTime.datetime, "YYYY/MM/DD HH:mm:ss.SSS");
+        const date = parse(tokyoTime.datetime, "yyyy/MM/dd HH:mm:ss.SSS", new Date());
+        
+        // Original: return momentDate.format("MMMM D, YYYY [at] h:mm:ss A [UTC]Z");
+        // Notes: 'xxx' outputs offset like +09:00, which matches moment 'Z'
+        return format(date, "MMMM d, yyyy 'at' h:mm:ss a 'UTC'xxx");
+
     } catch (err) {
         console.error("fetchServerTime error:", err);
         throw err;
@@ -1214,12 +1230,19 @@ export async function makeFavorite({ product, userEmail }) {
     }
 
     const tokyoTime = await tokyoTimeResponse.json();
-    const momentDate = moment(tokyoTime?.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');
 
-    const year = momentDate.format('YYYY');
-    const month = momentDate.format('MM');
-    const day = momentDate.format('DD');
-    const time = momentDate.format('HH:mm:ss');
+    // 6. REPLACED MOMENT with date-fns
+    // Original: const momentDate = moment(tokyoTime?.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');
+    const date = parse(tokyoTime?.datetime, 'yyyy/MM/dd HH:mm:ss.SSS', new Date());
+
+    // Original: const year = momentDate.format('YYYY');
+    const year = format(date, 'yyyy');
+    // Original: const month = momentDate.format('MM');
+    const month = format(date, 'MM');
+    // Original: const day = momentDate.format('DD');
+    const day = format(date, 'dd');
+    // Original: const time = momentDate.format('HH:mm:ss');
+    const time = format(date, 'HH:mm:ss');
 
     const dateOfTransaction = `${year}/${month}/${day} at ${time}`;
 

@@ -8,10 +8,8 @@ import { CurrencyProvider } from "@/providers/CurrencyContext"
 import ClientLayoutWrapper from "./ClientLayoutWrapper"
 import AuthProviderServer from "./providers/AuthProviderServer"
 import Providers from "./ProgressProvider"
-import { cookies } from "next/headers"
 import Script from "next/script"
-
-import { fetchNotificationCounts } from "./actions/actions"
+import ClarityScript from "./components/ClarityScript"
 import ClientAppCheckWrapper from "../../firebase/ClientAppCheckWrapper"
 import { BannerProvider } from "./components/BannerContext"
 import { IpInfoProvider } from "@/providers/IpInfoContext";
@@ -59,6 +57,8 @@ export const metadata = {
 }
 
 export default async function RootLayout({ children }) {
+
+
   // 1️⃣  Always fetch currency
   const currency = (await fetchCurrency()) || []
 
@@ -92,13 +92,7 @@ export default async function RootLayout({ children }) {
           as="script"
           crossOrigin="anonymous"
         />
-        <Script id="ms-clarity" strategy="lazyOnload">
-          {`(function(c,l,a,r,i,t,y){
-      c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-      t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-      y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-    })(window, document, "clarity", "script", "jyynkqpjss");`}
-        </Script>
+
 
       </head>
 
@@ -142,6 +136,7 @@ export default async function RootLayout({ children }) {
           strategy="lazyOnload"
         />
         <GoogleTagManager gtmId="GTM-NJLD22H" />
+        <ClarityScript />
       </body>
     </html>
   )
