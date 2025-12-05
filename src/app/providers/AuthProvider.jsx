@@ -1,42 +1,45 @@
 'use client'
-import { createContext, useState, useContext, useEffect, useCallback } from "react";
-
-import { getFirebaseAuth } from "../../../firebase/clientApp";
-import { usePathname } from "next/navigation"; // 👈 1. Import pathname
+import { createContext, useState, useContext, useEffect, useCallback, useRef } from "react";
+import { getFirebaseAuth } from "../../../firebase/clientApp"; 
+import { usePathname } from "next/navigation"; 
 
 const AuthContext = createContext({
   user: null,
   loading: true,
   logOut: async () => { },
-  counts: 0,
-  activateAuth: () => {} // 👈 Expose a way to manually start auth
+  activateAuth: () => {}
 });
 
 export const useAuth = () => useContext(AuthContext);
 
-export default function AuthProvider({ children, initialUser, hasSessionCookie }) { // 👈 2. Check this prop
+export default function AuthProvider({ children, initialUser, hasSessionCookie }) {
   const [user, setUser] = useState(initialUser);
   const [loading, setLoading] = useState(true);
-  const [authInstance, setAuthInstance] = useState(null);
-  const [authInitialized, setAuthInitialized] = useState(false);
   const pathname = usePathname();
+  
+  // ✅ NEW: Track if we ever turned on Auth during this session
+  const [authActivated, setAuthActivated] = useState(false);
+  const isInitializing = useRef(false); // Guard against double-init
 
-  // Define paths that REQUIRE auth immediately
+  // 1. Determine if we NEED to load auth
   const authPaths = ['/login', '/signup', '/profile', '/chats', '/orders', '/favorites'];
-  const shouldAutoInit = hasSessionCookie || authPaths.some(p => pathname?.startsWith(p));
+  
+  // ✅ LOGIC UPDATE: If auth was EVER activated, keep it on (Sticky).
+  const shouldAutoInit = hasSessionCookie || authActivated || authPaths.some(p => pathname?.startsWith(p));
 
-  // 3. Create the init function but don't run it immediately
   const initAuth = useCallback(async () => {
-    if (authInitialized) return; // Prevent double run
+    // Prevent multiple initializations
+    if (isInitializing.current) return;
+    isInitializing.current = true;
+
+    // ✅ Mark as active so it stays on even if we go to Homepage
+    setAuthActivated(true);
 
     try {
       const [auth, { onAuthStateChanged }] = await Promise.all([
         getFirebaseAuth(),
         import('firebase/auth')
       ]);
-
-      setAuthInstance(auth);
-      setAuthInitialized(true);
 
       return onAuthStateChanged(auth, (firebaseUser) => {
         if (firebaseUser) {
@@ -49,17 +52,19 @@ export default function AuthProvider({ children, initialUser, hasSessionCookie }
     } catch (error) {
       console.error("Auth Init Failed", error);
       setLoading(false);
+      isInitializing.current = false; // Reset on error
     }
-  }, [authInitialized]);
+  }, []);
 
-  // 4. Effect: Only run if cookie exists OR we are on a login page
- useEffect(() => {
+  useEffect(() => {
     let unsubscribe;
 
-    // 🛡️ SAFETY TIMER: If Firebase hangs for 4s (bad network/stale cookie), force entry.
+    // 🛡️ SAFETY TIMER: Force UI to load if Firebase hangs
     const safetyTimer = setTimeout(() => {
         setLoading(prev => {
-            if (prev) console.warn("Auth took too long - forcing UI to load.");
+            if (prev) {
+                // console.warn("Auth took too long - forcing UI.");
+            }
             return false;
         });
     }, 4000);
@@ -67,12 +72,13 @@ export default function AuthProvider({ children, initialUser, hasSessionCookie }
     if (shouldAutoInit) {
         initAuth().then(unsub => { unsubscribe = unsub });
     } else {
+        // Guest on Homepage -> Show content immediately
         setLoading(false);
     }
 
     return () => { 
         if (unsubscribe) unsubscribe();
-        clearTimeout(safetyTimer); // Clean up
+        clearTimeout(safetyTimer);
     };
   }, [shouldAutoInit, initAuth]);
 
@@ -82,11 +88,11 @@ export default function AuthProvider({ children, initialUser, hasSessionCookie }
       const response = await fetch('/api/logout-api', { method: 'POST' });
       if (response.ok) {
         setUser(null);
+        // Force hard refresh to clear any client state
         window.location.href = '/';
       }
     } catch (error) {
       console.error("Error logging out:", error);
-    } finally {
       setLoading(false);
     }
   };
