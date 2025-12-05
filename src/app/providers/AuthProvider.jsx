@@ -1,6 +1,7 @@
 'use client'
 import { createContext, useState, useContext, useEffect, useCallback } from "react";
-import { getFirebaseAuth } from "../../../firebase/clientApp"; 
+
+import { getFirebaseAuth } from "../../../firebase/clientApp";
 import { usePathname } from "next/navigation"; // 👈 1. Import pathname
 
 const AuthContext = createContext({

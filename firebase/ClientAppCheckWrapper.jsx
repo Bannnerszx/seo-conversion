@@ -15,7 +15,7 @@ export default function ClientAppCheckWrapper() {
     // It's not needed for the initial LCP paint.
     const timer = setTimeout(() => {
       setShouldLoad(true);
-    }, 1000);
+    }, 10000);
 
     return () => clearTimeout(timer);
   }, []);
