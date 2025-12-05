@@ -172,8 +172,8 @@ export default function PayPalBanner() {
               className="object-cover object-center -z-20"
               quality={30}
               sizes="(max-width: 480px) 100vw, 400px"
+              priority={true}
             />
-
             {/* Overlay */}
             <div className={`absolute inset-0 ${overlayClass} -z-10 rounded-xl`} />
 
@@ -369,7 +369,7 @@ export default function PayPalBanner() {
               className="object-cover object-center -z-20"
               quality={30}
               sizes="100vw"
-   
+
             />
             <div className={`absolute inset-0 ${overlayClass} -z-10`} />
 
