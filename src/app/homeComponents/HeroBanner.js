@@ -24,16 +24,16 @@ export default function HeroBanner({ unsoldVehicleCount, isMobile }) {
 
         {/* 2. Mobile Image: Visible only on mobile (md:hidden) */}
         <div className="block md:hidden absolute inset-0">
-       <Image
-          src={samplebanner3Mobile}
-          alt="Hero banner"
-          fill
-          sizes="100vw"
-          className="h-full w-full object-cover object-center"
-          priority={true} // 'priority' already includes fetchPriority="high"
-          placeholder="blur"
-          quality={40} 
-        />
+          <Image
+            src={samplebanner3Mobile}
+            alt="Hero banner"
+            fill
+            sizes="100vw"
+            className="h-full w-full object-cover object-center"
+            priority={isMobile} // 'priority' already includes fetchPriority="high"
+            placeholder="blur"
+            quality={40}
+          />
         </div>
 
         {/* 3. Desktop Image: Visible only on desktop (hidden md:block) */}
@@ -44,9 +44,9 @@ export default function HeroBanner({ unsoldVehicleCount, isMobile }) {
             fill
             sizes="100vw"
             className="object-cover object-center"
-            priority={true}
+            priority={!isMobile}
             quality={60}
-    
+
           />
         </div>
       </div>
