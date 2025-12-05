@@ -62,6 +62,46 @@ export default function PaymentModal({ timestamp, isOpen, onClose, carData, invo
   // Calls your server endpoint to create the PayPal Order ID
   const createOrder = async () => {
     try {
+      // ---------------------------------------------------------
+      // 1. Calculate Currency Conversion
+      // ---------------------------------------------------------
+      const currencyData = invoiceData?.currency || {};
+      const selectedCurrency = invoiceData?.selectedCurrencyExchange || "USD";
+      // invoiceData.paymentDetails.totalAmount is always in USD
+      const totalUSD = Number(invoiceData?.paymentDetails?.totalAmount || 0);
+
+      let rate = 1;
+      let targetCurrency = "USD";
+
+      // If a specific currency is selected and valid, determine the rate
+      if (selectedCurrency && selectedCurrency !== "None" && selectedCurrency !== "USD") {
+          targetCurrency = selectedCurrency;
+          switch (targetCurrency) {
+              case "JPY": rate = Number(currencyData.usdToJpy || 1); break;
+              case "EUR": rate = Number(currencyData.usdToEur || 1); break;
+              case "AUD": rate = Number(currencyData.usdToAud || 1); break;
+              case "GBP": rate = Number(currencyData.usdToGbp || 1); break;
+              case "CAD": rate = Number(currencyData.usdToCad || 1); break;
+              case "ZAR": rate = Number(currencyData.usdToZar || 1); break;
+              default: rate = 1; targetCurrency = "USD"; break;
+          }
+      }
+
+      // Convert and Round to nearest integer (No decimals)
+      const finalAmount = Math.round(totalUSD * rate).toString();
+
+      // Construct Items for PayPal
+      const items = [{
+          name: `${carData?.carName || "Vehicle"} (${carData?.stockID || "N/A"})`,
+          description: `Invoice No: ${invoiceNumber}`,
+          quantity: "1",
+          unit_amount: {
+              currency_code: targetCurrency,
+              value: finalAmount
+          }
+      }];
+      // ---------------------------------------------------------
+
       const res = await fetch("/api/paypal/create-invoice", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -71,7 +111,10 @@ export default function PaymentModal({ timestamp, isOpen, onClose, carData, invo
           userEmail: payerEmail, // or from context
           carData,
           signatureData, // Pass signature if needed for record keeping
-          // ... other fields your API expects
+          
+          // Pass the calculated currency and items
+          currency: targetCurrency,
+          items: items,
         }),
       })
 
