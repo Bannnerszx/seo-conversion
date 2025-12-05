@@ -32,6 +32,7 @@ export default function HeroBanner({ unsoldVehicleCount }) {
             className="object-cover object-center"
             priority={true}
             quality={60}
+            fetchPriority="high"
           />
         </div>
 
@@ -45,6 +46,7 @@ export default function HeroBanner({ unsoldVehicleCount }) {
             className="object-cover object-center"
             priority={true}
             quality={60}
+            fetchPriority="high"
           />
         </div>
       </div>
