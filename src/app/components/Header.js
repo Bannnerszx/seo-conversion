@@ -358,13 +358,6 @@ export default function Header({ currency, counts, headerRef, showBanner, setSho
 
     const pathname = usePathname()
 
-    useEffect(() => {
-        // ✅ Fetch immediately to minimize layout shift duration
-        fetch('/api/show-banner', { credentials: 'same-origin' })
-            .then(res => res.json())
-            .then(({ showBanner }) => setShowBanner(showBanner))
-            .catch(() => { });
-    }, [])
 
     // --- RENDER LOGIC ---
     if (pathname === "/") {
