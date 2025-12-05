@@ -13,6 +13,7 @@ import { SignatureStep } from "./signature-step"
 import { ReviewStep } from "./review-step"
 import { functions } from "../../../../../firebase/clientApp"
 import { httpsCallable } from "firebase/functions"
+
 export default function PaymentModal({ timestamp, invoiceNumber, carData, chatId, invoiceData, isOpen, onClose }) {
     console.log(timestamp, 'timestamp inside payment modal')
     const reserveOrderIdFromInvoice = httpsCallable(functions, "reserveOrderIdFromInvoice");
@@ -52,13 +53,14 @@ export default function PaymentModal({ timestamp, invoiceNumber, carData, chatId
     const norm2 = (n) => (Number(n || 0)).toFixed(2);
 
     const chassis = carData?.chassisNumber || "-";
-    const model = carData?.model || "-";
+    const model = carData?.carName || "-";
     const incot = invoiceData?.paymentDetails?.incoterms || "-";
     const port = invoiceData?.discharge?.port || "Port of Dar es Salaam only";
     const mainItemDescription = [
         `Invoice No. RMJ-${invoiceNumber}\n\n${chassis}\n\n${model}\n\n${incot}\n\n${port}\n\nBuyer reviewed and agreed to conditions (refund/FX policy, no address change)`
 
     ].join("\n\n");
+
     function formatTokyoLocal(ymdHmsMsStr) {
         if (!ymdHmsMsStr) return '';
         // Match: 2025/10/07 [anything/at] 14:23:45.678
@@ -79,7 +81,7 @@ export default function PaymentModal({ timestamp, invoiceNumber, carData, chatId
             // ---------------------------------------------------------
             // 1. Fetch Fresh Tokyo Time for the Timestamp
             // ---------------------------------------------------------
-            let timestamp = new Date().toISOString(); // fallback
+            let currentTimestamp = new Date().toISOString(); // fallback
             try {
                 const fetchJson = (url) => fetch(url).then(r => {
                     if (!r.ok) throw new Error('Network response was not ok');
@@ -91,20 +93,44 @@ export default function PaymentModal({ timestamp, invoiceNumber, carData, chatId
 
                 // Format using the helper provided
                 if (tokyoTimeData && tokyoTimeData.datetime) {
-                    timestamp = formatTokyoLocal(tokyoTimeData.datetime);
+                    currentTimestamp = formatTokyoLocal(tokyoTimeData.datetime);
                 }
             } catch (error) {
                 console.warn("Failed to fetch fresh Tokyo time, using local fallback:", error);
             }
             // ---------------------------------------------------------
 
+            // ---------------------------------------------------------
+            // 2. Calculate Currency Conversion
+            // ---------------------------------------------------------
+            const currencyData = invoiceData?.currency || {};
+            const selectedCurrency = invoiceData?.selectedCurrencyExchange || "USD";
+            // invoiceData.paymentDetails.totalAmount is always in USD per your note
+            const totalUSD = Number(invoiceData?.paymentDetails?.totalAmount || 0);
+
+            let rate = 1;
+            let targetCurrency = "USD";
+
+            // If a specific currency is selected and valid, determine the rate
+            if (selectedCurrency && selectedCurrency !== "None" && selectedCurrency !== "USD") {
+                targetCurrency = selectedCurrency;
+                switch (targetCurrency) {
+                    case "JPY": rate = Number(currencyData.usdToJpy || 1); break;
+                    case "EUR": rate = Number(currencyData.usdToEur || 1); break;
+                    case "AUD": rate = Number(currencyData.usdToAud || 1); break;
+                    case "GBP": rate = Number(currencyData.usdToGbp || 1); break;
+                    case "CAD": rate = Number(currencyData.usdToCad || 1); break;
+                    case "ZAR": rate = Number(currencyData.usdToZar || 1); break;
+                    default: rate = 1; targetCurrency = "USD"; break;
+                }
+            }
+            const finalAmount = Math.round(totalUSD * rate).toString();
+            // ---------------------------------------------------------
+
             const clientYear = new Date().getFullYear();
             const invNum = Number(invoiceNumber);
             const reserveIdemKey = makeReserveKey({ chatId, invNum, year: clientYear });
             const signatureIdemKey = makeSignatureKey({ chatId, invNum, year: clientYear, email: paymentData.email });
-
-            const norm2 = (n) => (Number(n || 0)).toFixed(2);
-            const port = String(invoiceData?.discharge?.port || "Port of Dar es Salaam only");
 
             // 2) Reserve order on chat (idempotent)
             await reserveOrderIdFromInvoice({
@@ -121,8 +147,8 @@ export default function PaymentModal({ timestamp, invoiceNumber, carData, chatId
                 signerEmail: paymentData.email,
                 consent,
                 snapshot: {
-                    currency: invoiceData?.selectedCurrencyExchange,
-                    total: Number(invoiceData?.paymentDetails?.totalAmount || 0),
+                    currency: targetCurrency, // Use target currency
+                    total: Number(finalAmount), // Use converted total
                     incoterms: invoiceData?.paymentDetails?.incoterms,
                     deliveryScope: port,
                     vin: carData?.chassisNumber || null,
@@ -141,7 +167,7 @@ export default function PaymentModal({ timestamp, invoiceNumber, carData, chatId
                 {
                     name: String(carData?.carName || "Vehicle"),
                     quantity: "1",
-                    unit_amount: { value: norm2(invoiceData?.paymentDetails?.totalAmount || 0) },
+                    unit_amount: { value: finalAmount }, // Converted Amount
                     description: mainItemDescription,
                     unit_of_measure: "QUANTITY",
                     reference: orderId,
@@ -162,7 +188,7 @@ export default function PaymentModal({ timestamp, invoiceNumber, carData, chatId
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    currency: invoiceData?.selectedCurrencyExchange || "USD",
+                    currency: targetCurrency, // Converted Currency Code
                     payer: { email_address: paymentData.email },
                     items,
                     note: invoiceData?.paypalNote,
@@ -170,12 +196,12 @@ export default function PaymentModal({ timestamp, invoiceNumber, carData, chatId
                     dueDate: invoiceData?.dueDate,
                     allowPartial: invoiceData?.allowPartial ?? false,
                     minPartialValue: invoiceData?.minPartialValue,
-                    customId,                                      // signatureId
+                    customId,                                     // signatureId
                     invoiceNumber: String(invNum).padStart(6, "0"),
-                    forceNew: true,                                // ← set true if you expect a NEW invoice each time
-                    retryToken: signatureIdemKey,                  // helps server keep the same new number on retries
-                    chatId,                                        // Passed for server logging
-                    timestamp,                                     // Passed: "YYYY/MM/DD at HH:mm:ss.sss"
+                    forceNew: true,                               // ← set true if you expect a NEW invoice each time
+                    retryToken: signatureIdemKey,                 // helps server keep the same new number on retries
+                    chatId,                                       // Passed for server logging
+                    timestamp: currentTimestamp,                  // Passed: "YYYY/MM/DD at HH:mm:ss.sss"
                 }),
                 cache: "no-store",
             });
