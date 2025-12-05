@@ -135,7 +135,7 @@ export default async function Home() {
 
       <div className="relative z-10">
         {/* Hero banner stays here */}
-        <HeroBanner unsoldVehicleCount={unsoldVehicleCount} />
+        <HeroBanner isMobile={isMobileDevice} unsoldVehicleCount={unsoldVehicleCount} />
 
         <DesktopSignUpBanner />
 

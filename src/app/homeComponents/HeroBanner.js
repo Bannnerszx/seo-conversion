@@ -2,7 +2,7 @@ import Image from "next/image";
 import Car from "../components/Car";
 import samplebanner3 from "../../../public/samplebanner3.webp"
 import samplebanner3Mobile from "../../../public/samplebanner3Mobile.webp";
-export default function HeroBanner({ unsoldVehicleCount }) {
+export default function HeroBanner({ unsoldVehicleCount, isMobile }) {
   return (
     <div className="relative w-full overflow-hidden z-10">
       <div className="absolute bottom-16 right-4 z-20 font-semibold px-3 py-1 rounded-full shadow-md flex items-center gap-3">
