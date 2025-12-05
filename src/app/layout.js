@@ -1,6 +1,6 @@
 // app/layout.js
 
-import { GoogleTagManager } from "@next/third-parties/google"
+import DelayedGTM from "./components/DelayedGTM"
 import { Geist, Geist_Mono } from "next/font/google"
 import { fetchCurrency } from "../../services/fetchFirebaseData"
 import "./globals.css"
@@ -151,7 +151,7 @@ export default async function RootLayout({ children }) {
             </Providers>
           </AuthProviderServer>
         </IpInfoProvider>
-        <GoogleTagManager gtmId="GTM-NJLD22H" />
+        <DelayedGTM gtmId="GTM-NJLD22H" />
         <ClarityScript />
       </body>
     </html>
