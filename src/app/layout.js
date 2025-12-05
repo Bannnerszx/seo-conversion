@@ -8,7 +8,8 @@ import { CurrencyProvider } from "@/providers/CurrencyContext"
 import ClientLayoutWrapper from "./ClientLayoutWrapper"
 import AuthProviderServer from "./providers/AuthProviderServer"
 import Providers from "./ProgressProvider"
-import Script from "next/script"
+import { cookies } from "next/headers"
+import { getBannerConfig } from "@/lib/bannerService"
 import ClarityScript from "./components/ClarityScript"
 import ClientAppCheckWrapper from "../../firebase/ClientAppCheckWrapper"
 import { BannerProvider } from "./components/BannerContext"
@@ -56,12 +57,37 @@ export const metadata = {
   ],
 }
 
+
+async function checkBannerVisibility() {
+  // A. Check Global Switch (Firestore)
+  const isGlobalBannerOn = await getBannerConfig();
+  if (!isGlobalBannerOn) return false;
+
+  // B. Check User Cookie
+  const cookieStore = await cookies();
+  const lastShown = cookieStore.get('banner_last_shown')?.value;
+  const now = Date.now();
+
+  const ageDays = lastShown
+    ? (now - Number(lastShown)) / (1000 * 60 * 60 * 24)
+    : Infinity;
+
+  // C. Show if never seen OR seen > 2 days ago
+  if (!lastShown || ageDays >= 2) {
+    return true;
+  }
+
+  return false;
+}
+
 export default async function RootLayout({ children }) {
 
 
   // 1️⃣  Always fetch currency
-  const currency = (await fetchCurrency()) || []
-
+  const [currency, showBanner] = await Promise.all([
+    fetchCurrency(),
+    checkBannerVisibility() // 👈 Server determines TRUE/FALSE immediately
+  ]);
   // 2️⃣  Read cookies (we only read, never delete/set here)
 
   // 3️⃣  Check for legacy "session" (guest if present, but do not delete here)
@@ -86,7 +112,7 @@ export default async function RootLayout({ children }) {
       <head>
         {/* 1) GTM head script */}
 
-    
+
 
 
       </head>
@@ -113,6 +139,7 @@ export default async function RootLayout({ children }) {
                   counts={null}
                   userEmail={null}
                   currency={currency}
+                  initialShowBanner={showBanner}
                 >
                   <BannerProvider>
 

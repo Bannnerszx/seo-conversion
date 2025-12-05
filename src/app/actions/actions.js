@@ -5,7 +5,7 @@ import { parse, format } from "date-fns";
 import { db, admin, storage, auth } from "@/lib/firebaseAdmin";
 import { FieldValue, FieldPath } from "firebase-admin/firestore";
 import nodemailer from 'nodemailer';
-
+import { cookies } from "next/headers";
 ////https://seo-conversion--samplermj.asia-east1.hosted.app
 // function setCorsHeaders(response) {
 //     response.headers.set('Access-Control-Allow-Origin', '*');
@@ -16,6 +16,22 @@ import nodemailer from 'nodemailer';
 // export async function OPTIONS() {
 //     return setCorsHeaders(new NextResponse(null, { status: 204 }));
 // };
+
+
+
+export async function markBannerAsSeen() {
+  const now = Date.now();
+  const cookieStore = await cookies();
+  
+  // Logic matches your original API: Set cookie for 365 days
+  cookieStore.set('banner_last_shown', String(now), {
+    maxAge: 60 * 60 * 24 * 365,
+    path: '/',
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax'
+  });
+}
 
 
 export async function fetchInspectionPrice(inspectionName) {

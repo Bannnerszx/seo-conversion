@@ -4,9 +4,11 @@ import Header from "./components/Header";
 import Footer from "./components/Footer";
 import { DynamicBreadcrumbs } from "./components/Breadcrumbs";
 import React, { useRef, useState, useEffect, } from 'react';
+import { markBannerAsSeen } from "./actions/actions";
 
-export default function ClientLayoutWrapper({ children, currency, userEmail }) {
+export default function ClientLayoutWrapper({ children, currency, userEmail, initialShowBanner }) {
   const pathname = usePathname();
+
 
   // Paths where we never show the header
   const headerHidePrefixes = [
@@ -70,7 +72,11 @@ export default function ClientLayoutWrapper({ children, currency, userEmail }) {
   }, [hideHeader, showBanner]);
 
 
-
+  useEffect(() => {
+    if (initialShowBanner) {
+      markBannerAsSeen();
+    }
+  }, [initialShowBanner]);
   return (
     <div className="flex flex-col overflow-x-clip">
 
@@ -82,7 +88,7 @@ export default function ClientLayoutWrapper({ children, currency, userEmail }) {
       <div className="relative">
         {!hideBreadcrumbs && (
           <div className={`relative transition-[margin] duration-300 ${showBanner ? 'mt-32' : 'mt-28'} px-6`}>
-    
+
             <div className="min-h-[24px]">
               <DynamicBreadcrumbs maxItems={5} />
             </div>
