@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { usePathname } from "next/navigation"
 import Image from "next/image"
 import {
   X,
@@ -73,6 +74,7 @@ const slides = [
 ]
 
 export default function PayPalBanner() {
+  const pathname = usePathname()
   const [isVisible, setIsVisible] = useState(false)
   const [isMobileModalOpen, setIsMobileModalOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
@@ -100,6 +102,11 @@ export default function PayPalBanner() {
 
   // ---- Fetch flag to show popup
   useEffect(() => {
+    if (pathname === "/") {
+      setIsVisible(false)
+      setIsMobileModalOpen(false)
+      return
+    }
     const t = setTimeout(async () => {
       try {
         const res = await fetch("/api/show-paypal-popup", {
@@ -119,7 +126,7 @@ export default function PayPalBanner() {
       }
     }, 100)
     return () => clearTimeout(t)
-  }, [])
+  }, [pathname])
 
   // ---- Detect mobile
   useEffect(() => {
