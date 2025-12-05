@@ -1,7 +1,7 @@
 'use client'
 import { createContext, useState, useContext, useEffect } from "react";
 // 1. Import the async getter
-import { getFirebaseAuth } from "../../../firebase/clientApp"; 
+import { getFirebaseAuth } from "../../../firebase/clientApp";
 
 const AuthContext = createContext({
   user: null,
@@ -20,8 +20,9 @@ export default function AuthProvider({ children, initialUser }) {
   // 2. Initialize Auth Asynchronously
   useEffect(() => {
     let unsubscribe;
-    
+
     const initAuth = async () => {
+      await new Promise(resolve => setTimeout(resolve, 2000));
       try {
         const [auth, { onAuthStateChanged }] = await Promise.all([
           getFirebaseAuth(),
@@ -66,7 +67,7 @@ export default function AuthProvider({ children, initialUser }) {
 
   return (
     <AuthContext.Provider value={{ user, setLoading, loading, logOut }}>
-        {children}
+      {children}
     </AuthContext.Provider>
   );
 };
