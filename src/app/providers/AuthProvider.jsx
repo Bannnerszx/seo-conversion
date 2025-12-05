@@ -53,17 +53,27 @@ export default function AuthProvider({ children, initialUser, hasSessionCookie }
   }, [authInitialized]);
 
   // 4. Effect: Only run if cookie exists OR we are on a login page
-  useEffect(() => {
+ useEffect(() => {
     let unsubscribe;
+
+    // 🛡️ SAFETY TIMER: If Firebase hangs for 4s (bad network/stale cookie), force entry.
+    const safetyTimer = setTimeout(() => {
+        setLoading(prev => {
+            if (prev) console.warn("Auth took too long - forcing UI to load.");
+            return false;
+        });
+    }, 4000);
 
     if (shouldAutoInit) {
         initAuth().then(unsub => { unsubscribe = unsub });
     } else {
-        // For guests on homepage: we are "done" loading (user is null)
-        setLoading(false); 
+        setLoading(false);
     }
 
-    return () => { if (unsubscribe) unsubscribe(); };
+    return () => { 
+        if (unsubscribe) unsubscribe();
+        clearTimeout(safetyTimer); // Clean up
+    };
   }, [shouldAutoInit, initAuth]);
 
   const logOut = async () => {
