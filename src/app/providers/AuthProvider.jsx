@@ -1,54 +1,69 @@
 'use client'
-import { createContext, useState, useContext, useEffect } from "react";
-// 1. Import the async getter
-import { getFirebaseAuth } from "../../../firebase/clientApp";
+import { createContext, useState, useContext, useEffect, useCallback } from "react";
+import { getFirebaseAuth } from "../../../firebase/clientApp"; 
+import { usePathname } from "next/navigation"; // 👈 1. Import pathname
 
 const AuthContext = createContext({
   user: null,
-  loading: true, // Start loading as true
+  loading: true,
   logOut: async () => { },
-  counts: 0
+  counts: 0,
+  activateAuth: () => {} // 👈 Expose a way to manually start auth
 });
 
 export const useAuth = () => useContext(AuthContext);
 
-export default function AuthProvider({ children, initialUser }) {
+export default function AuthProvider({ children, initialUser, hasSessionCookie }) { // 👈 2. Check this prop
   const [user, setUser] = useState(initialUser);
-  const [loading, setLoading] = useState(true); // Default to true until auth loads
+  const [loading, setLoading] = useState(true);
   const [authInstance, setAuthInstance] = useState(null);
+  const [authInitialized, setAuthInitialized] = useState(false);
+  const pathname = usePathname();
 
-  // 2. Initialize Auth Asynchronously
+  // Define paths that REQUIRE auth immediately
+  const authPaths = ['/login', '/signup', '/profile', '/chats', '/orders', '/favorites'];
+  const shouldAutoInit = hasSessionCookie || authPaths.some(p => pathname?.startsWith(p));
+
+  // 3. Create the init function but don't run it immediately
+  const initAuth = useCallback(async () => {
+    if (authInitialized) return; // Prevent double run
+
+    try {
+      const [auth, { onAuthStateChanged }] = await Promise.all([
+        getFirebaseAuth(),
+        import('firebase/auth')
+      ]);
+
+      setAuthInstance(auth);
+      setAuthInitialized(true);
+
+      return onAuthStateChanged(auth, (firebaseUser) => {
+        if (firebaseUser) {
+          setUser(firebaseUser.email);
+        } else {
+          setUser(null);
+        }
+        setLoading(false);
+      });
+    } catch (error) {
+      console.error("Auth Init Failed", error);
+      setLoading(false);
+    }
+  }, [authInitialized]);
+
+  // 4. Effect: Only run if cookie exists OR we are on a login page
   useEffect(() => {
     let unsubscribe;
 
-    const initAuth = async () => {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      try {
-        const [auth, { onAuthStateChanged }] = await Promise.all([
-          getFirebaseAuth(),
-          import('firebase/auth')
-        ]);
+    if (shouldAutoInit) {
+        initAuth().then(unsub => { unsubscribe = unsub });
+    } else {
+        // For guests on homepage: we are "done" loading (user is null)
+        setLoading(false); 
+    }
 
-        setAuthInstance(auth);
-
-        // Listen for auth state changes
-        unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-          if (firebaseUser) {
-            setUser(firebaseUser.email);
-          } else {
-            setUser(null);
-          }
-          setLoading(false);
-        });
-      } catch (error) {
-        console.error("Auth Init Failed", error);
-        setLoading(false);
-      }
-    };
-
-    initAuth();
-    return () => unsubscribe && unsubscribe();
-  }, []);
+    return () => { if (unsubscribe) unsubscribe(); };
+  }, [shouldAutoInit, initAuth]);
 
   const logOut = async () => {
     setLoading(true);
@@ -66,8 +81,8 @@ export default function AuthProvider({ children, initialUser }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, setLoading, loading, logOut }}>
-      {children}
+    <AuthContext.Provider value={{ user, setLoading, loading, logOut, activateAuth: initAuth }}>
+        {children}
     </AuthContext.Provider>
   );
 };
