@@ -29,20 +29,30 @@ const Dropdown = memo(({ placeholder, options, value, onChange }) => {
 // Display name for debugging
 Dropdown.displayName = "Dropdown";
 
-const SearchQuery = ({ carMakes, db, carBodytypes, initialMaker = "", initialModel = "", initialBodyType = "" }) => {
+const SearchQuery = ({ initialIsMobile = false, carMakes, db, carBodytypes, initialMaker = "", initialModel = "", initialBodyType = "" }) => {
   const [isMounted, setIsMounted] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    setIsMounted(true);
+
+    // 3. Keep the resize listener for window resizing
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    // We don't need to call checkMobile() immediately if initialIsMobile is accurate,
+    // but it's safe to leave the listener.
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
   // eslint-disable-next-line no-unused-vars
   const [showRequestNotice, setShowRequestNotice] = useState(false)
   const router = useRouter();
   const [query, setQuery] = useState("");
-  
+
   const [dropdownValues, setDropdownValues] = useState({
     "Select Make": initialMaker.replace(/\s+/g, " "),
     "Select Model": initialModel.replace(/\s+/g, " "),
     "Body Type": initialBodyType.replace(/\s+/g, " "),
   })
-  
+
   const [carModels, setCarModels] = useState([]) || []
   // eslint-disable-next-line no-unused-vars
   const [isFetchingModels, setIsFetchingModels] = useState(false)
@@ -60,8 +70,8 @@ const SearchQuery = ({ carMakes, db, carBodytypes, initialMaker = "", initialMod
   useEffect(() => {
     const getModels = async () => {
       if (!selectedMake || selectedMake === 'none') {
-         setCarModels([]);
-         return;
+        setCarModels([]);
+        return;
       }
       setIsFetchingModels(true)
       try {
@@ -180,12 +190,12 @@ const SearchQuery = ({ carMakes, db, carBodytypes, initialMaker = "", initialMod
     ],
     [
       { placeholder: "Min Price", options: priceOptionsMin },
-      { placeholder: "Min Year", options: yearOptions.map(o => ({...o, label: o.value === "none" ? "Min Year" : o.label})) },
+      { placeholder: "Min Year", options: yearOptions.map(o => ({ ...o, label: o.value === "none" ? "Min Year" : o.label })) },
       { placeholder: "Min Mileage", options: mileageOptionsMin },
     ],
     [
       { placeholder: "Max Price", options: priceOptionsMax },
-      { placeholder: "Max Year", options: yearOptions.map(o => ({...o, label: o.value === "none" ? "Max Year" : o.label})) },
+      { placeholder: "Max Year", options: yearOptions.map(o => ({ ...o, label: o.value === "none" ? "Max Year" : o.label })) },
       { placeholder: "Max Mileage", options: mileageOptionsMax },
     ],
   ], [makeOptions, modelOptions, bodyTypeOptions, yearOptions, priceOptionsMin, priceOptionsMax, mileageOptionsMin, mileageOptionsMax]);
@@ -215,7 +225,7 @@ const SearchQuery = ({ carMakes, db, carBodytypes, initialMaker = "", initialMod
     const finalMinMileage = minMileage === "none" ? "" : minMileage;
     const finalMaxMileage = maxMileage === "none" ? "" : maxMileage;
     const finalKeyword = !query ? "" : query;
-    
+
     let route = "/stock";
     if (finalMaker) {
       route += `/${finalMaker}`;
@@ -248,76 +258,76 @@ const SearchQuery = ({ carMakes, db, carBodytypes, initialMaker = "", initialMod
       {isMobile ? (
         // --- MOBILE VIEW ---
         <div className="md:hidden">
-            <div className="bg-white p-8 rounded-md shadow-lg space-y-4 relative -top-[20px]">
-              {/* Make & Model Row */}
-              <div className="grid grid-cols-2 gap-4">
-                {dropdownGroups[0].slice(0, 2).map((dropdown, index) => (
-                  <Dropdown
-                    key={index}
-                    placeholder={dropdown.placeholder}
-                    options={dropdown.options}
-                    value={dropdownValues[dropdown.placeholder] || ""}
-                    onChange={(value) => handleDropdownChange(dropdown.placeholder, value)}
-                  />
-                ))}
-              </div>
-
-              {/* Body Type Column */}
-              <div>
+          <div className="bg-white p-8 rounded-md shadow-lg space-y-4 relative -top-[20px]">
+            {/* Make & Model Row */}
+            <div className="grid grid-cols-2 gap-4">
+              {dropdownGroups[0].slice(0, 2).map((dropdown, index) => (
                 <Dropdown
-                  placeholder={dropdownGroups[0][2].placeholder}
-                  options={dropdownGroups[0][2].options}
-                  value={dropdownValues[dropdownGroups[0][2].placeholder] || ""}
-                  onChange={(value) => handleDropdownChange(dropdownGroups[0][2].placeholder, value)}
+                  key={index}
+                  placeholder={dropdown.placeholder}
+                  options={dropdown.options}
+                  value={dropdownValues[dropdown.placeholder] || ""}
+                  onChange={(value) => handleDropdownChange(dropdown.placeholder, value)}
                 />
-              </div>
-
-              {/* Min Year & Max Year Row */}
-              <div className="grid grid-cols-2 gap-4">
-                {[dropdownGroups[1][1], dropdownGroups[2][1]].map((dropdown, index) => (
-                  <Dropdown
-                    key={index}
-                    placeholder={dropdown.placeholder}
-                    options={dropdown.options}
-                    value={dropdownValues[dropdown.placeholder] || ""}
-                    onChange={(value) => handleDropdownChange(dropdown.placeholder, value)}
-                  />
-                ))}
-              </div>
-
-              {/* Min Mileage & Max Mileage Row */}
-              <div className="grid grid-cols-2 gap-4">
-                {[dropdownGroups[1][2], dropdownGroups[2][2]].map((dropdown, index) => (
-                  <Dropdown
-                    key={index}
-                    placeholder={dropdown.placeholder}
-                    options={dropdown.options}
-                    value={dropdownValues[dropdown.placeholder] || ""}
-                    onChange={(value) => handleDropdownChange(dropdown.placeholder, value)}
-                  />
-                ))}
-              </div>
-
-              <div className="z-[9999]">
-                <Autocomplete
-                  dropdownGroups={dropdownGroups}
-                  onSelect={(opt) => {
-                    handleDropdownChange(opt.category, opt.value);
-                  }}
-                  handleSearch={handleSearch}
-                  query={query}
-                  setQuery={setQuery}
-                />
-              </div>
-
-              {/* Search Button */}
-              <Button
-                onClick={() => handleSearch()}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-md py-6"
-              >
-                Search
-              </Button>
+              ))}
             </div>
+
+            {/* Body Type Column */}
+            <div>
+              <Dropdown
+                placeholder={dropdownGroups[0][2].placeholder}
+                options={dropdownGroups[0][2].options}
+                value={dropdownValues[dropdownGroups[0][2].placeholder] || ""}
+                onChange={(value) => handleDropdownChange(dropdownGroups[0][2].placeholder, value)}
+              />
+            </div>
+
+            {/* Min Year & Max Year Row */}
+            <div className="grid grid-cols-2 gap-4">
+              {[dropdownGroups[1][1], dropdownGroups[2][1]].map((dropdown, index) => (
+                <Dropdown
+                  key={index}
+                  placeholder={dropdown.placeholder}
+                  options={dropdown.options}
+                  value={dropdownValues[dropdown.placeholder] || ""}
+                  onChange={(value) => handleDropdownChange(dropdown.placeholder, value)}
+                />
+              ))}
+            </div>
+
+            {/* Min Mileage & Max Mileage Row */}
+            <div className="grid grid-cols-2 gap-4">
+              {[dropdownGroups[1][2], dropdownGroups[2][2]].map((dropdown, index) => (
+                <Dropdown
+                  key={index}
+                  placeholder={dropdown.placeholder}
+                  options={dropdown.options}
+                  value={dropdownValues[dropdown.placeholder] || ""}
+                  onChange={(value) => handleDropdownChange(dropdown.placeholder, value)}
+                />
+              ))}
+            </div>
+
+            <div className="z-[9999]">
+              <Autocomplete
+                dropdownGroups={dropdownGroups}
+                onSelect={(opt) => {
+                  handleDropdownChange(opt.category, opt.value);
+                }}
+                handleSearch={handleSearch}
+                query={query}
+                setQuery={setQuery}
+              />
+            </div>
+
+            {/* Search Button */}
+            <Button
+              onClick={() => handleSearch()}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-md py-6"
+            >
+              Search
+            </Button>
+          </div>
         </div>
       ) : (
         // --- DESKTOP VIEW ---

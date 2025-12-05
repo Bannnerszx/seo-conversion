@@ -1,7 +1,7 @@
 import { fetchCarMakes, fetchCarBodytype, fetchTestimonies, getUnsoldVehicleCount } from '../../services/fetchFirebaseData'; // Ensure you use the cached versions we made!
 import { Suspense } from 'react';
 import dynamic from 'next/dynamic'; // 1. Import dynamic
-
+import { headers } from 'next/headers';
 // 2. Keep "Above the Fold" components as standard imports (Critical for LCP)
 import HeroBanner from './homeComponents/HeroBanner';
 const SearchQuery = dynamic(() => import('./homeComponents/SearchQuery'), {
@@ -72,7 +72,9 @@ export async function generateMetadata() {
 
 
 export default async function Home() {
-
+  const headersList = await headers();
+  const userAgent = headersList.get('user-agent') || '';
+  const isMobileDevice = /android.+mobile|ip(hone|od|ad)/i.test(userAgent);
   const orgSchema = {
     "@context": "https://schema.org",
     "@type": "AutoDealer",
@@ -143,7 +145,7 @@ export default async function Home() {
       </div>
 
       <div className="relative z-[8000]">
-        <SearchQuery carMakes={carMakes} carBodytypes={carBodytypes} />
+        <SearchQuery carMakes={carMakes} carBodytypes={carBodytypes} initialIsMobile={isMobileDevice} />
       </div>
       <div className="relative w-full">
         <div className="flex justify-evenly items-center overflow-x-auto whitespace-nowrap px-4 py-4 w-full">
