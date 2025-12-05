@@ -31,7 +31,6 @@ export default function HeroBanner({ unsoldVehicleCount }) {
           sizes="100vw"
           className="h-full w-full object-cover object-center"
           priority={true} // 'priority' already includes fetchPriority="high"
-          placeholder="blur"
           quality={40} 
         />
         </div>
