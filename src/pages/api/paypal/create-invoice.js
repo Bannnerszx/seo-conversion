@@ -255,7 +255,7 @@ export default async function handler(req, res) {
 
 /** helpers **/
 function apiBase() {
-  const base = (process.env.PAYPAL_BASE_LINK).replace(/\/+$/, "");
+  const base = (process.env.NEXT_PUBLIC_PAYPAL_BASE_LINK).replace(/\/+$/, "");
   if (!/^https:\/\/api-m(\.sandbox)?\.paypal\.com$/.test(base)) throw new Error(`Invalid PAYPAL_BASE: ${base}`);
   return base;
 }
@@ -266,13 +266,13 @@ function buildHostedPayerUrl(id) {
   return `${hostedWebBase()}/invoice/payerView/details/${encodeURIComponent(id)}`;
 }
 async function getAccessToken() {
-  const { PAYPAL_CLIENT_ID, PAYPAL_SECRET } = process.env;
-  if (!PAYPAL_CLIENT_ID || !PAYPAL_SECRET) throw new Error("Missing PAYPAL_CLIENT_ID or PAYPAL_SECRET");
+  const { NEXT_PUBLIC_PAYPAL_CLIENT_ID, NEXT_PUBLIC_PAYPAL_SECRET } = process.env;
+  if (!NEXT_PUBLIC_PAYPAL_CLIENT_ID || !NEXT_PUBLIC_PAYPAL_SECRET) throw new Error("Missing NEXT_PUBLIC_PAYPAL_CLIENT_ID or NEXT_PUBLIC_PAYPAL_SECRET");
   const url = `${apiBase()}/v1/oauth2/token`;
   const resp = await fetch(url, {
     method: "POST",
     headers: {
-      Authorization: "Basic " + Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_SECRET}`).toString("base64"),
+      Authorization: "Basic " + Buffer.from(`${NEXT_PUBLIC_PAYPAL_CLIENT_ID}:${NEXT_PUBLIC_PAYPAL_SECRET}`).toString("base64"),
       "Content-Type": "application/x-www-form-urlencoded",
     },
     body: "grant_type=client_credentials",
