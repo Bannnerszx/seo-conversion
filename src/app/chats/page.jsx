@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { fetchCurrency } from "../../../services/fetchFirebaseData";
 import { getCountries, checkUserExist, getAccountData } from "../actions/actions";
 import { Toaster } from "sonner";
+import PayPalProvider from "../providers/PayPalProvider";
 
 async function fetchPrefetchedData(userEmail) {
   try {
@@ -46,7 +47,7 @@ async function fetchPrefetchedData(userEmail) {
 
 export async function generateMetadata() {
   return {
-    title: 'Transactions | REAL MOTOR JAPAN',
+    title: 'Transactions',
     description: "Transactions",
   };
 };
@@ -83,7 +84,7 @@ export default async function ChatPage() {
   // 7️⃣ Verify via /api/verify-session
   let userEmail = null
   try {
-    const origin = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+    const origin = process.env.NEXT_PUBLIC_APP_URL || "https://www.realmotor.jp"
     const verifyRes = await fetch(`${origin}/api/verify-session`, {
       method: "GET",
       headers: {
@@ -160,20 +161,22 @@ export default async function ChatPage() {
   // 1️⃣2️⃣ Render the Chat page
   return (
     <>
-      <Toaster
-        position="top-right"
-        offset={16}
-        mobileOffset={10}
-        richColors
-        closeButton
-      />
-      <ChatPageCSR
-        accountData={accountData}
-        userEmail={userEmail}
-        currency={currency}
-        countryList={countries}
-        prefetchedData={prefetchedData}
-      />
+      <PayPalProvider>
+        <Toaster
+          position="top-right"
+          offset={16}
+          mobileOffset={10}
+          richColors
+          closeButton
+        />
+        <ChatPageCSR
+          accountData={accountData}
+          userEmail={userEmail}
+          currency={currency}
+          countryList={countries}
+          prefetchedData={prefetchedData}
+        />
+      </PayPalProvider>
     </>
   )
 }

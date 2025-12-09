@@ -7,7 +7,7 @@ import ClientAppCheck from "../../../firebase/ClientAppCheck"
 import RequestForm from "./requestFormComponents/RequestForm"
 export async function generateMetaData() {
     return {
-        title: 'Request Form | REAL MOTOR JAPAN',
+        title: 'Request Form',
         descriptio: "Vehicle request form."
     }
 }
@@ -37,7 +37,7 @@ export default async function RequestFormServer() {
     let userEmail = null
 
     try {
-        const origin = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+        const origin = process.env.NEXT_PUBLIC_APP_URL || "https://www.realmotor.jp"
         const verifyRes = await fetch(`${origin}/api/verify-session`, {
             method: 'GET',
             headers: {

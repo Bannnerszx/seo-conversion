@@ -1,82 +1,80 @@
-"use client";
-
-import { useSearchParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import {
-  getAuth,
-  applyActionCode,
-  verifyPasswordResetCode,
-  confirmPasswordReset,
-} from "firebase/auth";
-
+'use client'
+import { useSearchParams, useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
+import { getFirebaseAuth } from "../../../../firebase/clientApp"
 export default function AuthActionPage() {
   const params = useSearchParams();
   const router = useRouter();
   const mode = params.get("mode");
   const oobCode = params.get("oobCode");
-
   const [emailForReset, setEmailForReset] = useState(null);
   const [newPassword, setNewPassword] = useState("");
-  const [status, setStatus] = useState("idle"); // "idle" | "working" | "success" | "error"
+  const [status, setStatus] = useState('idle');
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Handle incoming action codes
   useEffect(() => {
     if (!mode || !oobCode) return;
-    const auth = getAuth();
+
+    let mounted = true;
     setStatus("working");
 
-    if (mode === "verifyEmail") {
-      applyActionCode(auth, oobCode)
-        .then(() => {
-          setStatus("success");
-          router.push("/");
-        })
-        .catch((err) => {
-          setErrorMsg(err.message);
-          setStatus("error");
-        });
-    } else if (mode === "resetPassword") {
-      verifyPasswordResetCode(auth, oobCode)
-        .then((email) => {
-          setEmailForReset(email);
-          setStatus("idle");
-        })
-        .catch((err) => {
-          setErrorMsg(err.message);
-          setStatus("error");
-        });
-    } else {
-      setErrorMsg("Unsupported action");
-      setStatus("error");
-    }
-  }, [mode, oobCode, router]);
+    (async () => {
+      try {
+        const [auth, sdk] = await Promise.all([
+          getFirebaseAuth(),
+          import('firebase/auth')
+        ]);
 
-  // Submit new password and redirect on success
+        if (!mounted) return;
+        if (mode === 'verifyEmail') {
+          await sdk.applyActionCode(auth, oobCode);
+          if (!mounted) return;
+          setStatus('success');
+          router.push('/');
+        } else if (mode === 'resetPassword') {
+          const email = await sdk.verifyPasswordResetCode(auth, oobCode);
+          if (!mounted) return;
+          setEmailForReset(email);
+          setStatus('idle')
+        } else {
+          setErrorMsg('Unsupported action');
+          setStatus("error")
+        }
+      } catch (err) {
+        if (!mounted) return;
+        setErrorMsg(err.message);
+        setStatus('error')
+      }
+    })();
+
+    return () => { mounted = false }
+  }, [mode, oobCode, router])
+
   const handleResetSubmit = async (e) => {
     e.preventDefault();
     if (!oobCode) return;
 
-    setStatus("working");
+    setStatus('working');
     try {
-      await confirmPasswordReset(getAuth(), oobCode, newPassword);
-      setStatus("success");
-      router.push("/login");
+      const [auth, sdk] = await Promise.all([
+        getFirebaseAuth(),
+        import('firebase/auth')
+      ]);
+      await sdk.confirmPasswordReset(auth, oobCode, newPassword);
+      setStatus('success');
+      router.push('/login')
     } catch (err) {
       setErrorMsg(err.message);
-      setStatus("error");
+      setStatus('error')
     }
   };
 
   return (
     <div className="max-w-md mx-auto py-16 mt-20">
-      {status === "working" && <p>Processing…</p>}
-
-      {/* We no longer need a manual button here, since we auto-redirect */}
-      {status === "success" && mode === "verifyEmail" && (
-        <p>Your email has been verified! Redirecting…</p>
+      {status === 'working' && <p>Processing...</p>}
+      {status === 'idle' && mode === 'verifyEmail' && (
+        <p>Your email has been verified! Redirecting...</p>
       )}
-
       {status === "idle" && mode === "resetPassword" && emailForReset && (
         <form onSubmit={handleResetSubmit} className="space-y-4">
           <p>
@@ -102,6 +100,7 @@ export default function AuthActionPage() {
         <p>Password has been reset! Redirecting…</p>
       )}
 
+
       {status === "error" && (
         <div className="text-red-600">
           <p>Something went wrong:</p>
@@ -109,5 +108,5 @@ export default function AuthActionPage() {
         </div>
       )}
     </div>
-  );
+  )
 }

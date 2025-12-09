@@ -1,6 +1,6 @@
 "use client"
-import { format } from "date-fns"
-import { functions } from "../../../../firebase/clientApp"
+// 1. Updated import: Added 'parse' to existing 'format' import
+import { format, parse } from "date-fns"
 import { useState, useRef, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,12 +9,13 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Calendar } from "@/components/ui/calendar"
 import { cn } from "@/lib/utils"
-import moment from "moment"
+// 2. Removed: import moment from "moment"
 import Modal from "@/app/components/Modal"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import WarningDialog from "./warningDialog"
-import { httpsCallable } from "firebase/functions"
 import PayPalInvoiceBlock from "./PayPalInvoiceBlock"
+import { getFirebaseFunctions } from "../../../../firebase/clientApp";
+
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
 
 
@@ -116,8 +117,8 @@ export default function PaymentSlip({ context = 'payment', chatId, selectedChatD
 
         try {
             const [ipRes, timeRes] = await Promise.all([
-                fetchWithTimeout("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo"),
-                fetchWithTimeout("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time")
+                fetchWithTimeout("https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo"),
+                fetchWithTimeout("https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time")
             ]);
             if (!ipRes.ok || !timeRes.ok) throw new Error("Prefetch failed");
 
@@ -161,8 +162,8 @@ export default function PaymentSlip({ context = 'payment', chatId, selectedChatD
     useEffect(() => {
         let mounted = true;
         Promise.all([
-            fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo").then(r => r.json()),
-            fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time").then(r => r.json()),
+            fetch("https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo").then(r => r.json()),
+            fetch("https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time").then(r => r.json()),
         ])
             .then(([ip, time]) => {
                 if (!mounted) return;
@@ -189,7 +190,8 @@ export default function PaymentSlip({ context = 'payment', chatId, selectedChatD
         return { name: file.name, type: file.type || "application/octet-stream", data: base64 };
     }
 
-    const callUpdatePaymentNotifications = httpsCallable(functions, "updatePaymentNotifications");
+    // 4. Removed the top-level call to httpsCallable
+    // const callUpdatePaymentNotifications = httpsCallable(functions, "updatePaymentNotifications");
 
 
     //Idempotency helpers
@@ -311,8 +313,8 @@ ${newMessage.trim()}
             // quick refresh (non-blocking on failure)
             try {
                 const fetchPromise = Promise.all([
-                    fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo").then((r) => r.json()),
-                    fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time").then((r) => r.json()),
+                    fetch("https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo").then((r) => r.json()),
+                    fetch("https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time").then((r) => r.json()),
                 ]);
                 const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 5000));
                 const [freshIp, freshTime] = await Promise.race([fetchPromise, timeoutPromise]);
@@ -328,10 +330,19 @@ ${newMessage.trim()}
                 throw new Error("No IP info or time data available");
             }
 
-            const formattedTime = moment(currentTokyoTime.datetime, "YYYY/MM/DD HH:mm:ss.SSS")
-                .format("YYYY/MM/DD [at] HH:mm:ss");
+            // 3. REPLACED MOMENT: Use date-fns parse and format
+            // Old: moment(currentTokyoTime.datetime, "YYYY/MM/DD HH:mm:ss.SSS").format("YYYY/MM/DD [at] HH:mm:ss");
+            const parsedDate = parse(currentTokyoTime.datetime, 'yyyy/MM/dd HH:mm:ss.SSS', new Date());
+            const formattedTime = format(parsedDate, "yyyy/MM/dd 'at' HH:mm:ss");
 
             const selectedFilePayload = await fileToBase64Payload(attachedFile);
+
+            // 5. Dynamic Loading inside handler
+            const [functionsInstance, { httpsCallable }] = await Promise.all([
+                getFirebaseFunctions(),
+                import("firebase/functions")
+            ]);
+            const callUpdatePaymentNotifications = httpsCallable(functionsInstance, "updatePaymentNotifications");
 
             const res = await callUpdatePaymentNotifications({
                 chatId,
@@ -369,8 +380,6 @@ ${newMessage.trim()}
 
     const convertedTotal = totalUSD * currency.value;
     const formattedTotal = `${currency.symbol}${Math.floor(convertedTotal).toLocaleString()}`;
-
-
     return (
         <>
             <WarningDialog
@@ -565,34 +574,7 @@ ${newMessage.trim()}
 
                                     <span className="block text-center text-xs">or</span>
 
-                                    {/* PayPal section - compact */}
-                                    {/* <div className="w-full pt-1 flex flex-col items-center">
-                                        <div className="text-center text-[11px] text-slate-600 mb-1.5">
-                                            Pay securely with
-                                        </div>
-
-                                        <Button
-                                            variant="paypal"
-                                            className="w-full h-12 text-base transition-all duration-200 shadow-md hover:shadow-lg flex items-center justify-center bg-[#ffd140] hover:bg-[#f7c600] border-0 mx-auto"
-                                            aria-label="Pay with PayPal"
-                                            type="button"
-                                        >
-                                            <img src="/paypal-button.png" alt="PayPal" className="h-4 w-auto" />
-                                        </Button>
-
-                                        <p className="text-[11px] text-center text-slate-500 mt-1.5 flex items-center justify-center gap-1.5">
-                                            <svg className="w-3.5 h-3.5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                                                <path
-                                                    fillRule="evenodd"
-                                                    d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
-                                                    clipRule="evenodd"
-                                                />
-                                            </svg>
-                                            Fast &amp; secure checkout
-                                        </p>
-                                    </div> */}
-
-                                    <PayPalInvoiceBlock chatId={chatId} invoiceNumber={selectedChatData?.invoiceNumber} carData={selectedChatData?.carData} renderTextWithLinks={''} message={''}  invoiceData={invoiceData} userEmail={userEmail} />
+                                    <PayPalInvoiceBlock chatId={chatId} invoiceNumber={selectedChatData?.invoiceNumber} carData={selectedChatData?.carData} renderTextWithLinks={''} message={''} invoiceData={invoiceData} userEmail={userEmail} />
                                 </div>
                             </div>
                         </CardContent>
@@ -608,4 +590,3 @@ ${newMessage.trim()}
 
     )
 }
-

@@ -7,6 +7,7 @@ import PriceCalculatorCard from "./carCalculatorContent"
 import { Calculator, Filter } from "lucide-react"
 
 export function Sidebar({
+    d2dCountries,
     isOpen,
     onClose,
     mode,
@@ -144,7 +145,7 @@ export function Sidebar({
                 )}
                 {mode === 'calculator' && (
                     <div className="flex-1 overflow-y-auto">
-                        <PriceCalculatorCard onClose={onClose} countryArray={countryArray} context={'sidebar'} />
+                        <PriceCalculatorCard d2dCountries={d2dCountries} onClose={onClose} countryArray={countryArray} context={'sidebar'} />
                     </div>
                 )}
 

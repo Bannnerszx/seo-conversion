@@ -1,20 +1,25 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useIpInfo } from "@/providers/IpInfoContext";
-import ZambiaPopup from "@/app/components/ZambiaPopup";
+import dynamic from "next/dynamic"; // 1. Import dynamic
+
+// 2. Lazy load the popup component
+const ZambiaPopup = dynamic(() => import("@/app/components/ZambiaPopup"), {
+  ssr: false, // Popups don't need SEO
+});
 
 const ZambiaChecker = () => {
   const ipInfo = useIpInfo();
-
   // List of countries that should trigger the popup
   const popupCountries = ["Zambia", "Tanzania"];
 
-  // If we don’t yet have IP info, render nothing
-  if (!ipInfo) return null;
+  // 3. Simple check
+  const showPopup = ipInfo && popupCountries.includes(ipInfo.country_name);
 
-  // Show the popup if the user's country is in our list
-  return popupCountries.includes(ipInfo.country_name) ? <ZambiaPopup /> : null;
+  if (!showPopup) return null;
+
+  return <ZambiaPopup />;
 };
 
 export default ZambiaChecker;

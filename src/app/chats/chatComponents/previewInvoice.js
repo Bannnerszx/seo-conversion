@@ -3,10 +3,8 @@ import { Text, View, ScrollView, Image } from "react-native-web";
 import { Button } from "@/components/ui/button";
 import { FileText, Image as ImageIcon, Download, Car, Loader2, } from "lucide-react";
 import { QRCodeSVG } from 'qrcode.react';
-import { httpsCallable } from 'firebase/functions';
-import { firestore, functions } from '../../../../firebase/clientApp';
 import { usePathname } from 'next/navigation';
-import { doc, getDoc, runTransaction } from 'firebase/firestore';
+import { getFirebaseFunctions, getFirebaseFirestore } from '../../../../firebase/clientApp';
 import { toast } from 'sonner';
 // import { captureRef } from 'react-native-view-shot';
 // import QRCode from 'react-native-qrcode-svg';
@@ -25,9 +23,6 @@ async function blobToBase64(blob) {
 
 const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchPreloads, vehicleStatus = {}, messageText, chatId, selectedChatData, invoiceData, context, userEmail, accountData }) => {
     const [isHidden, setIsHidden] = useState(false);
-
-
-
 
 
     let formattedIssuingDate;
@@ -847,7 +842,11 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
 
         try {
 
-            const call = httpsCallable(functions, "generateInvoicePdf");
+            const [functionsInstance, { httpsCallable }] = await Promise.all([
+                getFirebaseFunctions(),
+                import('firebase/functions')
+            ]);
+            const call = httpsCallable(functionsInstance, "generateInvoicePdf");
             const res = await call({ chatId, userEmail, isProforma, invoiceData, selectedChatData });
 
             const url = res?.data?.downloadURL;
@@ -936,6 +935,11 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
 
         (async () => {
             try {
+                const [firestore, { doc, runTransaction }] = await Promise.all([
+                    getFirebaseFirestore(),
+                    import('firebase/firestore')
+                ]);
+
                 const ref = doc(firestore, "chats", chatIdFromPath);
 
                 const didOpen = await runTransaction(firestore, async (tx) => {
@@ -963,7 +967,6 @@ const PreviewInvoice = ({ countryList, ipInfo, tokyoTime, preloadError, refetchP
             }
         })();
     }, [pathname, userEmail, isProforma, invoiceData, selectedChatData]);
-
     //pathname for open invoice
     return (
         <>

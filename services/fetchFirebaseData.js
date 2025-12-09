@@ -1,8 +1,8 @@
 import { db } from "@/lib/firebaseAdmin";
 import { getDb } from "@/lib/mongodbClient";
+import { error } from "console";
 import { FieldPath } from "firebase-admin/firestore";
 import { unstable_cache as cache } from "next/cache";
-import { comment } from "postcss";
 const dbMong = await getDb()
 const vehicleColl = dbMong.collection("VehicleProducts");
 
@@ -48,7 +48,6 @@ export const getUnsoldVehicleCount = async () => {
   try {
     const snapshot = await db.collection('VehicleProducts')
       .where('stockStatus', '==', 'On-Sale')
-      .where('imageCount', '>', 0)
       .count()
       .get();
 
@@ -58,6 +57,19 @@ export const getUnsoldVehicleCount = async () => {
     return 0; // Return null instead of 0 to indicate an error
   }
 };
+
+export const  fetchHomepageStock = cache(
+  async () => {
+    return await fetchVehicleProductsByPage({
+      itemsPerPage: 50,
+      page: 1,
+      sortField: "dateAdded",
+      sortDirection: "asc"
+    });
+  },
+  ['homepage-stock-list'],
+  {revalidate: 1, tags: ['homepage-stock']}
+);
 
 // export async function fetchCountries() {
 //   try {

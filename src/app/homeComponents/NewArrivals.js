@@ -1,11 +1,8 @@
 'use client';
-import React, { useRef, useState, useEffect } from 'react';
 import { Calendar } from 'lucide-react';
 import Link from 'next/link';
 import { useCurrency } from '@/providers/CurrencyContext';
 import Image from 'next/image';
-import { httpsCallable } from 'firebase/functions';
-import { functions } from '../../../firebase/clientApp';
 const SquareGrays = () => {
     const createOddRowOfSquares = () =>
         Array.from({ length: 20 }, (_, index) => (
@@ -32,12 +29,17 @@ const SquareGrays = () => {
 };
 const NewArrivals = ({ newVehicles, currency }) => {
 
-    const incrementView = httpsCallable(functions, 'incrementViewCounter')
+
     const handleViewDetailsClick = async (productId) => {
         const viewLoggedKey = `viewed_${productId}`;
 
         if (!sessionStorage.getItem(viewLoggedKey)) {
             try {
+                // Dynamically import logic to save initial bundle size
+                const { httpsCallable } = await import('firebase/functions');
+                const { functions } = await import('../../../firebase/clientApp');
+
+                const incrementView = httpsCallable(functions, 'incrementViewCounter');
                 incrementView({ docId: productId });
 
                 sessionStorage.setItem(viewLoggedKey, 'true');
@@ -46,23 +48,9 @@ const NewArrivals = ({ newVehicles, currency }) => {
             }
         }
     }
-    const scrollContainerRef = useRef(null);
-    const [activeIndex, setActiveIndex] = useState(0);
-    const { selectedCurrency } = useCurrency();
-    console.log(newVehicles)
-    useEffect(() => {
-        const container = scrollContainerRef.current;
-        if (!container) return;
 
-        const handleScroll = () => {
-            const scrollLeft = container.scrollLeft;
-            const cardWidth = container.clientWidth;
-            const newIndex = Math.round(scrollLeft / cardWidth);
-            setActiveIndex(newIndex);
-        };
-        container.addEventListener('scroll', handleScroll);
-        return () => container.removeEventListener('scroll', handleScroll);
-    }, []);
+    const { selectedCurrency } = useCurrency();
+
 
     return (
         <>
@@ -79,7 +67,7 @@ const NewArrivals = ({ newVehicles, currency }) => {
             <div className="w-full z-1">
                 <div className='p-4'>
                     <div
-                        ref={scrollContainerRef}
+
                         className="overflow-x-auto pb-8 -mr-4 pr-4 scroll-smooth"
                     >
                         <div className="flex gap-4">

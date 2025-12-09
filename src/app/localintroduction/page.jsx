@@ -3,7 +3,7 @@ import InteractiveMap from "./LocalIntroductionComponents/InteractiveMap";
 
 export async function generateMetadata({ params }) {
   return {
-      title: 'Local Introduction | REAL MOTOR JAPAN',
+      title: 'Local Introduction',
       keywords: 'REAL MOTOR JAPAN, contact information, Japanese car exports, Toyota city, used cars Japan',
       openGraph: {
           title: 'Local Introduction| REAL MOTOR JAPAN',

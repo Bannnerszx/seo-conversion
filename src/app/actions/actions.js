@@ -1,11 +1,12 @@
 'use server'
 import { unstable_cache as cache } from "next/cache";
-import moment from "moment";
+// 1. Changed import from moment to date-fns
+import { parse, format } from "date-fns"; 
 import { db, admin, storage, auth } from "@/lib/firebaseAdmin";
 import { FieldValue, FieldPath } from "firebase-admin/firestore";
 import nodemailer from 'nodemailer';
-
-////https://seo-conversion--real-motor-japan.asia-east1.hosted.app
+import { cookies } from "next/headers";
+////https://seo-conversion--samplermj.asia-east1.hosted.app
 // function setCorsHeaders(response) {
 //     response.headers.set('Access-Control-Allow-Origin', '*');
 //     response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -15,6 +16,22 @@ import nodemailer from 'nodemailer';
 // export async function OPTIONS() {
 //     return setCorsHeaders(new NextResponse(null, { status: 204 }));
 // };
+
+
+
+export async function markBannerAsSeen() {
+  const now = Date.now();
+  const cookieStore = await cookies();
+  
+  // Logic matches your original API: Set cookie for 365 days
+  cookieStore.set('banner_last_shown', String(now), {
+    maxAge: 60 * 60 * 24 * 365,
+    path: '/',
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax'
+  });
+}
 
 
 export async function fetchInspectionPrice(inspectionName) {
@@ -243,132 +260,7 @@ export async function processJackallSalesInfo({ chatId }) {
 }
 
 
-export async function setOrderItem(chatId, selectedChatData, userEmail) {
 
-    try {
-
-        // Use node-fetch or a server-side compatible fetch method
-        const [ipInfoResponse, tokyoTimeResponse] = await Promise.all([
-            fetch('https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo', {
-                headers: { 'Origin': 'https://seo-conversion--real-motor-japan.asia-east1.hosted.app' } // Removed trailing slash
-            }),
-            fetch('https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time', {
-                headers: { 'Origin': 'https://seo-conversion--real-motor-japan.asia-east1.hosted.app' }
-            })
-        ]);
-
-
-        // Check if responses are ok
-        if (!ipInfoResponse.ok || !tokyoTimeResponse.ok) {
-            throw new Error('Network response was not ok');
-        }
-
-        const [ipInfo, tokyoTime] = await Promise.all([
-            ipInfoResponse.json(),
-            tokyoTimeResponse.json()
-        ]);
-
-        // Format the time using moment
-        const momentDate = moment(tokyoTime?.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');
-        const formattedTime = momentDate.format('YYYY/MM/DD [at] HH:mm:ss.SSS');
-
-        // console.log(formattedTime, ipInfo);
-
-        // return { formattedTime, ipInfo };
-        const messageData = {
-            sender: userEmail,
-            text: "I agree with all the conditions and place the order.",
-            timestamp: formattedTime,
-            orderInvoiceIssue: true,
-            setPaymentNotification: true,
-            messageType: 'important',
-            ip: ipInfo.ip,
-            ipCountry: ipInfo.country_name,
-            ipCountryCode: ipInfo.country_code
-        };
-        const messagesCollectionRef = db.collection('chats')
-            .doc(chatId)
-            .collection('messages');
-
-        // Create a new document with an auto-generated ID
-        await messagesCollectionRef.add(messageData);
-
-        // invoice and vehicle
-        const updateVehicleAndInvoice = {
-            invoiceNumber: selectedChatData?.invoiceNumber || '',
-            stockID: selectedChatData?.carData?.stockID || '',
-            userEmail: userEmail
-        };
-        const invoiceRef = db.collection('IssuedInvoice').doc(selectedChatData?.invoiceNumber);
-        const vehicleRef = db.collection('VehicleProducts').doc(selectedChatData?.carData?.stockID);
-        // Update the 'IssuedInvoice' document
-        await invoiceRef.update({
-            orderPlaced: true,
-        });
-
-        // Update the 'VehicleProducts' document
-        await vehicleRef.update({
-            reservedTo: userEmail,
-            stockStatus: 'Reserved',
-        });
-        // invoice and vehicle
-
-
-        //messaage in chat data
-        const updateMessageData = {
-            lastMessage: 'I agree with all the conditions and place the order.',
-            lastMessageDate: formattedTime,
-            lastMessageSender: userEmail,
-            read: false,
-            readBy: []
-        };
-
-        await db
-            .collection('chats')
-            .doc(chatId)
-            .update(updateMessageData);
-        //message in chat data
-
-
-
-        const docId = `${momentDate.format('YYYY')}-${momentDate.format('MM')}`;
-        const dayField = momentDate.format('DD');
-
-        const orderStatsData = {
-            carName: selectedChatData?.carData?.carName || '',
-            customerEmail: userEmail || '',
-            imageUrl: selectedChatData?.carData?.images[0] || '',
-            referenceNumber: selectedChatData?.carData?.referenceNumber || 'No Reference Number',
-            stockId: selectedChatData?.carData?.stockID || 'No Stock ID',
-        };
-        const offerStatsRef = db.collection('OrderStats').doc(docId);
-        await offerStatsRef.set({
-            [dayField]: admin.firestore.FieldValue.arrayUnion(orderStatsData)
-        }, { merge: true });
-
-        //update status
-        const update = {
-            stepIndicator: {
-                value: 3,
-                status: 'Order Item',
-            }
-        };
-        await db
-            .collection('chats')
-            .doc(chatId)
-            .update(update);
-        //update
-
-
-    } catch (fetchError) {
-        console.error("Error in API calls:", fetchError);
-        // Properly handle and potentially rethrow the error
-        throw new Error(`Failed to fetch data: ${fetchError.message}`);
-    } finally {
-        console.log("Firestore document updated successfully");
-        return false;
-    }
-};
 
 
 
@@ -490,322 +382,12 @@ export async function getCities(countryCode) {
     }
 };
 
-export async function docDelivery(form1Data, chatId, userEmail) {
-    const removeAccents = (str) =>
-        str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-
-    Object.entries(form1Data).forEach(([key, value]) => {
-        console.log(`Processing field: ${key}, Value: ${value}`);
-        // You can add validation, formatting, or transformation logic here.
-        // For instance, if you want to trim string values:
-        if (typeof value === 'string') {
-            form1Data[key] = value.trim();
-        }
-    });
-    // Perform external fetch calls
-    const [ipInfoResponse, tokyoTimeResponse] = await Promise.all([
-        fetch('https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo', {
-            headers: { 'Origin': 'https://seo-conversion--real-motor-japan.asia-east1.hosted.app' }
-        }),
-        fetch('https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time', {
-            headers: { 'Origin': 'https://seo-conversion--real-motor-japan.asia-east1.hosted.app' }
-        })
-    ]);
-
-    if (!ipInfoResponse.ok || !tokyoTimeResponse.ok) {
-        throw new Error('Network response was not ok');
-    }
-
-    const ipInfo = await ipInfoResponse.json();
-    const tokyoTime = await tokyoTimeResponse.json();
-
-    // Format the received Tokyo time using moment.js
-    const momentDate = moment(tokyoTime?.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');
-    const formattedTime = momentDate.format('YYYY/MM/DD [at] HH:mm:ss.SSS');
-
-    // Combine the form data passed from the client with the server-side fetched data.
-
-    const messageText = `🌟 DOCUMENT DELIVERY ADDRESS 🌟
-    🔍 Delivery Details:
-    - Full Name: ${form1Data.fullName || 'N/A'}
-    - Country: ${form1Data.country || 'N/A'}
-    - City: ${form1Data.city || 'N/A'}
-    - Address: ${form1Data.address || 'N/A'}
-    - Fax Number: ${form1Data.faxNumber || 'N/A'}
-    - Email: ${form1Data.email || 'N/A'}
-    - Telephones: ${form1Data.telephoneNumber.length > 0 ? form1Data.telephoneNumber.join(', ') : 'No telephones provided'}
-
-    Kind regards,
-    ${form1Data.fullName || 'N/A'}`;
-
-    const enrichedData = {
-        ...form1Data,
-        ip: ipInfo.ip,
-        ipCountry: ipInfo.country_name,
-        ipCountryCode: ipInfo.country_code,
-        timeReceived: formattedTime,
-        messageText
-    };
-    const chatRef = db.collection('chats').doc(chatId);
-
-    await chatRef.update({
-        docDelAdd: {
-            deliveryInfo: {
-                formData: {
-                    fullName: form1Data.fullName,
-                    country: removeAccents(form1Data.country),
-                    city: removeAccents(form1Data.city),
-                    address: form1Data.address,
-                    faxNumber: form1Data.faxNumber || '',
-                    email: form1Data.email,
-                    telephones: form1Data.telephoneNumber,
-                }
-            }
-        }
-    });
-
-    const messageData = {
-        sender: userEmail,
-        text: messageText,
-        timestamp: formattedTime,
-        messageType: 'important',
-        ip: ipInfo.ip,
-        ipCountry: ipInfo.country_name,
-        ipCountryCode: ipInfo.country_code
-    }
-    const messagesCollectionRef = db.collection('chats').doc(chatId).collection('messages').doc();
-
-    // Save the document with merge set to true
-    await messagesCollectionRef.set(messageData, { merge: true });
-
-    const fieldUpdate = db.collection('chats').doc(chatId);
-
-    await fieldUpdate.update({
-        lastMessage: messageText,
-        lastMessageDate: formattedTime,
-        lastMessageSender: userEmail,
-        read: false,
-        readBy: [],
-    });
-
-    // You may use this enriched data for further processing such as saving to a DB or sending an email.
-    // console.log('Enriched Data:', form1Data.fullName || '');
-    return true;
-};
-
-export async function updateCustomerFiles({ chatId, selectedFile, userEmail, messageValue, ipInfo, formattedTime }) {
-    if (!userEmail) {
-        throw new Error('The `userEmail` parameter is required for updateCustomerFiles.');
-    }
-
-    try {
 
 
-        // 4. Prepare storage reference using the Firebase Admin SDK
-        const bucket = storage.bucket('real-motor-japan.firebasestorage.app');
-        const filePath = `ChatFiles/${chatId}/${selectedFile.name}`;
-        const fileRef = bucket.file(filePath);
-
-        // 5. Retrieve the file data from the client File object directly by converting it into a Buffer
-        const arrayBuffer = await selectedFile.arrayBuffer();
-        const fileBuffer = Buffer.from(arrayBuffer);
-
-        // 6. Extract file extension (lowercase) and get IP details
-        const fileNameParts = selectedFile.name.split('.');
-        const fileExtension = fileNameParts.length > 1 ? fileNameParts.pop().toLowerCase() : '';
-        const ip = ipInfo.ip;
-        const ipCountry = ipInfo.country_name;
-        const ipCountryCode = ipInfo.country_code;
-
-        // SECURITY CHECKPOINT: disallow SVG files
-        if ((selectedFile.type && selectedFile.type === 'image/svg+xml') || fileExtension === 'svg') {
-            throw new Error('SVG files are not allowed to be uploaded.');
-        }
-
-        // Whitelist allowed file extensions:
-        const allowedExtensions = [
-            'jpg', 'jpeg', 'png',   // images
-            'pdf',                  // pdf
-            'doc', 'docx',          // word documents
-            'xls', 'xlsx',          // excel files
-        ];
-        if (!allowedExtensions.includes(fileExtension)) {
-            throw new Error(`Uploading .${fileExtension} files is not allowed for security reasons.`);
-        }
-
-        // 6. Determine file type and default message text
-        let fileType = '';
-        let messageText = '';
-        if (['jpg', 'jpeg', 'png'].includes(fileExtension)) {
-            fileType = 'image';
-            messageText = 'Sent an image';
-        } else if (['pdf', 'xlsx', 'doc', 'docx', 'xls'].includes(fileExtension)) {
-            fileType = 'attachment';
-            messageText = 'Sent a link';
-        } else {
-            fileType = 'link';
-            messageText = 'Sent a link';
-        }
-
-        // Debug log file size on server (using Buffer's byte length)
-        console.log('File size:', fileBuffer.length);
-
-        // 7. Upload the file to Firebase Storage using the Admin SDK
-        await fileRef.save(fileBuffer, {
-            metadata: {
-                contentType: selectedFile.type || 'application/octet-stream',
-            }
-        });
-
-        await fileRef.makePublic();
 
 
-        // Generate a signed URL for the uploaded file valid for 24 hours.
-        const downloadURL = `https://storage.googleapis.com/${bucket.name}/${filePath}`;
-
-        // 8. Create a new message document in Firestore using the Admin SDK
-        const messagesCollectionRef = db.collection('chats').doc(chatId).collection('messages');
-        const newMessageDocRef = messagesCollectionRef.doc();
-        const messageData = {
-            sender: userEmail,
-            text: messageValue,
-            timestamp: formattedTime,
-            file: {
-                url: downloadURL,
-                type: fileType,
-                name: selectedFile.name,
-            },
-            ip: ip,
-            ipCountry: ipCountry,
-            ipCountryCode: ipCountryCode,
-        };
-
-        await newMessageDocRef.set(messageData);
-
-        // 9. Update the "chats" collection to reflect the new message
-        const chatDocRef = db.collection('chats').doc(chatId);
-        await chatDocRef.update({
-            lastMessage: messageValue || messageText,
-            lastMessageDate: formattedTime,
-            lastMessageSender: userEmail,
-            read: false,
-            readBy: [],
-        });
-
-        return { success: true, downloadURL };
-    } catch (error) {
-        console.error('Error uploading file:', error);
-        throw error;
-    }
-};
 
 
-export async function updatePaymentNotifications({ nameOfRemitter, calendarETD, chatId, selectedFile, userEmail, messageValue, ipInfo, formattedTime }) {
-    try {
-
-        // 4. Prepare storage reference using the Firebase Admin SDK
-        const bucket = storage.bucket('real-motor-japan.firebasestorage.app');
-        const filePath = `ChatFiles/${chatId}/${selectedFile.name}`;
-        const fileRef = bucket.file(filePath);
-
-        // 5. Retrieve the file data from the client File object directly by converting it into a Buffer
-        const arrayBuffer = await selectedFile.arrayBuffer();
-        const fileBuffer = Buffer.from(arrayBuffer);
-
-        // 6. Extract file extension (lowercase) and get IP details
-        const fileNameParts = selectedFile.name.split('.');
-        const fileExtension = fileNameParts.length > 1 ? fileNameParts.pop().toLowerCase() : '';
-        const ip = ipInfo.ip;
-        const ipCountry = ipInfo.country_name;
-        const ipCountryCode = ipInfo.country_code;
-
-        // SECURITY CHECKPOINT: disallow SVG files
-        if ((selectedFile.type && selectedFile.type === 'image/svg+xml') || fileExtension === 'svg') {
-            throw new Error('SVG files are not allowed to be uploaded.');
-        }
-
-        // Whitelist allowed file extensions:
-        const allowedExtensions = [
-            'jpg', 'jpeg', 'png',   // images
-            'pdf',                  // pdf
-            'doc', 'docx',          // word documents
-            'xls', 'xlsx',          // excel files
-        ];
-        if (!allowedExtensions.includes(fileExtension)) {
-            throw new Error(`Uploading .${fileExtension} files is not allowed for security reasons.`);
-        }
-
-        // 6. Determine file type and default message text
-        let fileType = '';
-        let messageText = '';
-        if (['jpg', 'jpeg', 'png'].includes(fileExtension)) {
-            fileType = 'image';
-            messageText = 'Sent an image';
-        } else if (['pdf', 'xlsx', 'doc', 'docx', 'xls'].includes(fileExtension)) {
-            fileType = 'attachment';
-            messageText = 'Sent a link';
-        } else {
-            fileType = 'link';
-            messageText = 'Sent a link';
-        }
-
-        // Debug log file size on server (using Buffer's byte length)
-        console.log('File size:', fileBuffer.length);
-
-        // 7. Upload the file to Firebase Storage using the Admin SDK
-        await fileRef.save(fileBuffer, {
-            metadata: {
-                contentType: selectedFile.type || 'application/octet-stream',
-            }
-        });
-
-        await fileRef.makePublic();
-
-        // Generate a signed URL for the uploaded file valid for 24 hours.
-        const downloadURL = `https://storage.googleapis.com/${bucket.name}/${filePath}`;
-
-        // 8. Create a new message document in Firestore using the Admin SDK
-        const messagesCollectionRef = db.collection('chats').doc(chatId).collection('messages');
-        const newMessageDocRef = messagesCollectionRef.doc();
-        const messageData = {
-            sender: userEmail,
-            text: messageValue,
-            timestamp: formattedTime,
-            file: {
-                url: downloadURL,
-                type: fileType,
-                name: selectedFile.name,
-            },
-            ip: ip,
-            ipCountry: ipCountry,
-            ipCountryCode: ipCountryCode,
-        };
-
-        await newMessageDocRef.set(messageData);
-
-        // 9. Update the "chats" collection to reflect the new message
-        const chatDocRef = db.collection('chats').doc(chatId);
-        await chatDocRef.update({
-            lastMessage: messageValue || messageText,
-            lastMessageDate: formattedTime,
-            lastMessageSender: userEmail,
-            read: false,
-            readBy: [],
-            paymentNotification: {
-                uploadPaymentDate: calendarETD,
-                nameOfRemitter: nameOfRemitter,
-                fileName: selectedFile.name,
-                url: downloadURL
-            }
-        });
-
-        return { success: true, downloadURL };
-    } catch (error) {
-        console.error('Error uploading file:', error);
-        throw error;
-    }
-
-};
 
 export async function updateInvoice(form1Data, form2Data, chatId, userEmail, isChecked, sameAsConsignee, ipInfo, formattedTime) {
     const removeAccents = (str) =>
@@ -1045,23 +627,7 @@ export async function getCurrentFtpId() {
     }
 };
 
-export async function fetchServerTime() {
-    try {
-        const [tokyoTimeResponse] = await Promise.all([
-            fetch('https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time', {
-                headers: { 'Origin': 'https://seo-conversion--real-motor-japan.asia-east1.hosted.app' }
-            })
-        ]);
-        const tokyoTime = await tokyoTimeResponse.json();
 
-        // data.datetime is expected in "YYYY/MM/DD HH:mm:ss.SSS"
-        const momentDate = moment(tokyoTime.datetime, "YYYY/MM/DD HH:mm:ss.SSS");
-        return momentDate.format("MMMM D, YYYY [at] h:mm:ss A [UTC]Z");
-    } catch (err) {
-        console.error("fetchServerTime error:", err);
-        throw err;
-    }
-}
 
 
 export async function submitJackallClient({
@@ -1214,12 +780,19 @@ export async function makeFavorite({ product, userEmail }) {
     }
 
     const tokyoTime = await tokyoTimeResponse.json();
-    const momentDate = moment(tokyoTime?.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');
 
-    const year = momentDate.format('YYYY');
-    const month = momentDate.format('MM');
-    const day = momentDate.format('DD');
-    const time = momentDate.format('HH:mm:ss');
+    // 6. REPLACED MOMENT with date-fns
+    // Original: const momentDate = moment(tokyoTime?.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');
+    const date = parse(tokyoTime?.datetime, 'yyyy/MM/dd HH:mm:ss.SSS', new Date());
+
+    // Original: const year = momentDate.format('YYYY');
+    const year = format(date, 'yyyy');
+    // Original: const month = momentDate.format('MM');
+    const month = format(date, 'MM');
+    // Original: const day = momentDate.format('DD');
+    const day = format(date, 'dd');
+    // Original: const time = momentDate.format('HH:mm:ss');
+    const time = format(date, 'HH:mm:ss');
 
     const dateOfTransaction = `${year}/${month}/${day} at ${time}`;
 
@@ -1655,3 +1228,33 @@ export async function fetchChatCountForVehicle(stockID) {
     }
 }
 
+
+export async function fetchD2DCountries() {
+    try {
+        // 2. Construct the reference down to the sub-collection
+        const countriesRef = db
+            .collection('CustomerCountryPort') // Root Collection
+            .doc('CountriesDoc')               // Specific Doc ID
+            .collection('D2DCountries');       // Target Sub-collection
+
+        // 3. Fetch the snapshot
+        const snapshot = await countriesRef.get();
+
+        if (snapshot.empty) {
+            console.log('No matching documents.');
+            return [];
+        }
+
+        // 4. Map the data into a usable array
+        const countriesData = snapshot.docs.map(doc => ({
+            id: doc.id,       // It's good practice to include the Doc ID
+            ...doc.data()     // Spread the actual data fields
+        }));
+
+        return countriesData;
+
+    } catch (error) {
+        console.error('Error fetching countries:', error);
+        throw error;
+    }
+}

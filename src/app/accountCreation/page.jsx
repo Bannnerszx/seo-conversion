@@ -1,6 +1,5 @@
 import AccounCreationCSR from "./accountCreationComponent/AccountCreation";
-import { getCountries, getAccountData, getOldId, getCurrentFtpId, fetchServerTime } from "../actions/actions";
-import { admin } from "@/lib/firebaseAdmin";
+import { getCountries, getAccountData, getOldId, getCurrentFtpId } from "../actions/actions";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import ClientAppCheck from "../../../firebase/ClientAppCheck";
@@ -36,7 +35,7 @@ export default async function AccountCreation() {
   // 7️⃣ Verify via /api/verify-session
   let userEmail = null
   try {
-    const origin = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+    const origin = process.env.NEXT_PUBLIC_APP_URL || "https://www.realmotor.jp"
     const verifyRes = await fetch(`${origin}/api/verify-session`, {
       method: "GET",
       headers: {

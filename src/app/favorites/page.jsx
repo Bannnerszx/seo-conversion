@@ -6,22 +6,22 @@ import FavoritesPageCSR from "./favoriteComponents/favoriteMain";
 import { fetchCurrency } from "../../../services/fetchFirebaseData";
 
 import {
-    fetchFavoriteStockIds, getDataFromStockId, getAccountData,
-    fetchNotificationCounts, checkUserExist
+  fetchFavoriteStockIds, getDataFromStockId, getAccountData,
+  checkUserExist
 } from "../actions/actions";
 import ClientAppCheck from "../../../firebase/ClientAppCheck";
 
 export async function generateMetadata({ params }) {
-    return {
-        title: 'Favorites | REAL MOTOR JAPAN',
-        description: 'Favorites',
-    }
+  return {
+    title: 'Favorites | REAL MOTOR JAPAN',
+    description: 'Favorites',
+  }
 };
 
 export default async function FavoritePage() {
   // 1️⃣ Read comma-separated list of all legacy cookie names and the current cookie name
-  const OLD_NAMES_ENV = process.env.OLD_SESSION_COOKIE_NAMES 
-  const COOKIE_NAME   = process.env.SESSION_COOKIE_NAME  
+  const OLD_NAMES_ENV = process.env.OLD_SESSION_COOKIE_NAMES
+  const COOKIE_NAME = process.env.SESSION_COOKIE_NAME
 
   // 2️⃣ Convert the legacy names string into an array
   const oldNames = OLD_NAMES_ENV
@@ -50,7 +50,7 @@ export default async function FavoritePage() {
   // 7️⃣ Verify via /api/verify-session
   let userEmail = null
   try {
-    const origin = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+    const origin = process.env.NEXT_PUBLIC_APP_URL || "https://www.realmotor.jp"
     const verifyRes = await fetch(`${origin}/api/verify-session`, {
       method: "GET",
       headers: {
@@ -88,7 +88,7 @@ export default async function FavoritePage() {
   )
 
   // 1️⃣1️⃣ Fetch additional data
-  const currency    = await fetchCurrency()
+  const currency = await fetchCurrency()
   const accountData = await getAccountData(userEmail)
 
   // 1️⃣2️⃣ Render the authenticated Favorites page

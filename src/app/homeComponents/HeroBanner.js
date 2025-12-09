@@ -1,9 +1,8 @@
-
 import Image from "next/image";
 import Car from "../components/Car";
 import samplebanner3 from "../../../public/samplebanner3.webp"
-export default function HeroBanner({ unsoldVehicleCount }) {
-
+import samplebanner3Mobile from "../../../public/samplebanner3Mobile.jpg";
+export default function HeroBanner({ unsoldVehicleCount, isMobile }) {
   return (
     <div className="relative w-full overflow-hidden z-10">
       <div className="absolute bottom-16 right-4 z-20 font-semibold px-3 py-1 rounded-full shadow-md flex items-center gap-3">
@@ -20,15 +19,36 @@ export default function HeroBanner({ unsoldVehicleCount }) {
           <h2 className="text-[1rem] md:text-[1.5rem] text-shadow-custom text-white">Units Available</h2>
         </div>
       </div>
-      <div className="relative w-full h-[720px]">
-        <Image
-          src={samplebanner3}
-          alt="Hero banner"
-          width={1220}
-          height={720}
-          className="h-full w-full object-cover object-center"
-          priority
-        />
+
+      <div className="relative w-full h-[350px] md:h-[720px]">
+
+        {/* 2. Mobile Image: Visible only on mobile (md:hidden) */}
+        <div className="block md:hidden absolute inset-0">
+          <Image
+            src={samplebanner3Mobile}
+            alt="Hero banner"
+            fill
+            sizes="100vw"
+            className="h-full w-full object-cover object-center"
+            priority={true} // 'priority' already includes fetchPriority=
+            quality={40}
+            fetchPriority="high"
+          />
+        </div>
+
+        {/* 3. Desktop Image: Visible only on desktop (hidden md:block) */}
+        <div className="hidden md:block absolute inset-0">
+          <Image
+            src={samplebanner3}
+            alt="Hero banner"
+            fill
+            sizes="100vw"
+            className="object-cover object-center"
+            priority={!isMobile}
+            quality={60}
+
+          />
+        </div>
       </div>
 
       <div className="absolute top-0 left-0 w-full h-full bg-black bg-opacity-5 flex justify-center items-center">
@@ -42,6 +62,5 @@ export default function HeroBanner({ unsoldVehicleCount }) {
         </div>
       </div>
     </div>
-
   );
 }

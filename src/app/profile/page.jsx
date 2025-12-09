@@ -8,8 +8,8 @@ import ClientAppCheck from "../../../firebase/ClientAppCheck";
 
 export async function generateMetadata({ params }) {
     return {
-        title: 'Profile | REAL MOTOR JAPAN',
-        description: 'Orders',
+        title: 'Profile',
+        description: 'Profile',
     }
 };
 
@@ -45,7 +45,7 @@ export default async function OrderPage() {
   // 7️⃣ Verify via /api/verify-session
   let userEmail = null
   try {
-    const origin = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+    const origin = process.env.NEXT_PUBLIC_APP_URL || "https://www.realmotor.jp"
     const verifyRes = await fetch(`${origin}/api/verify-session`, {
       method: "GET",
       headers: {

@@ -8,9 +8,7 @@ import { Calendar, MapPin, Ship, Info, X, Package, FileText, ExternalLink, Check
 import TimelineStatus from "@/app/chats/chatComponents/timelineStatus"
 import { fetchBookingData, fetchInvoiceData } from "@/app/actions/actions";
 import PreviewInvoice from "@/app/chats/chatComponents/previewInvoice";
-import { doc, query, collection, where, orderBy, limit as qlimit, onSnapshot, startAfter, getDocs, updateDoc, documentId, getDoc } from "firebase/firestore"
-import { firestore } from "../../../../firebase/clientApp"
-
+import { getFirebaseFirestore } from "../../../../firebase/clientApp"
 // 1️⃣ Define a single lookup object:
 
 const LIVE_LIMIT = 20;
@@ -850,7 +848,13 @@ async function fetchInvoice(invoiceNumber) {
     let result = { invoiceData: null, formattedDate: "No due date available" };
 
     try {
-        const invSnap = await getDoc(doc(firestore, "IssuedInvoice", invoiceNumber));
+        // ✅ REFACTORED: Dynamic import pattern
+        const [db, { doc, getDoc }] = await Promise.all([
+            getFirebaseFirestore(),
+            import("firebase/firestore")
+        ]);
+
+        const invSnap = await getDoc(doc(db, "IssuedInvoice", invoiceNumber));
         if (invSnap.exists()) {
             const invoiceData = invSnap.data();
             const formattDate = formatDueDate(invoiceData?.bankInformations?.dueDate);
@@ -901,14 +905,19 @@ async function loadMoreData(userEmail, callback) {
     }
 
     try {
+        // ✅ REFACTORED: Dynamic import pattern
+        // Note: extracting 'limit' as 'qlimit' to match your original code
+        const [db, { collection, query, where, orderBy, documentId, startAfter, limit: qlimit, getDocs }] = await Promise.all([
+            getFirebaseFirestore(),
+            import("firebase/firestore")
+        ]);
+
         const nextQuery = query(
-            collection(firestore, 'chats'),
+            collection(db, 'chats'),
             where('participants.customer', '==', userEmail),
-            // Use `in` so we can avoid ordering by stepIndicator while still filtering
             where('stepIndicator.value', 'in', [3, 4, 5, 6, 7]),
             orderBy("lastMessageDate", "desc"),
             orderBy(documentId(), "desc"),
-            // use the last document snapshot as the cursor
             startAfter(lastCursor),
             qlimit(PAGE_SIZE)
         );
@@ -918,7 +927,6 @@ async function loadMoreData(userEmail, callback) {
         moreChats = await hydrateMissingInvoice(moreChats);
 
         if (snap.docs.length > 0) {
-            // store the DocumentSnapshot for the last doc so we can use it as a cursor
             lastCursor = snap.docs[snap.docs.length - 1];
         }
         const noMore = snap.docs.length < PAGE_SIZE;
@@ -926,7 +934,6 @@ async function loadMoreData(userEmail, callback) {
     } catch (err) {
         console.error("Error loading more chats:", err);
         callback([], true)
-
     }
 }
 
@@ -964,62 +971,72 @@ export default function Component({ prefetchedData = [], currency, userEmail }) 
         })
     }, [prefetchedData])
 
-    const liveQuery = useMemo(() => {
-        if (!userEmail) return null;
-        return query(
-            collection(firestore, 'chats'),
-            where('participants.customer', '==', userEmail),
-            where('stepIndicator.value', 'in', [3,4,5,6,7]),
-            orderBy('lastMessageDate', "desc"),
-            orderBy(documentId(), "desc"),
-            qlimit(LIVE_LIMIT)
-        );
-    }, [userEmail])
 
-    useEffect(() => {
-        if (!liveQuery) return;
+useEffect(() => {
+        let unsub = () => {};
+        if (!userEmail) return;
 
-        const unsub = onSnapshot(liveQuery, async (snap) => {
-            const liveRaw = snap.docs.map((d) => norm({ id: d.id, ...d.data() }));
+        const setupSubscription = async () => {
+            try {
+                // ✅ REFACTORED: Dynamic import pattern
+                const [db, { collection, query, where, orderBy, documentId, limit: qlimit, onSnapshot }] = await Promise.all([
+                    getFirebaseFirestore(),
+                    import("firebase/firestore")
+                ]);
 
-            //carry over invoice from previous state to avoid flicker
-            setChatList((prev) => {
-                const live = snap.docs.map((d) => norm({ id: d.id, ...d.data() })).filter(Boolean);
-
-                // carry over existing invoice (optional, avoids flicker)
-                const prevMap = new Map(prev.map((x) => [x.id, x]));
-                const liveCarry = live.map((c) => (c.invoice || !prevMap.get(c.id)?.invoice)
-                    ? c
-                    : { ...c, invoice: prevMap.get(c.id).invoice }
+                const q = query(
+                    collection(db, 'chats'),
+                    where('participants.customer', '==', userEmail),
+                    where('stepIndicator.value', 'in', [3, 4, 5, 6, 7]),
+                    orderBy('lastMessageDate', "desc"),
+                    orderBy(documentId(), "desc"),
+                    qlimit(LIVE_LIMIT)
                 );
 
-                const liveIds = new Set(liveCarry.map((x) => x.id));
-                const older = prev.filter((x) => x && !liveIds.has(x.id));
+                unsub = onSnapshot(q, async (snap) => {
+                    const liveRaw = snap.docs.map((d) => norm({ id: d.id, ...d.data() }));
 
-                const merged = [...liveCarry, ...older].filter(Boolean).sort(sortChats);
+                    setChatList((prev) => {
+                        const live = snap.docs.map((d) => norm({ id: d.id, ...d.data() })).filter(Boolean);
+                        const prevMap = new Map(prev.map((x) => [x.id, x]));
+                        const liveCarry = live.map((c) => (c.invoice || !prevMap.get(c.id)?.invoice)
+                            ? c
+                            : { ...c, invoice: prevMap.get(c.id).invoice }
+                        );
 
-                // update lastCursor to the last document snapshot from this live snapshot
-                if (snap.docs && snap.docs.length > 0) {
-                    lastCursor = snap.docs[snap.docs.length - 1];
-                }
+                        const liveIds = new Set(liveCarry.map((x) => x.id));
+                        const older = prev.filter((x) => x && !liveIds.has(x.id));
 
-                return merged;
-            });
+                        const merged = [...liveCarry, ...older].filter(Boolean).sort(sortChats);
 
-            const live = await hydrateMissingInvoice(liveRaw);
-            setChatList((prev) => {
-                const map = new Map(prev.map((x) => [x.id, x]));
-                live.forEach((c) => map.set(c.id, { ...map.get(c.id), ...c }));
-                const merged = Array.from(map.values()).sort(sortChats);
-                if (snap.docs && snap.docs.length > 0) {
-                    lastCursor = snap.docs[snap.docs.length - 1];
-                }
-                return merged;
-            });
-        });
+                        if (snap.docs && snap.docs.length > 0) {
+                            lastCursor = snap.docs[snap.docs.length - 1];
+                        }
+
+                        return merged;
+                    });
+
+                    const live = await hydrateMissingInvoice(liveRaw);
+                    setChatList((prev) => {
+                        const map = new Map(prev.map((x) => [x.id, x]));
+                        live.forEach((c) => map.set(c.id, { ...map.get(c.id), ...c }));
+                        const merged = Array.from(map.values()).sort(sortChats);
+                        if (snap.docs && snap.docs.length > 0) {
+                            lastCursor = snap.docs[snap.docs.length - 1];
+                        }
+                        return merged;
+                    });
+                });
+            } catch (err) {
+                console.error("Error setting up subscription:", err);
+            }
+        };
+
+        setupSubscription();
 
         return () => unsub();
-    }, [liveQuery])
+    }, [userEmail])
+
     //added reusable loadMore callback
     const loadMore = useCallback(() => {
         if (!hasMore || loadingMore) return;

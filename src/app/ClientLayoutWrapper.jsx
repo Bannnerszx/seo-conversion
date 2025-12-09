@@ -3,10 +3,12 @@ import { usePathname } from "next/navigation";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
 import { DynamicBreadcrumbs } from "./components/Breadcrumbs";
-import React, { useRef, useState, useLayoutEffect, } from 'react';
+import React, { useRef, useState, useEffect, } from 'react';
+import { markBannerAsSeen } from "./actions/actions";
 
-export default function ClientLayoutWrapper({ children, currency, userEmail }) {
+export default function ClientLayoutWrapper({ children, currency, userEmail, initialShowBanner }) {
   const pathname = usePathname();
+
 
   // Paths where we never show the header
   const headerHidePrefixes = [
@@ -19,10 +21,10 @@ export default function ClientLayoutWrapper({ children, currency, userEmail }) {
 
   // Paths where we never show the footer
   const footerHideExact = [
-    "/login", "/login/","/favorites","/orders","/profile",
+    "/login", "/login/", "/favorites", "/orders", "/profile",
     "/accountCreation", "/accountCreation/",
     "/forgotpassword", "/forgotpassword/",
-    "/signup", "/signup/", "/chats", "/chats/","/error"
+    "/signup", "/signup/", "/chats", "/chats/", "/error"
   ];
 
   // Breadcrumbs logic stays the same
@@ -53,14 +55,11 @@ export default function ClientLayoutWrapper({ children, currency, userEmail }) {
   const headerRef = useRef(null);
   const [breadcrumbTop, setBreadcrumbTop] = useState(0);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const updateBreadcrumbTop = () => {
       const el = headerRef.current;
       if (el) {
-        // offsetTop = distance from parent container’s top
-        // offsetHeight = height of that div (zero if nothing is rendered)
         const bottom = el.offsetTop + el.offsetHeight;
-        console.log(bottom, 'y axis')
         setBreadcrumbTop(bottom);
       } else {
         setBreadcrumbTop(0);
@@ -73,7 +72,11 @@ export default function ClientLayoutWrapper({ children, currency, userEmail }) {
   }, [hideHeader, showBanner]);
 
 
-
+  useEffect(() => {
+    if (initialShowBanner) {
+      markBannerAsSeen();
+    }
+  }, [initialShowBanner]);
   return (
     <div className="flex flex-col overflow-x-clip">
 
@@ -84,8 +87,11 @@ export default function ClientLayoutWrapper({ children, currency, userEmail }) {
 
       <div className="relative">
         {!hideBreadcrumbs && (
-          <div className={`${showBanner ? `mt-32`:`mt-28`} px-6`}>
-            <DynamicBreadcrumbs maxItems={5} />
+          <div className={`relative transition-[margin] duration-300 ${showBanner ? 'mt-32' : 'mt-28'} px-6`}>
+
+            <div className="min-h-[24px]">
+              <DynamicBreadcrumbs maxItems={5} />
+            </div>
           </div>
         )}
         {children}

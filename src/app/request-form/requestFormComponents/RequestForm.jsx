@@ -8,8 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Car, Sparkles, Shield, FileCheck, Check } from "lucide-react"
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 import { Command, CommandItem, CommandInput, CommandList, CommandEmpty, CommandGroup } from "@/components/ui/command"
-import { functions } from "../../../../firebase/clientApp"
-import { httpsCallable } from "firebase/functions"
+import { getFirebaseFunctions } from "../../../../firebase/clientApp"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { DialogDescription } from "@radix-ui/react-dialog"
 const COLORS = [
@@ -101,20 +100,23 @@ async function warmUpNetwork() {
         });
 
         // perform two quick fetches spaced out to avoid hammering but to warm DNS/TCP
-        await retryableCall(fetchJson("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo"), null).catch(() => { });
+        await retryableCall(fetchJson("https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo"), null).catch(() => { });
         await new Promise((r) => setTimeout(r, 500));
-        await retryableCall(fetchJson("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time"), null).catch(() => { });
+        await retryableCall(fetchJson("https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time"), null).catch(() => { });
     } catch (e) {
         // don't escalate: warm-up is best-effort
         // console.debug('Warm-up failed', e);
     }
 }
 export default function RequestForm({ countryArray, carMakes, accountData }) {
-    const [successOpen, setSuccessOpen] = useState(false);
+   const [successOpen, setSuccessOpen] = useState(false);
     const [submitAttempted, setSubmitAttempted] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState(null);
-    const saveCarRequest = httpsCallable(functions, 'saveCarRequest')
+    
+    // 3. Remove top-level callable definition
+    // const saveCarRequest = httpsCallable(functions, 'saveCarRequest')
+    
     const REQUIRED = ["make", "model", "year", "priceRangeMin", "priceRangeMax", "country", "port"];
     const isEmpty = (v) => String(v ?? "").trim() === "";
     const formRef = useRef(null);
@@ -153,8 +155,8 @@ export default function RequestForm({ countryArray, carMakes, accountData }) {
         (async () => {
             try {
                 const [ip, time] = await Promise.all([
-                    retryableCall(fetchJson("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo")),
-                    retryableCall(fetchJson("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time")),
+                    retryableCall(fetchJson("https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo")),
+                    retryableCall(fetchJson("https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time")),
                 ]);
                 if (!mounted) return;
                 setIpInfo(ip ?? null);
@@ -475,8 +477,8 @@ export default function RequestForm({ countryArray, carMakes, accountData }) {
             });
 
             const [freshIp, freshTime] = await Promise.all([
-                retryableCall(fetchJson("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo")),
-                retryableCall(fetchJson("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time")),
+                retryableCall(fetchJson("https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo")),
+                retryableCall(fetchJson("https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time")),
             ]);
             currentIpInfo = freshIp;
             currentTokyoTime = freshTime;
@@ -497,6 +499,13 @@ export default function RequestForm({ countryArray, carMakes, accountData }) {
                 requestedBy: accountData.textEmail,
                 submissionId: submissionId
             };
+
+            // 4. Dynamic Loading inside submit handler
+            const [functionsInstance, { httpsCallable }] = await Promise.all([
+                getFirebaseFunctions(),
+                import("firebase/functions")
+            ]);
+            const saveCarRequest = httpsCallable(functionsInstance, 'saveCarRequest');
 
             const result = await saveCarRequest(payload);
             setSubmitAttempted(false);

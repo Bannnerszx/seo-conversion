@@ -1,6 +1,5 @@
 "use client"
-import { functions } from "../../../../firebase/clientApp"
-import { httpsCallable } from "firebase/functions"
+import { getFirebaseFunctions } from "../../../../firebase/clientApp"
 import { useState, useRef } from "react"
 import { X, MapPin } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -11,13 +10,12 @@ import { Label } from "@/components/ui/label"
 import Modal from "@/app/components/Modal"
 import { VirtualizedCombobox } from "@/app/components/VirtualizedCombobox"
 import { cn } from "@/lib/utils"
-import { docDelivery, getCities } from "@/app/actions/actions"
+import { getCities } from "@/app/actions/actions"
 
 // Sample customer data for demonstration
 
 export default function DocumentAddress({ accountData, countryList, setOrderModal, chatId, userEmail }) {
-
-    // Initialize refs for form data
+// Initialize refs for form data
     const [useCustomerInfo, setUseCustomerInfo] = useState(false)
     const [copyFromForm1, setCopyFromForm1] = useState(false)
     const [showAdditionalPhone, setShowAdditionalPhone] = useState(false)
@@ -137,8 +135,8 @@ export default function DocumentAddress({ accountData, countryList, setOrderModa
     // --- Form 2 (Billing Information) State ---
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Handle form submission
-    const docDeliveryFunction = httpsCallable(functions, 'docDelivery')
+    // 3. Remove top-level callable definition
+    // const docDeliveryFunction = httpsCallable(functions, 'docDelivery')
 
 
     // Add state for tracking field errors (add this to your component state)
@@ -234,10 +232,10 @@ export default function DocumentAddress({ accountData, countryList, setOrderModa
         setIsSubmitting(true);
         const [ipResp, timeResp] = await Promise.all([
             fetch(
-                "https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo"
+                "https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo"
             ),
             fetch(
-                "https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time"
+                "https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time"
             ),
         ]);
         const [ipInfo, tokyoTime] = await Promise.all([
@@ -276,6 +274,13 @@ export default function DocumentAddress({ accountData, countryList, setOrderModa
 
         // Collect data for Form 2 (Billing Information)
         try {
+            // 4. Load Functions Dynamically here
+            const [functionsInstance, { httpsCallable }] = await Promise.all([
+                getFirebaseFunctions(),
+                import("firebase/functions")
+            ]);
+            const docDeliveryFunction = httpsCallable(functionsInstance, 'docDelivery');
+
             const { data } = await docDeliveryFunction({ form1Data, chatId, userEmail, ipInfo, tokyoTime });
             if (data.success) {
                 console.log("✅ Delivered!");

@@ -1,17 +1,15 @@
 "use client"
-import { functions } from "../../../../firebase/clientApp"
-import { httpsCallable } from "firebase/functions"
-import { useState, useEffect, useRef, use } from "react"
+import { useState, useEffect, useRef,  } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { CheckCircle, AlertTriangle, X, Copy } from "lucide-react"
 import Modal from "@/app/components/Modal"
 import Loader from "@/app/components/Loader"
-import moment from "moment"
-import { firestore } from "../../../../firebase/clientApp";
-import { runTransaction, doc, increment } from "firebase/firestore"
+// 1. Remove moment, import date-fns
+import { format, parse } from "date-fns"
 import { submitJackallClient, submitUserData } from "@/app/actions/actions";
 import { FloatingAlertPortal } from "./floatingAlert"
+import { getFirebaseFunctions, getFirebaseFirestore } from "../../../../firebase/clientApp"
 
 export default function OrderButton({ handlePreviewInvoiceModal, context, setIsHidden, ipInfo, tokyoTime, accountData, isOrderMounted, setIsOrderMounted, userEmail, chatId, selectedChatData, countryList, invoiceData, anchor = false }) {
     // ... (useEffect and other logic remains unchanged) ...
@@ -41,49 +39,73 @@ export default function OrderButton({ handlePreviewInvoiceModal, context, setIsH
             if (!response.ok) console.error("Failed to append data to CSV:", response.statusText);
         } catch (error) { console.error("Upload error:", error); }
     };
+
     // ... (Keep prepareSalesData, assignSalesInfoIdViaCallable, assignSalesInfoIdViaLocalTxn, getOrAssignedSalesInfoId, deleteFromTcvBoth unchanged) ...
     const prepareSalesData = (newId, formattedSalesDate, selectedChatData, accountData) => ({ id: `${newId}`, stock_system_id: selectedChatData?.carData?.jackall_id || "", sales_date: formattedSalesDate, fob: 0, freight: 0, insurance: 0, inspection: 0, cost_name1: "0", cost1: 0, cost_name2: "0", cost2: 0, cost_name3: "0", cost3: 0, cost_name4: "0", cost4: 0, cost_name5: "0", cost5: 0, coupon_discount: 0, price_discount: 0, subtotal: 0, clients: accountData.client_id || "", sales_pending: "1", });
-    const assignSalesInfoIdViaCallable = async (chatId) => { const callable = httpsCallable(functions, 'processJackallSalesInfo'); const res = await callable({ chatId }); return res.data };
-    const assignSalesInfoIdViaLocalTxn = async (chatId) => { const countsDocRef = doc(firestore, 'counts', 'jackall_ids'); const chatDocRef = doc(firestore, 'chats', chatId); const { resultindId, wasNew } = await runTransaction(firestore, async (tx) => { const [countsSnap, chatSnap] = await Promise.all([tx.get(countsDocRef), tx.get(chatDocRef)]); if (!chatSnap.exists()) throw new Error(`Chat ${chatId} missing`); if (!countsSnap.exists()) throw new Error('counts/jackall_ids missing'); const chatData = chatSnap.data() || {}; if (chatData.salesInfoId != null) { return { resultingId: chatData.salesInfoId, wasNew: false } } const currentId = countsSnap.get('sales-info-id') ?? 0; const nextId = currentId + 1; tx.update(chatDocRef, { salesInfoId: nextId }); tx.update(countsDocRef, { 'sales-info-id': increment(1) }); return { resultingId: nextId, wasNew: true } }); return { resultindId, wasNew } };
+    const assignSalesInfoIdViaCallable = async (chatId) => {
+        const [functionsInstance, { httpsCallable }] = await Promise.all([
+            getFirebaseFunctions(),
+            import("firebase/functions")
+        ]);
+        const callable = httpsCallable(functionsInstance, 'processJackallSalesInfo');
+        const res = await callable({ chatId });
+        return res.data
+    };
+    const assignSalesInfoIdViaLocalTxn = async (chatId) => {
+        const [db, { doc, runTransaction, increment }] = await Promise.all([
+            getFirebaseFirestore(),
+            import("firebase/firestore")
+        ]);
+
+        const countsDocRef = doc(db, 'counts', 'jackall_ids');
+        const chatDocRef = doc(db, 'chats', chatId);
+
+        const { resultindId, wasNew } = await runTransaction(db, async (tx) => {
+            const [countsSnap, chatSnap] = await Promise.all([tx.get(countsDocRef), tx.get(chatDocRef)]);
+            if (!chatSnap.exists()) throw new Error(`Chat ${chatId} missing`);
+            if (!countsSnap.exists()) throw new Error('counts/jackall_ids missing');
+            const chatData = chatSnap.data() || {};
+            if (chatData.salesInfoId != null) { return { resultingId: chatData.salesInfoId, wasNew: false } }
+            const currentId = countsSnap.get('sales-info-id') ?? 0;
+            const nextId = currentId + 1;
+            tx.update(chatDocRef, { salesInfoId: nextId });
+            tx.update(countsDocRef, { 'sales-info-id': increment(1) });
+            return { resultingId: nextId, wasNew: true }
+        });
+        return { resultindId, wasNew }
+    };
     const delay = (ms) => new Promise((r) => setTimeout(r, ms));
     const getOrAssignedSalesInfoId = async (chatId) => { const serverPromise = assignSalesInfoIdViaCallable(chatId); const localPromise = (async () => { await delay(150); return assignSalesInfoIdViaLocalTxn(chatId) })(); let winner; try { winner = await Promise.any([serverPromise, localPromise]) } catch (error) { const [srv, loc] = await Promise.allSettled([serverPromise, localPromise]); const srvErr = srv.status === 'rejected' ? srv.reason?.message : null; const locErr = loc.status === 'rejected' ? loc.reason?.message : null; throw new Error(`Failed to assign salesInfoId (server: ${srvErr || 'ok'}, local: ${locErr || 'ok'})`); } Promise.allSettled([serverPromise, localPromise]).catch(() => { }); return winner; }
     const deleteFromTcvBoth = async () => { const apis = ['https://asia-northeast2-real-motor-japan.cloudfunctions.net/uploadToTcvSalesF', 'https://asia-northeast2-real-motor-japan.cloudfunctions.net/uploadToTcvSales']; const payload = [{ ItemType: 'Car', CommandType: 'Delete', ReferenceNo: selectedChatData?.carData?.referenceNumber || '', Title: '', Comments: '', Price: '', Currency: 'JPY', IsPayTrade: 'True', IsNew: 'False', IsAccident: 'False', IsDomestic: 'False', IsInternational: 'True', MakeID: '', ModelID: '', ChassisNo: '', GradeTrim: '', Year: '', Month: '', Mileage: '', ExteriorColorID: '', InteriorColorID: '', Door: '', BodyStyleID1: '', BodyStyleID2: '', Displacement: '', TransmissionID: '', DriveTypeID: '', Passengers: '', SteeringID: '', FuelTypeID: '', VINSerialNo: '', Length: '', Width: '', Height: '', MechanicalProblem: '', OptionIDs: '', Images: '', MileageOption: '', Staff: 'sales2', Comment: '', IsPostedOption: 'False' }]; for (const api of apis) { try { const response = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json', }, body: JSON.stringify(payload), }); if (!response.ok) { throw new Error(`Server at ${api} returned error: ${response.status}`); } } catch (error) { console.error(`Error sending data to ${api}:`, error); } } };
 
-    const setOrderItemFunction = httpsCallable(functions, 'setOrderItem')
+    const callSetOrderItem = async (payload) => {
+        const [functionsInstance, { httpsCallable }] = await Promise.all([
+            getFirebaseFunctions(),
+            import("firebase/functions")
+        ]);
+        const fn = httpsCallable(functionsInstance, 'setOrderItem');
+        return fn(payload);
+    };
+
     const navigatedToOrderedRef = useRef(false)
 
-
-
-
-
     // ... (performOrder and handleConfirm unchanged) ...
-    const performOrder = async (skipReservation = false, currentTokyoTime = null) => {
-        // Use fresh time if provided, otherwise fallback to prop
-        const timeToUse = currentTokyoTime || tokyoTime;
-        const momentDate = moment(timeToUse?.datetime, "YYYY/MM/DD HH:mm:ss.SSS");
-        const formattedSalesDate = momentDate.format('YYYY/MM/DD');
+    const performOrder = async (skipReservation = false) => {
+        // 2. REPLACED MOMENT: Date logic
+        // Original: const momentDate = moment(tokyoTime?.datetime, "YYYY/MM/DD HH:mm:ss.SSS");
+        // Original: const formattedSalesDate = momentDate.format('YYYY/MM/DD');
+        const parsedDate = parse(tokyoTime?.datetime, "yyyy/MM/dd HH:mm:ss.SSS", new Date());
+        const formattedSalesDate = format(parsedDate, 'yyyy/MM/dd');
 
         if (!skipReservation) {
-            const { data } = await setOrderItemFunction({
-                chatId,
-                userEmail,
-                ipInfo, // Note: This might still be stale if called directly, but handleConfirm handles the main flow
-                tokyoTime: timeToUse,
-                invoiceNumber: selectedChatData?.invoiceNumber,
-                stockID: selectedChatData?.carData?.stockID
-            });
-            if (!data.success) {
-                throw new Error("The order could not be confirmed by the server.")
-            }
+            // Use dynamic call
+            const { data } = await callSetOrderItem({ chatId, userEmail, ipInfo, tokyoTime, invoiceNumber: selectedChatData?.invoiceNumber, stockID: selectedChatData?.carData?.stockID });
+            if (!data.success) { throw new Error("The order could not be confirmed by the server.") }
         }
         const { resultingId, wasNew } = await getOrAssignedSalesInfoId(chatId);
         await submitJackallClient({ userEmail, newClientId: accountData?.client_id, firstName: accountData?.textFirst, lastName: accountData?.textLast, zip: accountData?.textZip, street: accountData?.textStreet, city: accountData?.city, phoneNumber: accountData?.textPhoneNumber, countryName: accountData?.country, note: '' });
         const salesData = prepareSalesData(resultingId, formattedSalesDate, selectedChatData, accountData);
-        if (wasNew) {
-            await uploadJackallSalesInfoData([salesData]);
-        } else {
-            console.log("SalesInfo upload skipped; salesInfoId was already present.")
-        }
+        if (wasNew) { await uploadJackallSalesInfoData([salesData]); } else { console.log("SalesInfo upload skipped; salesInfoId was already present.") }
         await deleteFromTcvBoth();
         return true
     }
@@ -91,32 +113,9 @@ export default function OrderButton({ handlePreviewInvoiceModal, context, setIsH
         if (isLoading) return;
         setIsLoading(true);
         try {
-            // Fetch fresh data immediately when button is clicked
-            const [ipResp, timeResp] = await Promise.all([
-                fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo"),
-                fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time")
-            ]);
-
-            // Fallback to props if fetch fails, but usually we want the fresh data
-            const freshIpInfo = ipResp.ok ? await ipResp.json() : ipInfo;
-            const freshTokyoTime = timeResp.ok ? await timeResp.json() : tokyoTime;
-
-            const { data } = await setOrderItemFunction({
-                chatId,
-                userEmail,
-                ipInfo: freshIpInfo,
-                tokyoTime: freshTokyoTime,
-                invoiceNumber: selectedChatData?.invoiceNumber,
-                stockID: selectedChatData?.carData?.stockID,
-                // ADD THESE LINES:
-                carName: selectedChatData?.carData?.carName || "Unknown Car",
-                imageUrl: selectedChatData?.carData?.imageUrl || "",
-                referenceNumber: selectedChatData?.carData?.referenceNumber || "" // or referenceNumber depending on your object structure
-            });
-
-            if (!data.success) {
-                throw new Error("The order could not be reserved by the server.")
-            }
+            // Use dynamic call
+            const { data } = await callSetOrderItem({ chatId, userEmail, ipInfo, tokyoTime, invoiceNumber: selectedChatData?.invoiceNumber, stockID: selectedChatData?.carData?.stockID });
+            if (!data.success) { throw new Error("The order could not be reserved by the server.") }
             setOrdered(true);
             setIsOrderMounted(false);
             handlePreviewInvoiceModal(false);
@@ -125,20 +124,15 @@ export default function OrderButton({ handlePreviewInvoiceModal, context, setIsH
                 navigatedToOrderedRef.current = true;
                 window.location.assign(targetPath)
             }
-
-            // Pass the fresh time to performOrder
-            performOrder(true, freshTokyoTime).catch((err) => {
+            performOrder(true).catch((err) => {
                 console.error('Background order continuation failed:', err);
                 try { setShowAlert(true) } catch (e) { }
             })
         } catch (error) {
             console.log("Order reservation failed:", error?.message || error);
             setShowAlert(true)
-        } finally {
-            setIsLoading(false)
-        }
+        } finally { setIsLoading(false) }
     }
-
     const [copied, setCopied] = useState(false)
     const copyInvoiceNumber = async () => { try { await navigator.clipboard.writeText(`RMJ-${selectedChatData?.invoiceNumber}`); setCopied(true); setTimeout(() => setCopied(false), 2000) } catch (err) { console.error("Failed to copy:", err) } }
 
@@ -218,8 +212,8 @@ export default function OrderButton({ handlePreviewInvoiceModal, context, setIsH
         const insurance = selectedChatData?.insurance ? fromUSD(50, targetCurrencyCode) : 0;
 
         // New costs
-        const clearing = selectedChatData?.clearing ? fromUSD(selectedChatData.clearingPrice || 0, targetCurrencyCode) : 0;
-        const delivery = selectedChatData?.delivery ? fromUSD(selectedChatData.deliveryPrice || 0, targetCurrencyCode) : 0;
+        const clearing = selectedChatData?.doorToDoor?.clearing ? fromUSD(selectedChatData.doorToDoor.clearingPrice || 0, targetCurrencyCode) : 0;
+        const delivery = selectedChatData?.doorToDoor?.delivery ? fromUSD(selectedChatData.doorToDoor.deliveryPrice || 0, targetCurrencyCode) : 0;
 
         amountInTarget = toNumber(amountInTarget, 0) + inspection + insurance + clearing + delivery;
     }

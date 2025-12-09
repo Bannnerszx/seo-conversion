@@ -1,10 +1,7 @@
 "use client"
+import { getFirebaseFunctions, getFirebaseFirestore } from "../../../../firebase/clientApp"
 import Link from "next/link"
-import { functions } from "../../../../firebase/clientApp"
-import { httpsCallable } from "firebase/functions"
 import { useState, useRef, useEffect, useCallback, useMemo } from "react"
-import { firestore } from "../../../../firebase/clientApp"
-import { doc, updateDoc } from "firebase/firestore"
 import { subscribeToChatDoc } from "./chatSubscriptions"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -82,9 +79,9 @@ async function warmUpNetwork() {
         });
 
         // perform two quick fetches spaced out to avoid hammering but to warm DNS/TCP
-        await retryableCall(fetchJson("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo"), null).catch(() => { });
+        await retryableCall(fetchJson("https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo"), null).catch(() => { });
         await new Promise((r) => setTimeout(r, 500));
-        await retryableCall(fetchJson("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time"), null).catch(() => { });
+        await retryableCall(fetchJson("https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time"), null).catch(() => { });
     } catch (e) {
         // don't escalate: warm-up is best-effort
         // console.debug('Warm-up failed', e);
@@ -94,8 +91,10 @@ async function warmUpNetwork() {
 export default function TransactionCSR({ loadingBooking, isLoadingTransaction, vehicleStatus, accountData, isMobileView, isDetailView, handleBackToList, bookingData, countryList, currency, dueDate, handleLoadMore, invoiceData, userEmail, contact, messages, onSendMessage, isLoading, chatId, chatMessages }) {
 
     const [newMessage, setNewMessage] = useState("");
-    const sendMessage = httpsCallable(functions, 'sendMessage');
-    const updateCustomerFiles = httpsCallable(functions, 'updateCustomerFiles');
+    // 3. Remove top-level httpsCallable definitions
+    // const sendMessage = httpsCallable(functions, 'sendMessage');
+    // const updateCustomerFiles = httpsCallable(functions, 'updateCustomerFiles');
+
     const scrollAreaRef = useRef(null)
     const endOfMessagesRef = useRef(null);
     const startOfMessagesRef = useRef(null);
@@ -107,13 +106,12 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
     const [pendingSendPayload, setPendingSendPayload] = useState(null);
     const autoRetryRef = useRef({ running: false, attempts: 0, maxAttempts: 4 });
 
-    // start an automatic retry loop for a pending payload
     const startAutoRetry = (pending, options = {}) => {
         const maxAttempts = options.maxAttempts ?? 4;
-        const baseDelay = options.baseDelay ?? 2000; // 2s
+        const baseDelay = options.baseDelay ?? 2000;
         if (!pending) return;
         setPendingSendPayload(pending);
-        if (autoRetryRef.current.running) return; // already running
+        if (autoRetryRef.current.running) return;
         autoRetryRef.current = { running: true, attempts: 0, maxAttempts };
 
         toast("Network error — will retry automatically", { id: `retry-${Date.now()}` });
@@ -124,12 +122,19 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
             const delay = baseDelay * Math.pow(2, attempt - 1) + Math.round(Math.random() * 300);
             toast(`Retry attempt ${attempt}/${maxAttempts}...`, { id: `retry-attempt-${Date.now()}` });
             try {
+                // 4. Dynamic loading for retry
+                const [functionsInstance, { httpsCallable }] = await Promise.all([
+                    getFirebaseFunctions(),
+                    import("firebase/functions")
+                ]);
+
                 if (pending.type === 'file') {
+                    const updateCustomerFiles = httpsCallable(functionsInstance, 'updateCustomerFiles');
                     await retryableCall(updateCustomerFiles, pending.payload, { retries: 1, timeout: 30000 });
                 } else {
+                    const sendMessage = httpsCallable(functionsInstance, 'sendMessage');
                     await retryableCall(sendMessage, pending.payload, { retries: 1, timeout: 20000 });
                 }
-                // success
                 toast.success('Message uploaded successfully');
                 setPendingSendPayload(null);
                 autoRetryRef.current.running = false;
@@ -137,21 +142,16 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
             } catch (err) {
                 console.error('Auto-retry attempt failed:', err);
                 if (autoRetryRef.current.attempts >= maxAttempts) {
-                    // final user-facing guidance after all automatic retries fail
                     toast.error('Automatic retries failed — please refresh the page to try again.');
                     autoRetryRef.current.running = false;
                     return;
                 }
-                // schedule next attempt
                 setTimeout(attemptFn, delay);
             }
         };
-
-        // first attempt scheduled immediately
         setTimeout(attemptFn, 500);
     };
 
-    //Get the notification error
     const handleFileUpload = (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -168,7 +168,6 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
 
         const reader = new FileReader();
         reader.onload = () => {
-            // reader.result is "data:<mime>;base64,<data>"
             const base64 = reader.result.split(",")[1];
             setAttachedFile({
                 name: file.name,
@@ -181,7 +180,6 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
 
     const handleDialogOpenChange = useCallback((open) => {
         if (!open) {
-            // clear everything
             if (fileInputRef.current) fileInputRef.current.value = ""
             setAttachedFile(null)
             setWarningMessage("")
@@ -195,7 +193,6 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
     const [showPaymentModal, setShowPaymentModal] = useState(false)
     const navigatedToPaymentRef = useRef(false)
 
-    // Initial load on mount
     useEffect(() => {
         let mounted = true;
         const fetchJson = (url) => () => fetch(url).then(r => {
@@ -206,8 +203,8 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
         (async () => {
             try {
                 const [ip, time] = await Promise.all([
-                    retryableCall(fetchJson("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo")),
-                    retryableCall(fetchJson("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time")),
+                    retryableCall(fetchJson("https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo")),
+                    retryableCall(fetchJson("https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time")),
                 ]);
                 if (!mounted) return;
                 setIpInfo(ip ?? null);
@@ -216,7 +213,6 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
                 if (!mounted) return;
                 console.error("Preload fetch failed", err);
             }
-            // best-effort: warm up network afterwards so subsequent heavy requests are more likely to reuse connections
             try { warmUpNetwork(); } catch (e) { }
         })();
         return () => { mounted = false; };
@@ -225,23 +221,17 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
 
     function formatTokyoLocal(ymdHmsMsStr) {
         if (!ymdHmsMsStr) return '';
-        // Match: 2025/10/07 [anything/at] 14:23:45.678
         const m = ymdHmsMsStr.match(
             /(\d{4}\/\d{2}\/\d{2}).*?(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,6}))?/
         );
-        if (!m) return ymdHmsMsStr; // fallback if unexpected format
+        if (!m) return ymdHmsMsStr;
 
         const [, date, hh, mm, ss, msRaw = ''] = m;
         const ms = msRaw ? msRaw.padStart(3, '0').slice(0, 3) : '000';
         return `${date} at ${hh}:${mm}:${ss}.${ms}`;
     }
-    // Only compute when value exists
 
-
-    // Subscribe to chat doc for payment events and show modal when appropriate (detail view only)
-    // Persist confirmation to Firestore (confirmedPayment) so it survives cookie/LS clears.
     useEffect(() => {
-        // if we’re not looking at a detail view for a specific chat, keep modal hidden
         if (!chatId || !isDetailView) {
             setShowPaymentModal(false);
             return;
@@ -256,21 +246,16 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
             const rawStep = chatData?.stepIndicator?.value ?? chatData?.tracker ?? null;
             const tracker = rawStep == null ? null : Number(rawStep);
 
-            // Only consider showing while tracker === 4
             if (tracker === 4 && !Number.isNaN(tracker)) {
                 try {
                     const alreadyConfirmed = chatData?.confirmedPayment === true;
-                    const isCancelled = chatData?.isCancelled === true; // only true if explicitly true
-
-                    // Show when: tracker is 4, not confirmed, and not cancelled (or missing)
+                    const isCancelled = chatData?.isCancelled === true;
                     setShowPaymentModal(!alreadyConfirmed && !isCancelled);
                 } catch (err) {
                     console.error("Failed to handle payment event:", err);
-                    // be safe: hide on error
                     setShowPaymentModal(false);
                 }
             } else {
-                // tracker moved away from 4 (or invalid) → hide
                 setShowPaymentModal(false);
             }
         });
@@ -278,9 +263,6 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
         return () => unsubscribe();
     }, [chatId, isDetailView]);
 
-
-
-    //web crypto
     const rand = () =>
         (typeof crypto !== 'undefined' && crypto.randomUUID)
             ? crypto.randomUUID()
@@ -310,7 +292,6 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
         }
     }
 
-    // Persist a key so a page refresh uses the same idempotencyKey during auto-retry
     function saveIdem(key, meta = {}) {
         try { localStorage.setItem(`idem:${key}`, JSON.stringify({ status: 'pending', ...meta })); } catch { }
     }
@@ -329,6 +310,7 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
         }
     }
     const sanitizeForDocId = (s) => String(s).replaceAll("/", "-").replaceAll("\\", "-").trim();
+
     const handleSendMessage = async (e) => {
         if (loadingSent || isLoading || (!newMessage.trim() && !attachedFile)) {
             return;
@@ -362,6 +344,7 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
         saveIdem(idempotencyKey, { chatId, type: attachedFile ? 'file' : 'text' });
 
         try {
+            let result;
             let currentIpInfo = ipInfo;
             let currentTokyoTime = tokyoTime;
 
@@ -377,8 +360,8 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
                 })
 
                 const [freshIp, fresTime] = await Promise.all([
-                    retryableCall(fetchJson("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo")),
-                    retryableCall(fetchJson("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time"))
+                    retryableCall(fetchJson("https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo")),
+                    retryableCall(fetchJson("https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time"))
                 ]);
 
                 currentIpInfo = freshIp;
@@ -398,6 +381,11 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
             const ipCountry = currentIpInfo.country_name;
             const ipCountryCode = currentIpInfo.country_code;
 
+            // 5. Dynamic loading for sending message
+            const [functionsInstance, { httpsCallable }] = await Promise.all([
+                getFirebaseFunctions(),
+                import("firebase/functions")
+            ]);
 
             if (attachedFile) {
                 const fileData = {
@@ -410,8 +398,8 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
                     idempotencyKey,
                 };
 
-                let result;
                 try {
+                    const updateCustomerFiles = httpsCallable(functionsInstance, 'updateCustomerFiles');
                     result = await retryableCall(updateCustomerFiles, fileData, { retries: 3, timeout: 20000, backoff: 1500 });
                     console.log("Function returned successfully [file upload function]:", result);
                     if (!result) throw new Error("Failed to send message via function API");
@@ -420,7 +408,7 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
                     startAutoRetry(pending, { maxAttempts: 5, baseDelay: 3000 });
                     throw error
                 }
-            } else if (newMessage.trim()) {
+                } else if (newMessage.trim()) {
                 const bodyData = {
                     chatId,
                     newMessage,
@@ -433,7 +421,8 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
                 };
 
                 try {
-                    const result = await retryableCall(sendMessage, bodyData, { retries: 2, timeout: 15000 });
+                    const sendMessage = httpsCallable(functionsInstance, 'sendMessage');
+                    result = await retryableCall(sendMessage, bodyData, { retries: 2, timeout: 15000 });
                     console.log("Function returned successfully:", result);
                     if (!result) throw new Error("Failed to send message via function API");
                 } catch (error) {
@@ -454,39 +443,24 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
         }
     }
 
-
-    // automatic retry is handled by startAutoRetry; no manual retry handler required
-
-    // Scroll to bottom when messages change
     useEffect(() => {
         if (!chatId || !isDetailView) {
             console.warn("chatId or isDetailView is not set. Messages cannot be fetched or scrolled.");
             return;
         }
-
-        // Scroll to bottom when messages change
         if (endOfMessagesRef.current) {
             endOfMessagesRef.current.scrollIntoView({ behavior: "smooth" });
         }
     }, [chatMessages, isDetailView]);
 
-    // const invoiceData = '';
-
-    // const baseFinalPrice = (basePrice) + (parseFloat(carData?.dimensionCubicMeters) * parseFloat(profitMap));
-    // const finalPrice = ((baseFinalPrice + (inspectionToggle ? inspectionPrice || 300 : 0)));
     const renderTextWithLinks = (text) => {
-        // Regular expression to match URLs
         const urlRegex = /(https?:\/\/[^\s]+)/g;
-
         if (!text) return null;
-
         const parts = text.split(urlRegex);
         const matches = text.match(urlRegex) || [];
-
         return (
             <>
                 {parts.map((part, index) => {
-                    // If this part is a URL, render it as a link
                     if (matches.includes(part)) {
                         return (
                             <Link
@@ -500,7 +474,6 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
                             </Link>
                         );
                     }
-                    // Otherwise, render it as regular text
                     return <span key={index}>{part}</span>;
                 })}
             </>
@@ -509,7 +482,6 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
     const [lastChatId, setLastChatId] = useState(chatId);
     const [shouldScroll, setShouldScroll] = useState(false);
 
-    // Detect chat change
     useEffect(() => {
         if (chatId !== lastChatId) {
             setShouldScroll(true);
@@ -517,7 +489,6 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
         }
     }, [chatId, lastChatId]);
 
-    // Handle scrolling only when messages are ready AND we need to scroll
     useEffect(() => {
         if (shouldScroll && chatMessages.length > 0 && endOfMessagesRef.current) {
             endOfMessagesRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -528,15 +499,9 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
 
 
     const stockID = contact?.carData?.stockID;
-
-    const hit = stockID
-        ? vehicleStatus.find(v => String(v.id) === String(stockID))
-        : undefined;
-
+    const hit = stockID ? vehicleStatus.find(v => String(v.id) === String(stockID)) : undefined;
     const { stockStatus, reservedTo } = hit ?? {};
-
     const isReservedOrSold = (stockStatus === "Reserved" || stockStatus === "Sold") && reservedTo !== userEmail
-
 
     const selectedCurrencyCode = contact?.selectedCurrencyExchange;
     const currencies = [
@@ -548,62 +513,15 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
         { code: "GBP", symbol: "GBP£", value: contact?.currency.usdToGbp },
         { code: "ZAR", symbol: "R", value: contact?.currency.usdToZar },
     ];
-    // 3) find the matching currency (fallback to USD if nothing matches)
-    const currencyInside =
-        currencies.find((c) => c.code === selectedCurrencyCode)
-        || currencies[0];
+    const currencyInside = currencies.find((c) => c.code === selectedCurrencyCode) || currencies[0];
 
-    // 4) do your price math with currency.value
-    const basePrice =
-        parseFloat(contact?.carData?.fobPrice)
-        * parseFloat(contact?.currency.jpyToUsd);
-
+    const basePrice = parseFloat(contact?.carData?.fobPrice) * parseFloat(contact?.currency.jpyToUsd);
     const baseFinalPrice = invoiceData?.paymentDetails.totalAmount ? parseFloat(invoiceData?.paymentDetails.totalAmount) - (contact?.inspection ? 300 : 0) :
-        basePrice
-        + parseFloat(contact?.carData?.dimensionCubicMeters)
-        * parseFloat(contact?.freightPrice);
+        basePrice + parseFloat(contact?.carData?.dimensionCubicMeters) * parseFloat(contact?.freightPrice);
 
     const inspectionSurcharge = contact?.inspection === true ? 300 * currencyInside.value : 0;
     const insuranceSurcharge = contact?.insurance === true ? 50 * currencyInside.value : 0
     const finalPrice = (baseFinalPrice * currencyInside.value + inspectionSurcharge + insuranceSurcharge);
-
-
-
-
-    async function createAndSendInvoice() {
-        const res = await fetch("/api/paypal/invoice", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                customer: { name: "John Doe", email: "zambiaperson@personal.example.com" },
-                currency: "USD",
-                memo: "RMJ Order #12345",
-                invoiceNumber: "RMJ-12345-3",
-                terms: "Payment due on receipt.",
-                due_date: "2025-12-31",
-                send: true,
-                items: [
-                    { name: "Toyota Prius 2018", quantity: 1, unitAmount: "8500.00" },
-                    { name: "Shipping", quantity: 1, unitAmount: "1200.00" },
-                ],
-            }),
-        });
-
-        const data = await res.json();
-        if (!res.ok) {
-            console.error("Invoice error:", data);
-            alert("Invoice failed: " + (data?.error?.message || data?.error || "unknown"));
-            return;
-        }
-
-        // ✅ With the updated API you should have id + payer_view
-        console.log("Invoice created:", data.id, data.payer_view);
-        if (data.payer_view) window.open(data.payer_view, "_blank");
-    }
-
-
-
-
     return (
         isLoadingTransaction ? <TransactionCSRLoader /> : (
             <div className="flex flex-col h-full">
@@ -666,6 +584,10 @@ export default function TransactionCSR({ loadingBooking, isLoadingTransaction, v
                                         className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium shadow-sm"
                                         onClick={async () => {
                                             try {
+                                                const [firestore, { doc, updateDoc }] = await Promise.all([
+                                                    getFirebaseFirestore(),
+                                                    import('firebase/firestore')
+                                                ]);
                                                 // Persist confirmation to Firestore so it's durable and cross-device
                                                 await updateDoc(doc(firestore, 'chats', chatId), { confirmedPayment: true })
                                                 try { window.dataLayer = window.dataLayer || [] } catch (e) { }

@@ -1,7 +1,7 @@
 
 export async function generateMetadata({ params }) {
     return {
-        title: 'Privacy Policy | REAL MOTOR JAPAN',
+        title: 'Privacy Policy',
         description: 'Your privacy is important to us. It is our policy to respect your privacy regarding any information we may collect from you across our website and other sites we own and operate.',
     }
 };

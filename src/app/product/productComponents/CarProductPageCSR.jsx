@@ -1,8 +1,7 @@
 "use client"
 
-import moment from "moment"
-import { functions } from "../../../../firebase/clientApp"
-import { httpsCallable } from 'firebase/functions'
+import { getFirebaseFunctions } from "../../../../firebase/clientApp"
+import { format, parse } from "date-fns" // Changed from moment
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import Image from "next/image"
 import { Download, Heart, ChevronLeft, ChevronRight, Loader2, UserPlus, Users, TrendingUp, Eye, ChevronDown, X } from "lucide-react"
@@ -76,10 +75,10 @@ const Dropdown = ({ placeholder, options, value, onChange, className = '' }) => 
     );
 };
 
-// --- UPDATED FUNCTION SIGNATURE ---
+// --- UPDATED FUNCTION SIGNATURE & LOGIC ---
 async function handleCreateConversation(
     acceptPaypal,
-    addChat,
+    // addChat, // Removed from params, loaded dynamically below
     router,
     setLoadingChat,
     setShowAlert,
@@ -99,7 +98,7 @@ async function handleCreateConversation(
     ipInfo,
     tokyoTimeData,
     inspectionSelected,
-    // NEW PARAMETERS ADDED HERE
+    // NEW PARAMETERS ADDED HERE (Commented out as requested)
     // clearing,
     // delivery,
     // deliveryAddress,
@@ -146,10 +145,11 @@ async function handleCreateConversation(
     }
 
     try {
-        const m = moment(tokyoTimeData.datetime, 'YYYY/MM/DD HH:mm:ss.SSS');
-        const formattedTime = m.format('YYYY/MM/DD [at] HH:mm:ss.SSS');
-        const docId = m.format('YYYY-MM');
-        const dayField = m.format('DD');
+        // --- CHANGED: date-fns usage instead of moment ---
+        const parsedDate = parse(tokyoTimeData.datetime, "yyyy/MM/dd HH:mm:ss.SSS", new Date());
+        const formattedTime = format(parsedDate, "yyyy/MM/dd 'at' HH:mm:ss.SSS");
+        const docId = format(parsedDate, "yyyy-MM");
+        const dayField = format(parsedDate, "dd");
 
         if (docId && carData && user && dayField && exists && (!missingFields || missingFields.length === 0)) {
             await addOfferStatsCustomer({ docId, carData, userEmail: user, dayField });
@@ -174,7 +174,7 @@ async function handleCreateConversation(
             inspectionName: inspectionData.inspectionName,
             toggle: inspectionSelected,
             insurance: insuranceSelected,
-            // --- ADDED NEW FIELDS TO CHAT DATA ---
+            // --- ADDED NEW FIELDS TO CHAT DATA (Commented out as requested) ---
             // clearing: clearing,
             // delivery: delivery,
             // deliveryAddress: deliveryAddress,
@@ -199,6 +199,13 @@ async function handleCreateConversation(
         };
 
         if (exists && (!missingFields || missingFields.length === 0)) {
+            // --- CHANGED: Dynamic Import for Firebase Functions ---
+            const [functionsInstance, { httpsCallable }] = await Promise.all([
+                getFirebaseFunctions(),
+                import("firebase/functions")
+            ]);
+            const addChat = httpsCallable(functionsInstance, 'addChat');
+
             const res = await addChat(chatData);
             console.log("Chat created:", res.data.chatId);
             setLoadingChat(false);
@@ -276,7 +283,7 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
     const [deliveryAddress, setDeliveryAddress] = useState('');
     const [showDeliveryModal, setShowDeliveryModal] = useState(false);
 
-    const addChat = httpsCallable(functions, 'addChat')
+    // const addChat = httpsCallable(functions, 'addChat') // --- REMOVED (Dynamic now)
     const [acceptPaypal, setAcceptPaypal] = useState(false)
     const [agreed, setAgreed] = useState(false)
     const [doorToDoorEnabled, setDoorToDoorEnabled] = useState(false);
@@ -510,7 +517,7 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
             if (!selectedCountry) {
                 setPorts([]);
                 return;
-            };
+            }
             setIsDataLoading(true);
             try {
                 const res = await fetch(`/api/ports?ports=${selectedCountry}`);
@@ -529,7 +536,7 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
     const setPersist = (k, v) => { document.cookie = `${k}=${encodeURIComponent(v)}; path=/; max-age=31536000`; localStorage.setItem(k, v); };
     const clearPersist = (k) => { document.cookie = `${k}=; path=/; max-age=0`; localStorage.removeItem(k); };
 
-  const handleDropdownChangeLocation = (key, value) => {
+    const handleDropdownChangeLocation = (key, value) => {
         // 1. Calculate the new values immediately
         let nextCountry = dropdownValuesLocations["Select Country"];
         let nextPort = dropdownValuesLocations["Select Port"];
@@ -544,7 +551,7 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
         // 2. Perform Side Effects (URL update & Persistence)
         // CRITICAL: Do this BEFORE setting state so it runs in the event handler, not the render phase
         const params = new URLSearchParams(window.location.search);
-        
+
         if (nextCountry && nextCountry !== 'none') {
             params.set('country', nextCountry);
             setPersist('stock_country', nextCountry);
@@ -566,9 +573,9 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
         router.replace(q ? `${window.location.pathname}?${q}` : window.location.pathname, { scroll: false });
 
         // 3. Update Local State (Purely)
-        setDropdownValuesLocations({ 
-            "Select Country": nextCountry, 
-            "Select Port": nextPort 
+        setDropdownValuesLocations({
+            "Select Country": nextCountry,
+            "Select Port": nextPort
         });
     };
 
@@ -691,29 +698,29 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
     }
 
     // useEffect(() => {
-    //     if (d2dMatch?.id) {
-    //         const fetchCities = async () => {
-    //             setLoadingCities(true);
-    //             try {
-    //                 const res = await fetch(`/api/d2d-cities?countryId=${d2dMatch.id}`);
-    //                 const data = await res.json();
-    //                 if (data.cities) {
-    //                     setD2dCities(data.cities);
-    //                 } else {
-    //                     setD2dCities([]);
-    //                 }
-    //             } catch (error) {
-    //                 console.error("Error fetching cities:", error);
-    //                 setD2dCities([]);
-    //             } finally {
-    //                 setLoadingCities(false);
-    //             }
-    //         };
+    //      if (d2dMatch?.id) {
+    //          const fetchCities = async () => {
+    //              setLoadingCities(true);
+    //              try {
+    //                  const res = await fetch(`/api/d2d-cities?countryId=${d2dMatch.id}`);
+    //                  const data = await res.json();
+    //                  if (data.cities) {
+    //                      setD2dCities(data.cities);
+    //                  } else {
+    //                      setD2dCities([]);
+    //                  }
+    //              } catch (error) {
+    //                  console.error("Error fetching cities:", error);
+    //                  setD2dCities([]);
+    //              } finally {
+    //                  setLoadingCities(false);
+    //              }
+    //          };
 
-    //         fetchCities();
-    //     } else {
-    //         setD2dCities([]);
-    //     }
+    //          fetchCities();
+    //      } else {
+    //          setD2dCities([]);
+    //      }
     // }, [d2dMatch]);
 
 
@@ -1153,7 +1160,7 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
                                     onClick={() =>
                                         handleCreateConversation(
                                             acceptPaypal,
-                                            addChat,
+                                            // 'addChat' removed (dynamic)
                                             router,
                                             setLoadingChat,
                                             setShowAlert,
@@ -1173,7 +1180,7 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
                                             ipInfo,
                                             tokyoTimeData,
                                             inspectionSelected,
-                                            // New Values
+                                            // NEW PARAMETERS (Commented out as requested)
                                             // clearingEnabled,
                                             // deliveryEnabled,
                                             // deliveryAddress,
@@ -1190,8 +1197,7 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
                             </CardContent>
                         </Card>
 
-{/* 
-                        {showDeliveryModal && (
+{/* {showDeliveryModal && (
                             <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
                                 <Card className="w-full max-w-md border-[3px] border-primary bg-background">
                                     <CardContent className="p-6">

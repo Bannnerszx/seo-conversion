@@ -2,7 +2,7 @@
 import * as admin from 'firebase-admin';
 import { getAuth } from 'firebase-admin/auth';
 import { getStorage } from 'firebase-admin/storage';
-import { getFunctions } from 'firebase/functions';
+
 let appConfig;
 if (process.env.NODE_ENV !== 'production') {
   // ─── LOCAL: use your service‐account key ───────────────────────────

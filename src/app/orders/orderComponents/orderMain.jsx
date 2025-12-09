@@ -1,6 +1,6 @@
 "use client"
-import { firestore } from "../../../../firebase/clientApp"
-import { doc, query, collection, where, orderBy, limit, onSnapshot, startAfter, getDocs, updateDoc } from "firebase/firestore"
+import { getFirebaseFirestore } from "../../../../firebase/clientApp"
+// Firestore SDK methods are loaded dynamically when needed to keep bundles small
 import { useState, useEffect } from "react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import OrderCard from "./oderCard"
@@ -13,42 +13,49 @@ import { useUnreadCount } from "@/hooks/useUnreadCount"
 import UserIcon from "@/app/chats/chatComponents/userIcon"
 let lastVisible = null;
 export function subscribeToChatList(userEmail, callback) {
-  if (!userEmail) {
-    return () => { };
-  }
+  if (!userEmail) return () => {};
 
-  const constraints = [
-    where("participants.customer", "==", userEmail),
-    orderBy("lastMessageDate", "desc"),
-    limit(12),
-  ];
-  const q = query(collection(firestore, "chats"), ...constraints);
+  let unsubscribe = null;
+  let isCancelled = false;
 
-  const unsubscribe = onSnapshot(
-    q,
-    (querySnapshot) => {
-      const chatList = querySnapshot.docs.map((doc) => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data,
-        };
-      });
+  const init = async () => {
+    try {
+      const [firestore, { collection, query, where, orderBy, limit, onSnapshot }] = await Promise.all([
+        getFirebaseFirestore(),
+        import('firebase/firestore')
+      ]);
 
-      // hand back the first page
-      callback(chatList);
+      if (isCancelled) return;
 
-      // stash the last doc so loadMoreChatList can startAfter it
-      lastVisible =
-        querySnapshot.docs[querySnapshot.docs.length - 1] || lastVisible;
-    },
-    (error) => {
-      console.error("Error fetching chat list: ", error);
+      const constraints = [
+        where("participants.customer", "==", userEmail),
+        orderBy("lastMessageDate", "desc"),
+        limit(12),
+      ];
+
+      const q = query(collection(firestore, "chats"), ...constraints);
+
+      unsubscribe = onSnapshot(
+        q,
+        (querySnapshot) => {
+          const chatList = querySnapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+          callback(chatList);
+          lastVisible = querySnapshot.docs[querySnapshot.docs.length - 1] || lastVisible;
+        },
+        (error) => console.error('Error fetching chat list: ', error)
+      );
+    } catch (err) {
+      console.error('Failed to subscribe to chat list:', err);
     }
-  );
+  };
 
-  return unsubscribe;
-};
+  init();
+
+  return () => {
+    isCancelled = true;
+    if (unsubscribe) unsubscribe();
+  };
+}
 const generateStatuses = (item) => [
   {
     stage: "Booking",

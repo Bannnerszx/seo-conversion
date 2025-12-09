@@ -1,29 +1,26 @@
 import Link from 'next/link';
-
 const SquareGrays = () => {
-    const createOddRowOfSquares = () =>
-        Array.from({ length: 20 }, (_, index) => (
-            <div
-                key={`odd-${index}`}
-                className={`w-2 h-2 ${index % 2 === 0 ? 'bg-gray-400' : 'bg-transparent'} ml-[1px]`}
-            />
-        ));
-
-    const createEvenRowOfSquares = () =>
-        Array.from({ length: 20 }, (_, index) => (
-            <div
-                key={`even-${index}`}
-                className={`w-2 h-2 ${index % 2 !== 0 ? 'bg-gray-400' : 'bg-transparent'} ml-[1px]`}
-            />
-        ));
-
     return (
-        <div className="space-y-1">
-            <div className="flex items-center justify-center">{createOddRowOfSquares()}</div>
-            <div className="flex items-center justify-center">{createEvenRowOfSquares()}</div>
+        <div className="flex flex-col gap-1 select-none pointer-events-none opacity-50">
+            {/* Pattern using CSS gradients to simulate squares */}
+            <div 
+                className="h-2 w-[180px]"
+                style={{
+                    backgroundImage: 'linear-gradient(90deg, #b9c0ccff 50%, transparent 50%)',
+                    backgroundSize: '15px 100%'
+                }} 
+            />
+            <div 
+                className="h-2 w-[180px] ml-[4px]"
+                style={{
+                    backgroundImage: 'linear-gradient(90deg, #b9c0ccff 50%, transparent 50%)',
+                    backgroundSize: '15px 100%'
+                }} 
+            />
         </div>
     );
 };
+
 const truckTypes = [
     {
         id: 1,

@@ -1,7 +1,5 @@
 "use client"
-import { functions } from "../../../../firebase/clientApp"
-import { httpsCallable } from "firebase/functions"
-import moment from "moment"
+import { getFirebaseFunctions } from "../../../../firebase/clientApp"
 import { useState, useRef } from "react"
 import { X, Edit } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -10,14 +8,13 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Modal from "@/app/components/Modal"
-import { docDelivery, getCities } from "@/app/actions/actions"
+import { getCities } from "@/app/actions/actions"
 import { VirtualizedCombobox } from "@/app/components/VirtualizedCombobox"
 import { cn } from "@/lib/utils"
 // Sample customer data for demonstration
 
 
 export default function DeliveryAddress({ accountData, countryList, setOrderModal, chatId, userEmail }) {
-
     // Initialize refs for form data
     const [useCustomerInfo, setUseCustomerInfo] = useState(false)
     const [showAdditionalPhone, setShowAdditionalPhone] = useState(false)
@@ -36,8 +33,6 @@ export default function DeliveryAddress({ accountData, countryList, setOrderModa
 
     // City list for customer form
     const [cityList, setCityList] = useState([])
-
-    // Billing city list for form2
 
     // Handle customer information autofill using sample data
     const handleUseCustomerInfo = (checked) => {
@@ -104,10 +99,6 @@ export default function DeliveryAddress({ accountData, countryList, setOrderModa
         }
     };
 
-    // --- Form 1 (Customer Information) State ---
-
-    // Selected country and city for customer form
-
     // When a country is selected in Form 1
     const handleCountrySelect = (isoCode) => {
         const country = countries.find(c => c.isoCode === isoCode)
@@ -133,13 +124,11 @@ export default function DeliveryAddress({ accountData, countryList, setOrderModa
         form1Ref.current.city = cityValue
     }
 
-    // --- Form 2 (Billing Information) State ---
-
-    // Selected country and city for billing form
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Handle form submission
-    const docDeliveryFunction = httpsCallable(functions, 'docDelivery')
+    // 3. Remove top-level function definition
+    // const docDeliveryFunction = httpsCallable(functions, 'docDelivery')
+
     // Add state for tracking field errors (add this to your component state)
     const [fieldErrors, setFieldErrors] = useState({});
 
@@ -227,10 +216,10 @@ export default function DeliveryAddress({ accountData, countryList, setOrderModa
         setIsSubmitting(true);
         const [ipResp, timeResp] = await Promise.all([
             fetch(
-                "https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo"
+                "https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo"
             ),
             fetch(
-                "https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time"
+                "https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time"
             ),
         ]);
         const [ipInfo, tokyoTime] = await Promise.all([
@@ -269,6 +258,13 @@ export default function DeliveryAddress({ accountData, countryList, setOrderModa
 
         // Collect data for Form 2 (Billing Information)
         try {
+            // 4. Dynamic Loading inside submit handler
+            const [functionsInstance, { httpsCallable }] = await Promise.all([
+                getFirebaseFunctions(),
+                import("firebase/functions")
+            ]);
+            const docDeliveryFunction = httpsCallable(functionsInstance, 'docDelivery');
+
             const { data } = await docDeliveryFunction({ form1Data, chatId, userEmail, ipInfo, tokyoTime });
             if (data.success) {
                 console.log("✅ Delivered!");
@@ -283,7 +279,6 @@ export default function DeliveryAddress({ accountData, countryList, setOrderModa
             setAmendVisible(false);
             setIsSubmitting(false);
         }
-        // Add your submission logic here.
     };
     // Optional: Real-time email validation for better UX
     const handleEmailChange = (e) => {

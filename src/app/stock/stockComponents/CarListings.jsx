@@ -13,58 +13,21 @@ import { useSort } from "./sortContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import RecommendedBadge from "./recommendedBage";
 import SalesOffDisplay from "./salesOffDisplay";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "../../../../firebase/clientApp";
-
-// Skeleton placeholder for loading
+import { getFirebaseFunctions } from "../../../../firebase/clientApp";
+// Skeleton placeholder for loading (unchanged)
 export function CarCardSkeleton() {
   return (
     <Card className="max-w-7xl mx-auto  border border-gray-200 rounded-lg shadow-lg">
       <div className="flex flex-col sm:flex-row">
         <div className="relative h-64 sm:h-auto sm:w-96 l:w-[36rem] flex-shrink-0">
           <Skeleton className="h-full w-full object-cover" />
-          <Badge variant="secondary" className="absolute left-4 top-4 bg-white/90 font-medium">
-            <SteeringWheel className="mr-2 h-4 w-4" />
-            <Skeleton className="w-12 h-4" />
-          </Badge>
         </div>
-        <div className="flex flex-1 flex-col p-6 min-w-0">
-          <div className="flex items-start justify-between gap-6">
-            <Skeleton className="h-6 w-40" />
-            <Button variant="outline" size="sm" className="shrink-0" disabled>
-              <Heart className="mr-1 h-4 w-4" />
-              <Skeleton className="w-20 h-4" />
-            </Button>
-          </div>
-          <div className="mt-6">
-            <div className="text-sm text-gray-500">FOB Price</div>
-            <Skeleton className="h-8 w-24" />
-          </div>
-          <div className="mt-6 grid grid-cols-2 gap-x-10 gap-y-4 text-sm">
-            <div className="flex items-center gap-2">
-              <span className="text-gray-500">Year</span>
-              <Skeleton className="w-12 h-4" />
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-gray-500">Mileage</span>
-              <Skeleton className="w-16 h-4" />
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-gray-500">Exterior Color</span>
-              <Skeleton className="w-16 h-4" />
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-gray-500">Engine Displacement</span>
-              <Skeleton className="w-16 h-4" />
-            </div>
-          </div>
-          <div className="grid">
-            <div className="mt-6 justify-self-end">
-              <Button className="w-full sm:w-auto" size="lg">
-                <Skeleton className="w-20 h-6" />
-              </Button>
-            </div>
-          </div>
+        <div className="flex flex-1 flex-col p-6">
+           <Skeleton className="h-6 w-40" />
+           <Skeleton className="h-8 w-24 mt-6" />
+           <div className="mt-6 justify-self-end">
+              <Skeleton className="w-20 h-6" />
+           </div>
         </div>
       </div>
     </Card>
@@ -316,22 +279,35 @@ function CarCard({
 
 
 export default function CarListings({ resultsIsFavorited, products, currency, country, port, userEmail }) {
-  const router = useRouter()
+ const router = useRouter()
   const searchParams = useSearchParams();
+  
   const inspectionParam = searchParams.get('inspection') === '1' ? '1' : undefined;
   const insuranceParam = searchParams.get('insurance') === '1' ? '1' : undefined;
-
+  
+  const clearingParam = searchParams.get('clearing') === '1' ? '1' : undefined;
+  const deliveryParam = searchParams.get('delivery');
 
   const { withPhotosOnly } = useSort();
   const filtered = products
     ?.filter(car => car.fobPriceNumber)
     .filter(car => !withPhotosOnly || (car.images?.length ?? 0) > 0);
-  const incrementView = httpsCallable(functions, 'incrementViewCounter')
+    
+  // 3. Remove top-level function call
+  // const incrementView = httpsCallable(functions, 'incrementViewCounter')
+
   const handleViewDetailsClick = async (productId) => {
     const viewLoggedKey = `viewed_${productId}`;
 
     if (!sessionStorage.getItem(viewLoggedKey)) {
       try {
+        // 4. Dynamic load inside click handler
+        const [functionsInstance, { httpsCallable }] = await Promise.all([
+            getFirebaseFunctions(),
+            import("firebase/functions")
+        ]);
+        const incrementView = httpsCallable(functionsInstance, 'incrementViewCounter');
+        
         incrementView({ docId: productId });
 
         sessionStorage.setItem(viewLoggedKey, 'true');
@@ -340,12 +316,6 @@ export default function CarListings({ resultsIsFavorited, products, currency, co
       }
     }
   }
-
-
-
-
-
-
   return (
     <div className="space-y-4 p-2 mx-auto w-full">
       <ScrollToTop />
@@ -363,8 +333,15 @@ export default function CarListings({ resultsIsFavorited, products, currency, co
             countryParams={country}
             portParams={port}
             userEmail={userEmail}
-            inspectionParams={inspectionParam}   // <-- NEW
+            
+            // Pass existing params
+            inspectionParams={inspectionParam}
             insuranceParams={insuranceParam}
+            
+            // Pass NEW params
+            clearingParams={clearingParam}
+            deliveryParams={deliveryParam}
+            
             resultsIsFavorited={resultsIsFavorited}
           />
         ))
@@ -381,7 +358,3 @@ export default function CarListings({ resultsIsFavorited, products, currency, co
     </div>
   );
 }
-
-
-
-

@@ -26,6 +26,7 @@ import { Button } from '@/components/ui/button'
 import { Sidebar } from './SideBar'
 import { useSort } from './sortContext'
 export default function SearchHeader({
+  d2dCountries,
   initialLimit = 50,
   currency,
   products,
@@ -349,7 +350,7 @@ export default function SearchHeader({
         </div>
 
         <PaginationButtons />
-        <Sidebar isOpen={sidebarOpen} onClose={closeSidebar} mode={sidebarMode} carMakes={carMakes} carBodytypes={carBodytypes} countryArray={countryArray} />
+        <Sidebar d2dCountries={d2dCountries} isOpen={sidebarOpen} onClose={closeSidebar} mode={sidebarMode} carMakes={carMakes} carBodytypes={carBodytypes} countryArray={countryArray} />
       </div>
     </>
   )

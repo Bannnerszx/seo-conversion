@@ -5,14 +5,13 @@ import { useRouter, usePathname } from "next/navigation"
 import { useCustomChat } from "./useCustomChat"
 import TransactionCSR from "./TransactionCSR"
 import TransactionList from "./TransactionListCSR"
-import { doc, query, collection, where, orderBy, limit, onSnapshot, startAfter, getDocs, updateDoc, documentId } from "firebase/firestore"
-import { firestore } from "../../../../firebase/clientApp"
+import { getFirebaseFirestore } from "../../../../firebase/clientApp"
 import { getVehicleStatusByChatId, loadMoreMessages } from "@/app/actions/actions"
 import { SortProvider } from "@/app/stock/stockComponents/sortContext"
 import TransactionCSRLoader from "./TransactionCSRLoader"
 import { getVehicleStatuses } from "@/app/actions/actions"
+import { format } from "date-fns"
 
-// import { SurveyModal } from "@/app/components/SurveyModal"
 const PAGE_SIZE = 12
 const PAGE_LIMIT = PAGE_SIZE + 1
 let lastVisible = null;
@@ -94,162 +93,172 @@ export function subscribeToChatList(
     }
     const callback = isFn ? keywordArrayOrCallback : callbackOptional
 
-    const constraints = [where("participants.customer", "==", userEmail)]
-    if (keywords.length > 0) constraints.push(where("keywords", "array-contains-any", keywords))
+    // 3. Changed: Async initialization pattern
+    let unsubscribe = null;
+    let isCancelled = false;
 
-    constraints.push(orderBy("lastMessageDate", "desc"), limit(PAGE_LIMIT))
-    const qy = query(collection(firestore, "chats"), ...constraints)
+    const init = async () => {
+        try {
+            const [firestore, { collection, query, where, orderBy, limit, onSnapshot }] = await Promise.all([
+                getFirebaseFirestore(),
+                import("firebase/firestore")
+            ]);
 
-    const unsubscribe = onSnapshot(
-        qy,
-        (snapshot) => {
-            const docs = snapshot.docs
-            const hasMore = docs.length > PAGE_SIZE
+            if (isCancelled) return;
 
-            const pageDocs = hasMore ? docs.slice(0, PAGE_SIZE) : docs
-            const chatList = pageDocs.map(d => ({ id: d.id, ...d.data() }))
+            const constraints = [where("participants.customer", "==", userEmail)]
+            if (keywords.length > 0) constraints.push(where("keywords", "array-contains-any", keywords))
 
-            const cursor = pageDocs.length ? pageDocs[pageDocs.length - 1] : null
+            constraints.push(orderBy("lastMessageDate", "desc"), limit(PAGE_LIMIT))
+            const qy = query(collection(firestore, "chats"), ...constraints)
 
-            if (typeof callback === 'function') {
-                callback(chatList, {
-                    hasMore,
-                    cursor,
-                    filtered: keywords.length > 0,
-                    usedValues: keywords
-                })
-            }
-        },
-        (err) => console.error("Error fetching chat list:", err)
-    )
-    return unsubscribe
+            unsubscribe = onSnapshot(
+                qy,
+                (snapshot) => {
+                    const docs = snapshot.docs
+                    const hasMore = docs.length > PAGE_SIZE
+
+                    const pageDocs = hasMore ? docs.slice(0, PAGE_SIZE) : docs
+                    const chatList = pageDocs.map(d => ({ id: d.id, ...d.data() }))
+
+                    const cursor = pageDocs.length ? pageDocs[pageDocs.length - 1] : null
+
+                    if (typeof callback === 'function') {
+                        callback(chatList, {
+                            hasMore,
+                            cursor,
+                            filtered: keywords.length > 0,
+                            usedValues: keywords
+                        })
+                    }
+                },
+                (err) => console.error("Error fetching chat list:", err)
+            )
+        } catch (err) {
+            console.error("Failed to subscribe to chat list:", err);
+        }
+    }
+
+    init();
+
+    return () => {
+        isCancelled = true;
+        if (unsubscribe) unsubscribe();
+    }
 }
-
-
-// export function subscribeToChatList(
-//     userEmail,
-//     keywordArrayOrCallback = [],
-//     callbackOptional
-// ) {
-//     if (!userEmail) return () => { }
-
-//     // detect args
-//     const is2ndArgFunction = typeof keywordArrayOrCallback === "function"
-//     const keywordArray = is2ndArgFunction
-//         ? []
-//         : Array.isArray(keywordArrayOrCallback)
-//             ? keywordArrayOrCallback
-//             : []
-//     const callback = is2ndArgFunction
-//         ? keywordArrayOrCallback
-//         : callbackOptional
-//     console.log(keywordArray, 'keyword')
-//     /** @type {QueryConstraint[]} */
-//     const constraints = [
-//         where("participants.customer", "==", userEmail),
-//     ]
-
-//     if (keywordArray.length > 0) {
-//         constraints.push(
-//             where("keywords", "array-contains-any", keywordArray)
-//         )
-//     }
-
-//     constraints.push(
-//         orderBy("lastMessageDate", "desc"),
-//         limit(12)
-//     )
-
-//     const q = query(collection(firestore, "chats"), ...constraints)
-
-//     const unsubscribe = onSnapshot(
-//         q,
-//         snapshot => {
-//             const chatList = snapshot.docs.map(doc => ({
-//                 id: doc.id,
-//                 ...doc.data()
-//             }))
-//             callback(chatList)
-//             lastVisible =
-//                 snapshot.docs[snapshot.docs.length - 1] || lastVisible
-//         },
-//         err => console.error("Error fetching chat list:", err)
-//     )
-
-//     return unsubscribe
-// }
 
 const subscribeToMessages = (id, callback) => {
     if (!id) {
-        return () => { } // Return a no-op unsubscribe function if there's no id
+        return () => { } 
     }
-    // Reference to the messages collection for the specified chat
-    const messagesRef = collection(firestore, "chats", id, "messages")
-    // Build a query that orders by timestamp descending and limits to 15 messages
-    const messagesQuery = query(messagesRef, orderBy("timestamp", "desc"), limit(15))
 
-    // Set up a real-time listener
-    const unsubscribe = onSnapshot(
-        messagesQuery,
-        (querySnapshot) => {
-            const messages = querySnapshot.docs.map((doc) => ({
-                id: doc.id,
-                ...doc.data(),
-                // Convert the timestamp to a string if it exists
-                timestamp: doc.data().timestamp ? doc.data().timestamp.toString() : null,
-            }))
-            callback(messages)
-        },
-        (error) => {
-            console.error("Error fetching messages: ", error)
-        },
-    )
+    let unsubscribe = null;
+    let isCancelled = false;
 
-    // Return the unsubscribe function to clean up the listener when needed
-    return unsubscribe
+    const init = async () => {
+        try {
+            const [firestore, { collection, query, orderBy, limit, onSnapshot }] = await Promise.all([
+                getFirebaseFirestore(),
+                import("firebase/firestore")
+            ]);
+
+            if (isCancelled) return;
+
+            const messagesRef = collection(firestore, "chats", id, "messages")
+            const messagesQuery = query(messagesRef, orderBy("timestamp", "desc"), limit(15))
+
+            unsubscribe = onSnapshot(
+                messagesQuery,
+                (querySnapshot) => {
+                    const messages = querySnapshot.docs.map((doc) => ({
+                        id: doc.id,
+                        ...doc.data(),
+                        timestamp: doc.data().timestamp ? doc.data().timestamp.toString() : null,
+                    }))
+                    callback(messages)
+                },
+                (error) => {
+                    console.error("Error fetching messages: ", error)
+                },
+            )
+        } catch (err) {
+            console.error("Failed to subscribe to messages:", err);
+        }
+    }
+
+    init();
+
+    return () => {
+        isCancelled = true;
+        if (unsubscribe) unsubscribe();
+    }
 }
 
 export function subscribeToInvoiceData(invoiceNumber, callback) {
     if (!invoiceNumber) {
-        return () => { } // No-op unsubscribe if no invoice number is provided
+        return () => { }
     }
 
-    console.time("invoiceLoadTime")
-    const invoiceDocRef = doc(firestore, "IssuedInvoice", invoiceNumber)
+    let unsubscribe = null;
+    let isCancelled = false;
 
-    const unsubscribe = onSnapshot(invoiceDocRef, (docSnapshot) => {
+    const init = async () => {
+        console.time("invoiceLoadTime")
         try {
-            if (docSnapshot.exists()) {
-                const data = docSnapshot.data()
-                let formattedDate = "No due date available"
+            const [firestore, { doc, onSnapshot }] = await Promise.all([
+                getFirebaseFirestore(),
+                import("firebase/firestore")
+            ]);
 
-                const dueDate = data?.bankInformations?.dueDate
-                if (dueDate) {
-                    formattedDate = new Intl.DateTimeFormat("en-US", {
-                        month: "long",
-                        day: "2-digit",
-                        year: "numeric",
-                    }).format(new Date(dueDate))
+            if (isCancelled) return;
+
+            const invoiceDocRef = doc(firestore, "IssuedInvoice", invoiceNumber)
+
+            unsubscribe = onSnapshot(invoiceDocRef, (docSnapshot) => {
+                try {
+                    if (docSnapshot.exists()) {
+                        const data = docSnapshot.data()
+                        let formattedDate = "No due date available"
+
+                        const dueDate = data?.bankInformations?.dueDate
+                        if (dueDate) {
+                            formattedDate = format(new Date(dueDate), "MMMM dd, yyyy");
+                        }
+
+                        callback({ invoiceData: data, formattedDate })
+                    } else {
+                        console.log("No such invoice document!")
+                        callback({ invoiceData: null, formattedDate: "No due date available" })
+                    }
+                } catch (error) {
+                    console.error("Error fetching data:", error)
+                    callback({ invoiceData: null, formattedDate: "Error fetching due date" })
                 }
-
-                callback({ invoiceData: data, formattedDate })
-            } else {
-                console.log("No such invoice document!")
-                callback({ invoiceData: null, formattedDate: "No due date available" })
-            }
-        } catch (error) {
-            console.error("Error fetching data:", error)
-            callback({ invoiceData: null, formattedDate: "Error fetching due date" })
+            })
+        } catch (err) {
+            console.error("Failed to subscribe to invoice:", err);
         }
-    })
+    }
 
-    return unsubscribe
+    init();
+
+    return () => {
+        isCancelled = true;
+        if (unsubscribe) unsubscribe();
+    }
 };
 
 export async function loadMoreChatList(userEmail, { cursor, keywords = [] } = {}) {
     if (!userEmail || !cursor) {
         return { items: [], hasMore: false, cursor: null }
     }
+
+    // 4. Changed: Async loading for loadMore
+    const [firestore, { collection, query, where, orderBy, startAfter, limit, getDocs }] = await Promise.all([
+        getFirebaseFirestore(),
+        import("firebase/firestore")
+    ]);
+
     const constraints = [
         where('participants.customer', '==', userEmail),
         ...(Array.isArray(keywords) && keywords.length > 0
@@ -257,7 +266,7 @@ export async function loadMoreChatList(userEmail, { cursor, keywords = [] } = {}
             : []),
         orderBy('lastMessageDate', 'desc'),
         startAfter(cursor),
-        limit(PAGE_LIMIT + 1), // fetch one extra to know if there's next page
+        limit(PAGE_LIMIT + 1), 
     ];
     if (Array.isArray(keywords) && keywords.length > 0) {
         constraints.push(where("keywords", "array-contains-any", keywords))
@@ -273,13 +282,15 @@ export async function loadMoreChatList(userEmail, { cursor, keywords = [] } = {}
     const nextCursor = pageDocs.length ? pageDocs[pageDocs.length - 1] : null;
 
     return { items, hasMore, cursor: nextCursor };
-
-
 }
-// Subscribe to the chat document itself so we can observe tracker changes
-// subscribeToChatDoc is now provided by ./chatSubscriptions
+
 export async function makeTrueRead(chatId) {
     try {
+        // 5. Changed: Async loading for update
+        const [firestore, { doc, updateDoc }] = await Promise.all([
+            getFirebaseFirestore(),
+            import("firebase/firestore")
+        ]);
         const chatRef = doc(firestore, "chats", chatId);
         await updateDoc(chatRef, { customerRead: true });
     } catch (error) {
@@ -287,38 +298,6 @@ export async function makeTrueRead(chatId) {
     }
 };
 
-
-
-// const fetchVehicleStatuses = (stockIDs, updateStatuses) => {
-//     if (!stockIDs || stockIDs.length === 0) return;
-
-//     // Store unsubscribe functions to clean up listeners
-//     const unsubscribeMap = {};
-
-//     // Set up onSnapshot for each stockID in VehicleProducts
-//     stockIDs.forEach((stockID) => {
-//         const docRef = doc(firestore, 'VehicleProducts', stockID);
-
-//         // Listen for real-time updates on each document
-//         const unsubscribe = onSnapshot(docRef, (docSnap) => {
-//             if (docSnap.exists()) {
-//                 const data = docSnap.data();
-//                 updateStatuses(stockID, { stockStatus: data.stockStatus, reservedTo: data.reservedTo });
-//             } else {
-//                 console.log(`No document for stockID: ${stockID}`);
-//                 updateStatuses(stockID, { stockStatus: null, reservedTo: null });
-//             }
-//         });
-
-//         // Store each unsubscribe function
-//         unsubscribeMap[stockID] = unsubscribe;
-//     });
-
-//     // Return a cleanup function to remove all listeners when needed
-//     return () => {
-//         Object.values(unsubscribeMap).forEach((unsubscribe) => unsubscribe());
-//     };
-// };
 const tsKey = (ts) => {
     if (!ts) return "";
     if (typeof ts?.toMillis === "function") {
@@ -339,7 +318,7 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
     const [searchQuery, setSearchQuery] = useState("")
     const [hasMore, setHasMore] = useState(true)
     const [loadingMore, setLoadingMore] = useState(false)
-    const [pageCursor, setPageCursor] = useState(null)          // ← NEW: cursor for chat list paging
+    const [pageCursor, setPageCursor] = useState(null)          
 
     const [vehicleStatuses, setVehicleStatuses] = useState([]);
     const [loadingBooking, setLoadingBooking] = useState(false)
@@ -536,13 +515,7 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
                     : cleanManyLower([trimmedQuery])
                 : [];
 
-        // const unsubscribe = subscribeToChatList(userEmail, keywords, (newChatList, meta) => {
-        //     setChatList(newChatList);
-        //     setHasMore(Boolean(meta?.hasMore));
-        //     setPageCursor(meta?.cursor ?? null);
-        // });
-
-        //Smooth handoff: merge once on the very first realtime tick
+        // Smooth handoff: merge once on the very first realtime tick
         const firstTick = { current: true };
         const unsubscribe = subscribeToChatList(userEmail, keywords, (newChatList, meta) => {
             setHasMore(Boolean(meta?.hasMore));
@@ -644,15 +617,6 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
             setLoadingMore(false)
         }
     }, [userEmail, searchQuery, hasMore, loadingMore, pageCursor])
-    // vehicle statuses live listeners
-    // useEffect(() => {
-    //     const stockIDs = chatList.map(chat => chat.carData?.stockID).filter(Boolean)
-    //     const updateStatuses = (stockID, status) => {
-    //         setVehicleStatus(prevStatus => ({ ...prevStatus, [stockID]: status }))
-    //     }
-    //     const cleanup = fetchVehicleStatuses(stockIDs, updateStatuses)
-    //     return () => { if (cleanup) cleanup() }
-    // }, [chatList])
 
     const isDetail = segments[0] === 'chats' && segments.length > 1
 
@@ -663,133 +627,158 @@ export default function ChatPageCSR({ accountData, userEmail, currency, fetchInv
             return
         }
 
-        const q = query(
-            collection(firestore, 'booking'),
-            where('invoiceNumber', '==', selectedContact?.invoiceNumber),
-            where('customerEmail', '==', userEmail)
-        )
+        // We need 'query', 'collection', 'where', 'onSnapshot' to be loaded
+        // This is tricky because it's inside a useEffect that runs on selectedContact change.
+        // We'll use an async IIFE inside the effect.
+        let unsubscribe = () => {};
+        let active = true;
 
-        const unsubscribe = onSnapshot(q, snapshot => {
-            if (snapshot.empty) {
-                setBookingData(null)
-            } else {
-                const doc = snapshot.docs[0]
-                setBookingData({ id: doc.id, ...doc.data() })
+        (async () => {
+            try {
+                const [firestore, { collection, query, where, onSnapshot }] = await Promise.all([
+                    getFirebaseFirestore(),
+                    import("firebase/firestore")
+                ]);
+                
+                if (!active) return;
+
+                const q = query(
+                    collection(firestore, 'booking'),
+                    where('invoiceNumber', '==', selectedContact?.invoiceNumber),
+                    where('customerEmail', '==', userEmail)
+                )
+
+                unsubscribe = onSnapshot(q, snapshot => {
+                    if (snapshot.empty) {
+                        setBookingData(null)
+                    } else {
+                        const doc = snapshot.docs[0]
+                        setBookingData({ id: doc.id, ...doc.data() })
+                    }
+                    setLoadingBooking(false)
+                })
+            } catch (err) {
+                console.error("Failed to setup booking sub", err);
+                setLoadingBooking(false);
             }
-            setLoadingBooking(false)
-        })
+        })();
 
-        return () => unsubscribe();
+        return () => {
+            active = false;
+            unsubscribe();
+        };
     }, [selectedContact?.invoiceNumber, userEmail])
 
     return (
-        <SortProvider>
-            <div className="flex h-screen bg-gray-50">
-                {/* LIST PANE */}
-                <aside
-                    className={`
+
+            <SortProvider>
+                <div className="flex h-screen bg-gray-50">
+                    {/* LIST PANE */}
+                    <aside
+                        className={`
                         ${!isDetail ? 'block' : 'hidden'}
                         md:block
                         w-full md:w-[350px]
                         border-r border-gray-200
                         overflow-y-auto
                     `}
-                >
-                    <TransactionList
-                        searchQuery={searchQuery}
-                        setSearchQuery={setSearchQuery}
-                        makeTrueRead={makeTrueRead}
-                        loadingMore={loadingMore}
-                        hasMore={hasMore}
-                        bookingData={bookingData}
-                        setSelectedContact={setSelectedContact}
-                        selectedContact={selectedContact}
-                        onSelectContact={handleSelectContact}
-                        chatId={chatId}
-                        setChatId={setChatId} // Pass setChatId as a prop
-                        loadMore={loadMore}
-                        userEmail={userEmail}
-                        setChatList={setChatList}
-                        chatList={chatList}
-                        vehicleStatus={vehicleStatuses}
-                    />
-                </aside>
+                    >
+                        <TransactionList
+                            searchQuery={searchQuery}
+                            setSearchQuery={setSearchQuery}
+                            makeTrueRead={makeTrueRead}
+                            loadingMore={loadingMore}
+                            hasMore={hasMore}
+                            bookingData={bookingData}
+                            setSelectedContact={setSelectedContact}
+                            selectedContact={selectedContact}
+                            onSelectContact={handleSelectContact}
+                            chatId={chatId}
+                            setChatId={setChatId} // Pass setChatId as a prop
+                            loadMore={loadMore}
+                            userEmail={userEmail}
+                            setChatList={setChatList}
+                            chatList={chatList}
+                            vehicleStatus={vehicleStatuses}
+                        />
+                    </aside>
 
-                {/* DETAIL PANE */}
-                {isLoadingTransaction ? (
-                    isMobileView ? (
-                        <div className="h-screen w-screen">
-                            <TransactionCSRLoader />
-                        </div>
-                    ) : (
-                        <div className="
+                    {/* DETAIL PANE */}
+                    {isLoadingTransaction ? (
+                        isMobileView ? (
+                            <div className="h-screen w-screen">
+                                <TransactionCSRLoader />
+                            </div>
+                        ) : (
+                            <div className="
                     md:block
                     flex-1
                     h-full
                     overflow-y-auto">
 
-                            <TransactionCSRLoader />
-                        </div>
-                    )
-                ) : (
-                    <main
-                        className={`
+                                <TransactionCSRLoader />
+                            </div>
+                        )
+                    ) : (
+                        <main
+                            className={`
                     ${isDetail ? 'block' : 'hidden'}
                     md:block
                     flex-1
                     h-full
                     overflow-y-auto
                 `}
-                    >
-                        {isDetail ? (
-                            <TransactionCSR
-                                loadingBooking={loadingBooking}
-                                vehicleStatus={vehicleStatuses}
-                                accountData={accountData}
-                                isMobileView={true}
-                                isDetailView={isDetail}
-                                handleBackToList={handleBackToList}
-                                bookingData={bookingData}
-                                countryList={countryList}
-                                currency={currency}
-                                dueDate={invoiceData?.formattedDate}
-                                handleLoadMore={handleLoadMore}
-                                invoiceData={invoiceData?.invoiceData}
-                                chatId={chatId}
-                                userEmail={userEmail}
-                                chatMessages={chatMessages}
-                                contact={selectedContact}
-                                messages={messages}
-                                onSendMessage={sendMessage}
-                                isLoading={isLoading}
-                                isLoadingTransaction={isLoadingTransaction} // Pass the prop
-                            />
-                        ) : chatList.length > 0 ? (
-                            <div className="flex flex-col items-center justify-center h-full text-center p-8">
-                                <h3 className="text-xl font-medium text-gray-600">Select a transaction</h3>
-                            </div>
-                        ) : (
-                            <div className="flex flex-col items-center justify-center h-full text-center p-8">
-                                <h3 className="text-xl font-medium text-gray-600">
-                                    No orders yet
-                                </h3>
-                                <p className="mt-2 text-gray-500">
-                                    Browse our car stock and add vehicles to your order list.
-                                </p>
-                                <Link
-                                    href="/stock"
-                                    className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                                >
-                                    Browse Car Stock
-                                </Link>
-                            </div>
-                        )}
-                    </main>
-                )}
-                {/* <SurveyModal isOpen={isSurveyOpen} onClose={() => setIsSurveyOpen(false)} /> */}
+                        >
+                            {isDetail ? (
+                                <TransactionCSR
+                                    loadingBooking={loadingBooking}
+                                    vehicleStatus={vehicleStatuses}
+                                    accountData={accountData}
+                                    isMobileView={true}
+                                    isDetailView={isDetail}
+                                    handleBackToList={handleBackToList}
+                                    bookingData={bookingData}
+                                    countryList={countryList}
+                                    currency={currency}
+                                    dueDate={invoiceData?.formattedDate}
+                                    handleLoadMore={handleLoadMore}
+                                    invoiceData={invoiceData?.invoiceData}
+                                    chatId={chatId}
+                                    userEmail={userEmail}
+                                    chatMessages={chatMessages}
+                                    contact={selectedContact}
+                                    messages={messages}
+                                    onSendMessage={sendMessage}
+                                    isLoading={isLoading}
+                                    isLoadingTransaction={isLoadingTransaction} // Pass the prop
+                                />
+                            ) : chatList.length > 0 ? (
+                                <div className="flex flex-col items-center justify-center h-full text-center p-8">
+                                    <h3 className="text-xl font-medium text-gray-600">Select a transaction</h3>
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center h-full text-center p-8">
+                                    <h3 className="text-xl font-medium text-gray-600">
+                                        No orders yet
+                                    </h3>
+                                    <p className="mt-2 text-gray-500">
+                                        Browse our car stock and add vehicles to your order list.
+                                    </p>
+                                    <Link
+                                        href="/stock"
+                                        className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                                    >
+                                        Browse Car Stock
+                                    </Link>
+                                </div>
+                            )}
+                        </main>
+                    )}
+                    {/* <SurveyModal isOpen={isSurveyOpen} onClose={() => setIsSurveyOpen(false)} /> */}
 
 
-            </div>
-        </SortProvider>
+                </div>
+            </SortProvider>
+   
     );
 }

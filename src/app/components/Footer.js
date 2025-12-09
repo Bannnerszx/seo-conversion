@@ -3,9 +3,14 @@ import Image from "next/image"
 import { Facebook, Instagram, Mail, Phone } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import ContactModal from "./ContacUsModal"
+import dynamic from "next/dynamic" // Import dynamic
+const ContactModal = dynamic(() => import('./ContacUsModal'), {
+  ssr: false, // Modal is client-only
+  loading: () => null // No loader needed, it pops up
+})
 import { useState } from "react"
-import { emailUs } from "../actions/actions"
+// import { emailUs } from "../actions/actions" // Uncomment if used
+
 export default function Footer() {
   const [isModalOpen, setIsModalOpen] = useState(false)
 
@@ -18,12 +23,11 @@ export default function Footer() {
             <Image
               src="/rename.gif"
               alt="Real Motor Japan"
-              width={200}          // replace with the actual width of your GIF
-              height={200}         // replace with the actual height of your GIF
+              width={200}
+              height={200}
               className="h-15 w-auto m-auto"
-              fetchPriority="high" // same intent as your original `<img>`
-              priority              // tells Next.js to preload this image
-            // keep `false` to run it through the Next.js optimizer
+              // ✅ OPTIMIZATION: Removed priority and fetchPriority="high"
+              loading="lazy" // ✅ OPTIMIZATION: Explicitly lazy load
             />
             <address className="mt-4 not-italic text-sm text-gray-600">
               <p>5-2 Nishihaiagari, Kamigaoka-cho,</p>
@@ -128,7 +132,7 @@ export default function Footer() {
                   { label: "Browse All Stock", href: "/stock" },
                   { label: "Sale Cars", href: "/stock/recommended/sale" },
                   { label: "Recommended Cars", href: "/stock/recommended" },
-                  { label: "Luxury Cars", href: "/stock" },  // adjust if your real route is different
+                  { label: "Luxury Cars", href: "/stock" },
                 ].map(({ label, href }) => (
                   <li key={label}>
                     <Link
@@ -173,4 +177,3 @@ export default function Footer() {
     </footer>
   )
 }
-

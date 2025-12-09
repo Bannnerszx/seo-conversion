@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image"; // ✅ Import Next Image
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { MapPin, X, CheckCircle } from "lucide-react";
@@ -78,11 +79,15 @@ useEffect(() => {
             </span>
           </div>
 
-          <div className="flex justify-center mb-4">
-            <img
+          <div className="flex justify-center mb-4 relative w-full max-w-sm mx-auto h-40 sm:h-48">
+            {/* ✅ OPTIMIZATION: Replaced <img> with Next.js Image */}
+            <Image
               src="https://firebasestorage.googleapis.com/v0/b/real-motor-japan.firebasestorage.app/o/assets%2Fzambia-assets%2Fzm5.jpg?alt=media&token=bc72b182-3995-4d19-a69d-1cf43d713b94"
               alt="Our professional team at RMJ branch office in Zambia"
-              className="w-full max-w-sm h-40 sm:h-48 object-cover rounded-lg border-2 border-blue-200 shadow-md"
+              fill
+              className="object-cover rounded-lg border-2 border-blue-200 shadow-md"
+              sizes="(max-width: 640px) 90vw, 400px"
+              quality={60}
             />
           </div>
 

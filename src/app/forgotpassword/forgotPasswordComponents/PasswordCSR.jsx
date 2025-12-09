@@ -3,32 +3,38 @@
 import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { sendPasswordResetEmail, getAuth } from "firebase/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { getFirebaseAuth } from "../../../../firebase/clientApp";
 export default function ForgotPasswordCSR() {
     const [email, setEmail] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSubmitted, setIsSubmitted] = useState(false);
     const actionCodeSettings = {
-        url: "http://localhost:3000/catch/action",
+        url: "https://www.realmotor.jp/catch/action",
         handleCodeInApp: true,
     };
 
-    const handleSubmit = async (e) => {
+  const handleSubmit = async (e) => {
         e.preventDefault();
         setIsSubmitting(true);
-        const auth = getAuth()
+        
         try {
-            // Simulate API call
+            // ✅ REFACTORED: Dynamic import pattern
+            const [auth, { sendPasswordResetEmail }] = await Promise.all([
+                getFirebaseAuth(),
+                import("firebase/auth")
+            ]);
+
             await sendPasswordResetEmail(auth, email, actionCodeSettings)
             setIsSubmitted(true);
             toast("Reset link sent", {
                 description: <span style={{ color: "gray" }}>Please check your email for password reset instructions.</span>,
             });
         } catch (error) {
+            console.error(error);
             toast.error("Something went wrong");
         } finally {
             setIsSubmitting(false);

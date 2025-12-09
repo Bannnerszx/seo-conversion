@@ -1,6 +1,6 @@
 export async function generateMetadata({ params }) {
   return {
-    title: 'Terms of Use | REAL MOTOR JAPAN',
+    title: 'Terms of Use',
     description: 'Welcome to our website. By accessing and using this website, you accept and agree to be bound by the terms and provisions of this agreement. If you do not agree to abide by the above, please do not use this service.',
   }
 };
