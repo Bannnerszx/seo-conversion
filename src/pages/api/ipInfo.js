@@ -1,9 +1,7 @@
 // pages/api/ipInfo.js
 import * as geoip from 'geoip-lite';
-import { moment } from 'moment-timezone';
 
 // Helper function to map country codes to country names.
-// You can expand this mapping or use a dedicated package like 'country-list'.
 function getCountryNameByCode(code) {
   const countries = {
     AF: "Afghanistan",
@@ -287,8 +285,19 @@ export default async function handler(req, res) {
     // Use the timezone provided by geoip if available, otherwise default to 'UTC'
     const timeZone = geo.timezone || 'UTC';
 
-    // Calculate the current UTC offset for the determined timezone using moment-timezone.
-    const utcOffsetMinutes = moment().tz(timeZone).utcOffset();
+    // Calculate the current UTC offset using native Intl API (replaces moment-timezone)
+    let utcOffsetMinutes = 0;
+    try {
+        const now = new Date();
+        const utcDate = new Date(now.toLocaleString('en-US', { timeZone: 'UTC' }));
+        const tzDate = new Date(now.toLocaleString('en-US', { timeZone }));
+        utcOffsetMinutes = (tzDate.getTime() - utcDate.getTime()) / 60000;
+    } catch (e) {
+        console.error(`Error calculating offset for timezone ${timeZone}:`, e);
+        // Fallback to 0 if timezone is invalid
+        utcOffsetMinutes = 0;
+    }
+
     const utcOffsetNumber = utcOffsetMinutes / 60;
 
     // Build the response object.
