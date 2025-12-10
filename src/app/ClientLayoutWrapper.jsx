@@ -85,7 +85,7 @@ export default function ClientLayoutWrapper({ children, currency, userEmail, ini
         <Header showBanner={showBanner} setShowBanner={setShowBanner} headerRef={headerRef} currency={currency} userEmail={userEmail} />
       )}
 
-      <div className="relative">
+      <main className="relative">
         {!hideBreadcrumbs && (
           <div className={`relative transition-[margin] duration-300 ${showBanner ? 'mt-32' : 'mt-28'} px-6`}>
 
@@ -95,7 +95,7 @@ export default function ClientLayoutWrapper({ children, currency, userEmail, ini
           </div>
         )}
         {children}
-      </div>
+      </main>
 
       {/* only footer */}
       {!hideFooter && (
