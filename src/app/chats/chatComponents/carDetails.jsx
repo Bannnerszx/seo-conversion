@@ -20,7 +20,7 @@ export default function CarDetails({ chatId, handleBackToList, isMobileView, isD
     };
 
     const formatMoney = (amount, symbol) =>
-        Number.isFinite(amount) ? `${symbol} ${Math.trunc(amount).toLocaleString()}` : 'ASK';
+        Number.isFinite(amount) ? `${symbol} ${Math.round(amount).toLocaleString()}` : 'ASK';
 
     // --- currency setup (USD pivot) ---
     const currencies = [
