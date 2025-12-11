@@ -35,12 +35,19 @@ const NewArrivals = ({ newVehicles, currency }) => {
 
         if (!sessionStorage.getItem(viewLoggedKey)) {
             try {
-                // Dynamically import logic to save initial bundle size
-                const { httpsCallable } = await import('firebase/functions');
-                const { functions } = await import('../../../firebase/clientApp');
+                // 1. Import the module dynamically
+                const clientAppModule = await import('../../../firebase/clientApp');
+                const firebaseFunctionsModule = await import('firebase/functions');
 
-                const incrementView = httpsCallable(functions, 'incrementViewCounter');
-                incrementView({ docId: productId });
+                // 2. Await the specific helper to get the initialized instance
+                // (Assuming your clientApp exports getFirebaseFunctions like in your other files)
+                const functionsInstance = await clientAppModule.getFirebaseFunctions();
+                const httpsCallable = firebaseFunctionsModule.httpsCallable;
+
+                // 3. Pass the valid instance to httpsCallable
+                const incrementView = httpsCallable(functionsInstance, 'incrementViewCounter');
+
+                await incrementView({ docId: productId });
 
                 sessionStorage.setItem(viewLoggedKey, 'true');
             } catch (error) {

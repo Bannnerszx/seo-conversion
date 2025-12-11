@@ -604,10 +604,17 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
                 placeholder: "Select Country",
                 options: [
                     { value: "none", label: "Select Country" },
-                    ...countryArray.map((country) => ({
-                        value: country,
-                        label: countryLabelMap[country] ?? country,
-                    })),
+                    ...countryArray
+                        .filter((c) =>
+                            c !== 'Bonaire' &&
+                            c !== 'Bonaire/Netherlands Antilles' &&
+                            c !== 'Democratic Republic of the Congo' &&
+                            c !== 'Curacao/Netherlands Antilles'
+                        )
+                        .map((country) => ({
+                            value: country,
+                            label: countryLabelMap[country] ?? country,
+                        })),
                 ],
             },
             {
