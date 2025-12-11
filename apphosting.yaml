@@ -8,11 +8,11 @@ runConfig:
 env:
   # 1) The “old” cookie name, as a simple value
   - variable: OLD_SESSION_COOKIE_NAMES
-    value: "session_v8,session,session_v1,session_v9,session_v2,session_v4,session_v3,session_v7,session_v5,session_v6"
+    value: "session_v8,session,session_v1,session_v9,session_v2,session_v4,session_v3,session_v7,session_v5,session_v6,session_v10"
 
   # 2) The “current” cookie name, as a simple value
   - variable: SESSION_COOKIE_NAME
-    value: "session_v10"
+    value: "session_v11"
 
   # 3-1) Your public URL
   - variable: NEXT_PUBLIC_APP_URL
