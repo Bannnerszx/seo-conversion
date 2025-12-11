@@ -5,12 +5,10 @@ import CarProductPageCSR from '../productComponents/CarProductPageCSR';
 import VehicleSpecifications from '../productComponents/VehicleSpecificationsCSR';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { makeFavorite, isFavorited, getAccountData, fetchChatCountForVehicle, fetchD2DCountries } from '@/app/actions/actions';
-import { admin } from '@/lib/firebaseAdmin';
+import { Toaster } from 'sonner';
 import { cookies } from "next/headers";
 import ClientAppCheck from '../../../../firebase/ClientAppCheck';
 import { notFound } from 'next/navigation';
-import { title } from 'process';
-
 
 export async function generateMetadata({ params }) {
   const { id } = await params
@@ -161,6 +159,13 @@ export default async function ProductPage({ params, searchParams }) {
             type="application/ld+json"
             dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
           />
+          <Toaster
+            position="top-right"
+            offset={16}
+            mobileOffset={10}
+            richColors
+            closeButton
+          />
           <div className="z-10 mt-2">
             <div style={{ zoom: 0.8, transformOrigin: "top left" }} className='-mt-12'>
               <CarProductPageCSR
@@ -192,6 +197,13 @@ export default async function ProductPage({ params, searchParams }) {
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+        />
+        <Toaster
+          position="top-right"
+          offset={16}
+          mobileOffset={10}
+          richColors
+          closeButton
         />
         <div className="z-10 mt-2">
           <div style={{ zoom: 0.8, transformOrigin: "top left" }} className='-mt-12'>
@@ -240,6 +252,13 @@ export default async function ProductPage({ params, searchParams }) {
             type="application/ld+json"
             dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
           />
+          <Toaster
+            position="top-right"
+            offset={16}
+            mobileOffset={10}
+            richColors
+            closeButton
+          />
           <div className="z-10 mt-2">
             <div style={{ zoom: 0.8, transformOrigin: "top left" }} className='-mt-12'>
               <CarProductPageCSR
@@ -269,6 +288,13 @@ export default async function ProductPage({ params, searchParams }) {
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+        />
+        <Toaster
+          position="top-right"
+          offset={16}
+          mobileOffset={10}
+          richColors
+          closeButton
         />
         <div className="z-10 mt-2">
           <div style={{ zoom: 0.8, transformOrigin: "top left" }} className='-mt-12'>
@@ -300,6 +326,13 @@ export default async function ProductPage({ params, searchParams }) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+      />
+      <Toaster
+        position="top-right"
+        offset={16}
+        mobileOffset={10}
+        richColors
+        closeButton
       />
       <ClientAppCheck />
       <div className="z-10 mt-2">

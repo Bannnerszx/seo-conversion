@@ -10,7 +10,6 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useSearchParams } from 'next/navigation';
 import { useCurrency } from "@/providers/CurrencyContext"
@@ -27,7 +26,7 @@ import ImageViewer from "@/app/chats/chatComponents/imageViewer"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { SignUpButton } from "@/app/components/SignUpButton"
 import { Badge } from "@/components/ui/badge"
-
+import { toast } from "sonner"
 // ... (Keep Dropdown helper function exactly as is) ...
 const Dropdown = ({ placeholder, options, value, onChange, className = '' }) => {
     const [isHydrated, setIsHydrated] = useState(false);
@@ -144,6 +143,18 @@ async function handleCreateConversation(
         return;
     }
 
+
+    if (
+        (!inspectionData || inspectionData === null) &&
+        dropdownValuesLocations['Select Country'] &&
+        dropdownValuesLocations['Select Country'] !== 'none'
+    ) {
+        toast("Please wait for inspection data to load", {
+            id: `inspection-wait-${Date.now()}`
+        });
+        setLoadingChat(false);
+        return;
+    }
     try {
         // --- CHANGED: date-fns usage instead of moment ---
         const parsedDate = parse(tokyoTimeData.datetime, "yyyy/MM/dd HH:mm:ss.SSS", new Date());
@@ -377,7 +388,7 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
     const selectedCountry = dropdownValuesLocations["Select Country"];
     const selectedPort = dropdownValuesLocations["Select Port"]
     const [inspectionPrice, setInspectionPrice] = useState('')
-    const { inspectionData } = useInspectionToggle(dropdownValuesLocations);
+    const { inspectionData, isLoading: isInspectionLoading } = useInspectionToggle(dropdownValuesLocations);
     const [inspectionToggle, setInspectionToggle] = useState(undefined);
     const urlInspectionOn = inspection === '1';
     const urlInsuranceOn = insurance === '1';
@@ -623,6 +634,7 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
     const isButtonDisabled =
         isDataLoading ||
         loadingChat ||
+        isInspectionLoading ||
         !selectedCountry ||
         !selectedPort ||
         (
@@ -1083,7 +1095,7 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
                                         </div>
                                     </div>
 
-                             
+
                                 </div>
 
                                 <div className="flex items-center gap-3 rounded-lg border-2 border-blue-500 bg-white p-3 -mt-3 mb-2">
@@ -1197,7 +1209,7 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
                             </CardContent>
                         </Card>
 
-{/* {showDeliveryModal && (
+                        {/* {showDeliveryModal && (
                             <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
                                 <Card className="w-full max-w-md border-[3px] border-primary bg-background">
                                     <CardContent className="p-6">
