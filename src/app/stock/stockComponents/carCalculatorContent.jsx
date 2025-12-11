@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Calculator, MapPin, Check, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils";
@@ -11,7 +11,7 @@ import { useSearchParams, usePathname } from 'next/navigation';
 import { useRouter } from "@bprogress/next";
 import { useSort } from "./sortContext";
 import { useInspectionToggle } from "@/app/product/productComponents/inspectionToggle";
-import { fetchInspectionPrice } from "@/app/actions/actions"; 
+import { fetchInspectionPrice } from "@/app/actions/actions";
 
 export default function PriceCalculatorCard({ countryArray, d2dCountries = [], context, onClose }) {
     const searchParams = useSearchParams();
@@ -47,16 +47,16 @@ export default function PriceCalculatorCard({ countryArray, d2dCountries = [], c
     const [d2dMatch, setD2dMatch] = useState(null);
     const [d2dCities, setD2dCities] = useState([]);
     const [loadingCities, setLoadingCities] = useState(false);
-    const [city, setCity] = useState(""); 
+    const [city, setCity] = useState("");
     const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
-    
+
     // Hydration
     const [pendingUrlPort, setPendingUrlPort] = useState(null);
     const [pendingUrlInspection, setPendingUrlInspection] = useState(null);
     const [didHydrateInspectionFromUrl, setDidHydrateInspectionFromUrl] = useState(false);
     const [pendingUrlInsurance, setPendingUrlInsurance] = useState(null);
     const [didHydrateInsuranceFromUrl, setDidHydrateInsuranceFromUrl] = useState(false);
-    
+
     const [didHydrateClearing, setDidHydrateClearing] = useState(false);
     const [didHydrateDelivery, setDidHydrateDelivery] = useState(false);
 
@@ -68,9 +68,9 @@ export default function PriceCalculatorCard({ countryArray, d2dCountries = [], c
     const selectedPort = dropdownValuesLocations["Select Port"];
     const { inspectionData } = useInspectionToggle(dropdownValuesLocations);
     const isInspectionRequired = inspectionData?.inspectionIsRequired === "Required";
-    
+
     const [inspectionPrice, setInspectionPrice] = useState('');
-    
+
     useEffect(() => {
         if (!inspectionData?.inspectionName) return;
         const getInspectionPrice = async () => {
@@ -115,7 +115,7 @@ export default function PriceCalculatorCard({ countryArray, d2dCountries = [], c
             params.delete(key);
             clearPersist(`stock_${key}`);
         }
-        
+
         const q = params.toString();
         router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
     };
@@ -127,47 +127,47 @@ export default function PriceCalculatorCard({ countryArray, d2dCountries = [], c
     // D2D Match & Reset Logic
     useEffect(() => {
         if (didHydrateClearing && didHydrateDelivery) {
-             if (selectedCountry && d2dCountries.length > 0) {
-                 const match = d2dCountries.find(
-                     (d2d) => d2d.name === selectedCountry || d2d.id === selectedCountry
-                 );
-                 setD2dMatch(match || null);
-                 
-                 if (match) {
-                     setClearingCost(Number(match.clearingPrice) || 0);
-                 } else {
-                     // Reset everything atomically
-                     const params = new URLSearchParams(window.location.search);
-                     let changed = false;
+            if (selectedCountry && d2dCountries.length > 0) {
+                const match = d2dCountries.find(
+                    (d2d) => d2d.name === selectedCountry || d2d.id === selectedCountry
+                );
+                setD2dMatch(match || null);
 
-                     if(clearingToggle) { params.delete('clearing'); clearPersist('stock_clearing'); changed = true; }
-                     if(city) { params.delete('delivery'); clearPersist('stock_delivery'); changed = true; }
+                if (match) {
+                    setClearingCost(Number(match.clearingPrice) || 0);
+                } else {
+                    // Reset everything atomically
+                    const params = new URLSearchParams(window.location.search);
+                    let changed = false;
 
-                     setClearingCost(0);
-                     setClearingToggle(false);
-                     setCity("");
-                     setDeliveryCost(0);
+                    if (clearingToggle) { params.delete('clearing'); clearPersist('stock_clearing'); changed = true; }
+                    if (city) { params.delete('delivery'); clearPersist('stock_delivery'); changed = true; }
 
-                     if(changed) {
-                         const q = params.toString();
-                         router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
-                     }
-                 }
-             } else {
-                 setD2dMatch(null);
-                 setClearingCost(0);
-                 setClearingToggle(false);
-                 setCity("");
-                 setDeliveryCost(0);
-             }
+                    setClearingCost(0);
+                    setClearingToggle(false);
+                    setCity("");
+                    setDeliveryCost(0);
+
+                    if (changed) {
+                        const q = params.toString();
+                        router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
+                    }
+                }
+            } else {
+                setD2dMatch(null);
+                setClearingCost(0);
+                setClearingToggle(false);
+                setCity("");
+                setDeliveryCost(0);
+            }
         } else {
-             if (selectedCountry && d2dCountries.length > 0) {
-                 const match = d2dCountries.find(
-                     (d2d) => d2d.name === selectedCountry || d2d.id === selectedCountry
-                 );
-                 setD2dMatch(match || null);
-                 if (match) setClearingCost(Number(match.clearingPrice) || 0);
-             }
+            if (selectedCountry && d2dCountries.length > 0) {
+                const match = d2dCountries.find(
+                    (d2d) => d2d.name === selectedCountry || d2d.id === selectedCountry
+                );
+                setD2dMatch(match || null);
+                if (match) setClearingCost(Number(match.clearingPrice) || 0);
+            }
         }
     }, [selectedCountry, d2dCountries, setClearingCost, setClearingToggle, setDeliveryCost, didHydrateClearing, didHydrateDelivery]);
 
@@ -337,11 +337,26 @@ export default function PriceCalculatorCard({ countryArray, d2dCountries = [], c
             'Select Country': value,
             'Select Port': 'none'
         });
-        
-        // PERSIST COUNTRY:
-        updateUrlParam('country', true, value);
-        // Reset port param
-        updateUrlParam('port', false);
+
+        // Batch the URL and Cookie updates together
+        const params = new URLSearchParams(window.location.search);
+
+        // 1. Update Country
+        if (value) {
+            params.set('country', value);
+            setPersist('stock_country', value);
+        } else {
+            params.delete('country');
+            clearPersist('stock_country');
+        }
+
+        // 2. Clear Port
+        params.delete('port');
+        clearPersist('stock_port');
+
+        // 3. Apply changes to URL once
+        const q = params.toString();
+        router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
     };
 
     const handlePortChange = (value) => {
@@ -349,7 +364,7 @@ export default function PriceCalculatorCard({ countryArray, d2dCountries = [], c
             ...prev,
             'Select Port': value
         }));
-        
+
         // PERSIST PORT:
         updateUrlParam('port', true, value);
     };
@@ -357,7 +372,7 @@ export default function PriceCalculatorCard({ countryArray, d2dCountries = [], c
     const handleCityChange = (value) => {
         setCity(value);
         updateUrlParam('delivery', true, value);
-        setIsDeliveryModalOpen(false); 
+        setIsDeliveryModalOpen(false);
     };
 
     const toggleService = (service) => {
@@ -376,35 +391,35 @@ export default function PriceCalculatorCard({ countryArray, d2dCountries = [], c
         else if (service === "clearing") {
             const next = !clearingToggle;
             setClearingToggle(next);
-            
+
             if (next) {
                 updateUrlParam('clearing', true);
             } else {
                 // Disable Clearing AND Delivery atomically
                 const params = new URLSearchParams(window.location.search);
-                
+
                 params.delete('clearing');
                 clearPersist('stock_clearing');
-                
+
                 params.delete('delivery');
                 clearPersist('stock_delivery');
-                
-                setCity(""); 
+
+                setCity("");
                 setDeliveryCost(0);
-                
+
                 const q = params.toString();
                 router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
             }
         }
         else if (service === "delivery") {
-            if (!clearingToggle) return; 
-            
+            if (!clearingToggle) return;
+
             if (city) {
-                setCity(""); 
+                setCity("");
                 setDeliveryCost(0);
                 updateUrlParam('delivery', false);
             } else {
-                setIsDeliveryModalOpen(true); 
+                setIsDeliveryModalOpen(true);
             }
         }
     };
@@ -412,6 +427,15 @@ export default function PriceCalculatorCard({ countryArray, d2dCountries = [], c
     // =========================================================================
     // 6. RENDER
     // =========================================================================
+    const countryLabelMap = {
+        D_R_Congo: 'D.R. Congo',
+        'St_ Barthelemy': 'St. Barthelemy',
+        'St_ Croix': 'St. Croix',
+        'St_ Lucia': 'St. Lucia',
+        'St_ Maarten': 'St. Maarten',
+        'St_ Thomas': 'St. Thomas',
+        'St_ Vincent': 'St. Vincent',
+    };
 
     const renderFormBody = () => (
         <div className="space-y-4">
@@ -421,7 +445,23 @@ export default function PriceCalculatorCard({ countryArray, d2dCountries = [], c
                 <Select value={selectedCountry === 'none' ? '' : selectedCountry} onValueChange={handleCountryChange}>
                     <SelectTrigger className="w-full bg-white border-blue-200 focus:ring-blue-500"><SelectValue placeholder="Select Country" /></SelectTrigger>
                     <SelectContent className="max-h-[40vh] overflow-y-auto z-[9999]">
-                        {countryArray?.map((c, idx) => (<SelectItem key={idx} value={c}>{c === 'D_R_Congo' ? 'D.R. Congo' : c}</SelectItem>))}
+                        {countryArray
+                            ?.filter(
+                                (c) =>
+                                    c !== 'Bonaire' &&
+                                    c !== 'Bonaire/Netherlands Antilles' &&
+                                    c !== 'Democratic Republic of the Congo' &&
+                                    c !== 'Curacao/Netherlands Antilles'
+                            )
+                            .map((c) => {
+                                const label = countryLabelMap[c] ?? c;
+                                // CHANGED: Use `c` as the value so raw string (e.g. "St_ Lucia") is used for URL/API
+                                return (
+                                    <SelectItem key={c} value={c}>
+                                        {label}
+                                    </SelectItem>
+                                );
+                            })}
                     </SelectContent>
                 </Select>
             </div>

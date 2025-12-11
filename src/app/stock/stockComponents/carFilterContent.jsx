@@ -188,7 +188,6 @@ const FUEL_TYPES = [
     { id: 'diesel', label: 'Diesel' },
     { id: 'electric', label: 'Electric' },
     { id: 'ethanol-ffv', label: 'Ethanol-FFV' },
-    { id: 'gasoline/petrol', label: 'Gasoline/Petrol' },
     { id: 'hybrid', label: 'Hybrid' },
     { id: 'lpg', label: 'LPG' },
     { id: 'steam', label: 'Steam' },

@@ -113,18 +113,40 @@ export default async function ProductPage({ params, searchParams }) {
   const exchangeRate = currency?.jpyToUsd || 0; // Fallback rate if fetch fails
   const priceInUSD = Math.round(yenPrice * exchangeRate);
   //product schema
+
+  const today = new Date();
+
+  // Future date (for active listings) - e.g., 30 days from now
+  const futureDate = new Date(today);
+  futureDate.setDate(today.getDate() + 30);
+
+  // Past date (for sold/reserved listings) - e.g., yesterday
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+
+  // 2. Determine status based on your data
+  const isAvailable = carData.stockStatus === "On-Sale";
+
+  // 3. Set the Schema string based on status
+  // If available -> Future Date. If sold/reserved -> Yesterday.
+  const validUntilString = isAvailable
+    ? futureDate.toISOString().split('T')[0]
+    : yesterday.toISOString().split('T')[0];
   const productSchema = {
     "@context": "https://schema.org/",
     "@type": "Vehicle",
     "name": carData.carName,
-    "image": carData.thumbnailImage,
-    "description": carData.carDescription,
+    "image": carData.thumbnailImage ? carData.thumbnailImage : `https://www.realmotor.jp${carData.thumbnailImage}`,
+
+    // FIX 1: Fallback description
+    "description": carData.carDescription || `Used ${carData.year} ${carData.make} ${carData.model} for sale. VIN: ${carData.chassisNumber}.`,
+
     "brand": {
       "@type": "Brand",
       "name": carData.make
     },
     "model": carData.model,
-    "vehicelModelDate": carData.year,
+    "vehicleModelDate": carData.year, // Note: Schema usually prefers YYYY-MM-DD or YYYY format
     "mileageFromOdometer": {
       "@type": "QuantitativeValue",
       "value": carData.mileage,
@@ -136,18 +158,36 @@ export default async function ProductPage({ params, searchParams }) {
       "url": `https://www.realmotor.jp/product/${id}`,
       "priceCurrency": "USD",
       "price": priceInUSD,
+      "priceValidUntil": validUntilString,
       "itemCondition": "https://schema.org/UsedCondition",
-      "availability": carData.stockStatus === "On-Sale"
+      "availability": isAvailable
         ? "https://schema.org/InStock"
         : "https://schema.org/SoldOut",
       "seller": {
         "@type": "AutoDealer",
         "name": "REAL MOTOR JAPAN"
+      },
+
+      // FIX 2: Return Policy (Adjust as needed)
+      "hasMerchantReturnPolicy": {
+        "@type": "MerchantReturnPolicy",
+        "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+        "merchantReturnDays": 0,
+        "returnMethod": "https://schema.org/ReturnNotPermitted"
+      },
+
+      // FIX 3: Shipping Details
+      "shippingDetails": {
+        "@type": "OfferShippingDetails",
+        "shippingRate": {
+          "@type": "MonetaryAmount",
+          "value": 0,
+          "currency": "USD"
+        },
+        "doesNotShip": false
       }
     }
   }
-
-
 
 
   // 4️⃣ If any legacy cookie still exists, render guest UI immediately

@@ -589,7 +589,15 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
             "Select Port": nextPort
         });
     };
-
+    const countryLabelMap = {
+        D_R_Congo: 'D.R. Congo',
+        'St_ Barthelemy': 'St. Barthelemy',
+        'St_ Croix': 'St. Croix',
+        'St_ Lucia': 'St. Lucia',
+        'St_ Maarten': 'St. Maarten',
+        'St_ Thomas': 'St. Thomas',
+        'St_ Vincent': 'St. Vincent',
+    };
     const dropdownGroupsLocations = [
         [
             {
@@ -598,7 +606,7 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
                     { value: "none", label: "Select Country" },
                     ...countryArray.map((country) => ({
                         value: country,
-                        label: country === "D_R_Congo" ? "D.R. Congo" : country,
+                        label: countryLabelMap[country] ?? country,
                     })),
                 ],
             },
