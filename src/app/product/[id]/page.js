@@ -140,7 +140,7 @@ export default async function ProductPage({ params, searchParams }) {
 
     // FIX 1: Fallback description
     "description": carData.carDescription || `Used ${carData.year} ${carData.make} ${carData.model} for sale. VIN: ${carData.chassisNumber}.`,
-
+ 
     "brand": {
       "@type": "Brand",
       "name": carData.make
@@ -167,16 +167,12 @@ export default async function ProductPage({ params, searchParams }) {
         "@type": "AutoDealer",
         "name": "REAL MOTOR JAPAN"
       },
-
-      // FIX 2: Return Policy (Adjust as needed)
       "hasMerchantReturnPolicy": {
         "@type": "MerchantReturnPolicy",
         "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
         "merchantReturnDays": 0,
         "returnMethod": "https://schema.org/ReturnNotPermitted"
       },
-
-      // FIX 3: Shipping Details
       "shippingDetails": {
         "@type": "OfferShippingDetails",
         "shippingRate": {

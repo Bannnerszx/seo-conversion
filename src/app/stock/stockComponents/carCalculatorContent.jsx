@@ -68,7 +68,7 @@ export default function PriceCalculatorCard({ countryArray, d2dCountries = [], c
     const selectedPort = dropdownValuesLocations["Select Port"];
     const { inspectionData } = useInspectionToggle(dropdownValuesLocations);
     const isInspectionRequired = inspectionData?.inspectionIsRequired === "Required";
-
+    const isInspectionNotRequired = inspectionData?.inspectionIsRequired === "Not-Required";
     const [inspectionPrice, setInspectionPrice] = useState('');
 
     useEffect(() => {
@@ -302,10 +302,24 @@ export default function PriceCalculatorCard({ countryArray, d2dCountries = [], c
 
     // Inspection Logic
     useEffect(() => {
+        // 1. Force Enable if Required
         if (isInspectionRequired) {
             setInspectionToggle(true);
             return;
         }
+
+        // 2. Force Disable if Not-Required
+        if (isInspectionNotRequired) {
+            setInspectionToggle(false);
+
+            // If the URL has inspection=1, remove it
+            if (searchParams?.get('inspection') === '1') {
+                updateUrlParam('inspection', false);
+            }
+            return;
+        }
+
+        // 3. Normal hydration/user logic
         if (preferUrlInspectionRef.current && pendingUrlInspection !== null) {
             setInspectionToggle(!!pendingUrlInspection);
             return;
@@ -317,8 +331,7 @@ export default function PriceCalculatorCard({ countryArray, d2dCountries = [], c
         } else {
             setInspectionToggle(false);
         }
-    }, [isInspectionRequired, pendingUrlInspection, inspectionData?.toggle, setInspectionToggle]);
-
+    }, [isInspectionRequired, isInspectionNotRequired, pendingUrlInspection, inspectionData?.toggle, setInspectionToggle, searchParams]); // Added isInspectionNotRequired & searchParams
     // Insurance Hydration
     useEffect(() => {
         if (!didHydrateInsuranceFromUrl && pendingUrlInsurance !== null) {
@@ -377,7 +390,7 @@ export default function PriceCalculatorCard({ countryArray, d2dCountries = [], c
 
     const toggleService = (service) => {
         if (service === "inspection") {
-            if (isInspectionRequired || inspectionData?.isToggleDisabled) return;
+            if (isInspectionRequired || isInspectionNotRequired || inspectionData?.isToggleDisabled) return;
             const newState = !inspectionToggle;
             userSetInspectionRef.current = true;
             setInspectionToggle(newState);
@@ -478,8 +491,17 @@ export default function PriceCalculatorCard({ countryArray, d2dCountries = [], c
             {/* Services */}
             <div className="space-y-2 pt-1">
                 <div className="flex flex-wrap gap-2">
-                    <button onClick={() => toggleService("inspection")} disabled={isInspectionRequired || inspectionData?.isToggleDisabled} className={cn("relative rounded-full border px-4 py-1.5 text-xs font-medium transition-all flex items-center gap-1", (isInspectionRequired || inspectionToggle) ? "border-[#155DFC] bg-[#155DFC] text-white" : "border-[#155DFC] bg-white text-slate-700 hover:bg-[#155DFC] hover:text-white")}>
-                        Inspection {(isInspectionRequired || inspectionToggle) && <span className={cn("ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold", (isInspectionRequired || inspectionToggle) ? "bg-white text-[#155DFC]" : "bg-[#155DFC] text-white")}>+${inspectionAddOn}</span>} {isInspectionRequired && <Check className="w-3 h-3 ml-1" />}
+                    <button
+                        onClick={() => toggleService("inspection")}
+                        // UPDATED DISABLED CONDITION:
+                        disabled={isInspectionRequired || isInspectionNotRequired || inspectionData?.isToggleDisabled}
+                        className={cn("relative rounded-full border px-4 py-1.5 text-xs font-medium transition-all flex items-center gap-1",
+                            (isInspectionRequired || (inspectionToggle && !isInspectionNotRequired)) ? "border-[#155DFC] bg-[#155DFC] text-white" : "border-[#155DFC] bg-white text-slate-700 hover:bg-[#155DFC] hover:text-white",
+                            // Add extra visual style for disabled Not-Required state if needed (opacity is usually handled by disabled attribute default styles, but explicit class helps)
+                            (isInspectionNotRequired) && "opacity-50 cursor-not-allowed border-gray-300 bg-gray-100 text-gray-400 hover:bg-gray-100 hover:text-gray-400"
+                        )}
+                    >
+                        Inspection {(isInspectionRequired || (inspectionToggle && !isInspectionNotRequired)) && <span className={cn("ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold", (isInspectionRequired || inspectionToggle) ? "bg-white text-[#155DFC]" : "bg-[#155DFC] text-white")}>+${inspectionAddOn}</span>} {isInspectionRequired && <Check className="w-3 h-3 ml-1" />}
                     </button>
                     <button onClick={() => toggleService("insurance")} className={cn("relative rounded-full border px-4 py-1.5 text-xs font-medium transition-all flex items-center", insuranceToggle ? "border-[#155DFC] bg-[#155DFC] text-white" : "border-[#155DFC] bg-white text-slate-700 hover:bg-[#155DFC] hover:text-white")}>
                         Insurance {insuranceToggle && <span className="ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-white text-[#155DFC]">+$50</span>}
