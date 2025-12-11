@@ -12,7 +12,7 @@ import { notFound } from 'next/navigation';
 
 export async function generateMetadata({ params }) {
   const { id } = await params
-  const baseUrl = "https://dev.realmotor.jp"
+  const baseUrl = "https://www.realmotor.jp"
 
   const canonicalUrl = `${baseUrl}/product/${id}`;
 
