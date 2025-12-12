@@ -40,7 +40,7 @@ env:
   #   secret: projects/879567069316/secrets/mongSource/versions/1
 
 
-  - variable: NEXT_PUBLIC_PAYPAL_CLIENT_ID
+  - variable: NEXT_PUBLIC_PAYPAL_SANDBOX_CLIENT_ID
     secret: NEXT_PUBLIC_PAYPAL_SANDBOX_CLIENT_ID
 
   - variable: NEXT_PUBLIC_PAYPAL_SECRET
