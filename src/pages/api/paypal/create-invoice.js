@@ -253,7 +253,7 @@ export default async function handler(req, res) {
 
 
 
-/** helpers **/
+/** helpers **
 function apiBase() {
   const base = (process.env.NEXT_PUBLIC_PAYPAL_BASE_LINK).replace(/\/+$/, "");
   if (!/^https:\/\/api-m(\.sandbox)?\.paypal\.com$/.test(base)) throw new Error(`Invalid PAYPAL_BASE: ${base}`);
