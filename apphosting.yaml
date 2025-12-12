@@ -41,16 +41,16 @@ env:
 
 
   - variable: NEXT_PUBLIC_PAYPAL_CLIENT_ID
-    secret: PAYPAL_CLIENT_ID
+    secret: NEXT_PUBLIC_PAYPAL_SANDBOX_CLIENT_ID
 
   - variable: NEXT_PUBLIC_PAYPAL_SECRET
-    secret: PAYPAL_SECRET
+    secret: NEXT_PUBLIC_PAYPAL_SECRET
 
   - variable: NEXT_PUBLIC_PAYPAL_BASE_LINK
-    secret: PAYPAL_BASE_LINK
+    secret: NEXT_PUBLIC_PAYPAL_BASENK
 
-  - variable: PAYPAL_WEBHOOK
-    secret: PAYPAL_WEBHOOK
+  - variable: NEXT_PUBLIC_WEBHOOK_ID
+    secret: NEXT_PUBLIC_WEBHOOK_ID
 
   - variable: NEXT_PUBLIC_MONGO_DB
     secret: NEXT_PUBLIC_MONGO_DB
