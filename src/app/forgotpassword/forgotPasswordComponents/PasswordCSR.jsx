@@ -13,7 +13,7 @@ export default function ForgotPasswordCSR() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSubmitted, setIsSubmitted] = useState(false);
     const actionCodeSettings = {
-        url: "https://www.realmotor.jp/catch/action",
+        url: "https://dev.realmotor.jp/catch/action",
         handleCodeInApp: true,
     };
 

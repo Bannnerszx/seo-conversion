@@ -12,7 +12,7 @@ import { notFound } from 'next/navigation';
 
 export async function generateMetadata({ params }) {
   const { id } = await params
-  const baseUrl = "https://www.realmotor.jp"
+  const baseUrl = "https://dev.realmotor.jp"
 
   const canonicalUrl = `${baseUrl}/product/${id}`;
 
@@ -136,7 +136,7 @@ export default async function ProductPage({ params, searchParams }) {
     "@context": "https://schema.org/",
     "@type": "Vehicle",
     "name": carData.carName,
-    "image": carData.thumbnailImage ? carData.thumbnailImage : `https://www.realmotor.jp${carData.thumbnailImage}`,
+    "image": carData.thumbnailImage ? carData.thumbnailImage : `https://dev.realmotor.jp${carData.thumbnailImage}`,
 
     // FIX 1: Fallback description
     "description": carData.carDescription || `Used ${carData.year} ${carData.make} ${carData.model} for sale. VIN: ${carData.chassisNumber}.`,
@@ -155,7 +155,7 @@ export default async function ProductPage({ params, searchParams }) {
     "vehicleIdentificationNumber": carData.chassisNumber,
     "offers": {
       "@type": "Offer",
-      "url": `https://www.realmotor.jp/product/${id}`,
+      "url": `https://dev.realmotor.jp/product/${id}`,
       "priceCurrency": "USD",
       "price": priceInUSD,
       "priceValidUntil": validUntilString,
@@ -267,7 +267,7 @@ export default async function ProductPage({ params, searchParams }) {
   let resultsIsFavorited = []
 
   try {
-    const origin = process.env.NEXT_PUBLIC_APP_URL || "https://www.realmotor.jp"
+    const origin = process.env.NEXT_PUBLIC_APP_URL || "https://dev.realmotor.jp"
     const verifyRes = await fetch(`${origin}/api/verify-session`, {
       method: "GET",
       headers: {

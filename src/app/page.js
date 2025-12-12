@@ -49,7 +49,7 @@ export async function generateMetadata() {
         "Affordable, quality used vehicles sourced in Japan since 1979.",
       images: [
         {
-          url: `https://www.realmotor.jp/rmj.webp`,
+          url: `https://dev.realmotor.jp/rmj.webp`,
           width: 1200,
           height: 630,
           alt: "REAL MOTOR JAPAN Banner",
@@ -61,7 +61,7 @@ export async function generateMetadata() {
       title: "REAL MOTOR JAPAN",
       description:
         "Affordable, quality used vehicles sourced in Japan since 1979.",
-      images: [`https://www.realmotor.jp/rmj.webp`],
+      images: [`https://dev.realmotor.jp/rmj.webp`],
     },
   };
 }
@@ -77,9 +77,9 @@ export default async function Home() {
     "@context": "https://schema.org",
     "@type": "AutoDealer",
     "name": "REAL MOTOR JAPAN",
-    "url": 'https://www.realmotor.jp',
-    "logo": "https://www.realmotor.jp/rmj.webp",
-    "image": "https://www.realmotor.jp/rmj.webp",
+    "url": 'https://dev.realmotor.jp',
+    "logo": "https://dev.realmotor.jp/rmj.webp",
+    "image": "https://dev.realmotor.jp/rmj.webp",
     "description": "Established in 1979, offering affordable and quality used vehicles sourced in Japan.",
     "foundingDate": "1979",
     "address": {

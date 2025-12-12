@@ -771,7 +771,7 @@ export async function handleSignUp(userEmail, userPassword) {
 export async function makeFavorite({ product, userEmail }) {
     const [tokyoTimeResponse] = await Promise.all([
         fetch('https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time', {
-            headers: { 'Origin': 'https://www.realmotor.jp' }
+            headers: { 'Origin': 'https://dev.realmotor.jp' }
         })
     ]);
 

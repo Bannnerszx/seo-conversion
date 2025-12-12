@@ -17,7 +17,7 @@ export async function generateMetadata({ params, searchParams }) {
     const p = await params;
     const filters = await p.filters || [];
 
-    const baseUrl = 'https://www.realmotor.jp';
+    const baseUrl = 'https://dev.realmotor.jp';
 
     const path = filters.join('/');
     const canonicalUrl = `${baseUrl}/stock/${path}`;

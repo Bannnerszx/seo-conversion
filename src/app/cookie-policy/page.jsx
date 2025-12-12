@@ -44,7 +44,7 @@ export default function CookiePolicyPage() {
               <p className="text-gray-700">
                 This Terms of Member's ID Agreement (the "Agreement") describes the
                 terms and conditions applicable to your use of RealMotorJapan's website
-                which is identified by the uniform resource locator,https://www.realmotor.jp/
+                which is identified by the uniform resource locator,https://dev.realmotor.jp/
               </p>
               <p className="text-gray-700">
                 ("website"). This Agreement is entered into between you as the user of

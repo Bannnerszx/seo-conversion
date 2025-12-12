@@ -12,11 +12,11 @@ env:
 
   # 2) The “current” cookie name, as a simple value
   - variable: SESSION_COOKIE_NAME
-    value: "session_v1"
+    value: "session_v12"
 
   # 3-1) Your public URL
   - variable: NEXT_PUBLIC_APP_URL
-    value: "https://www.realmotor.jp"
+    value: "https://dev.realmotor.jp"
     availability:
       - BUILD
       - RUNTIME
