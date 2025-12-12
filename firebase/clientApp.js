@@ -1,16 +1,20 @@
-import { getApps, getApp, initializeApp } from "firebase/app";
-
+import { initializeApp, getApps, getApp } from "firebase/app";
+// ❌ REMOVE top-level imports of services
+// import { getFirestore } from "firebase/firestore";
+// import { getStorage } from "firebase/storage";
+// import { getAuth } from 'firebase/auth'
+// import { getFunctions } from "firebase/functions";
 
 const firebaseConfig = {
-    apiKey: "AIzaSyC1oPK69XInlpw-E9BowLGocFq2i8wRjZA",
-    authDomain: "real-motor-japan.firebaseapp.com",
-    projectId: "real-motor-japan",
-    storageBucket: "real-motor-japan.firebasestorage.app",
-    messagingSenderId: "854100669672",
-    appId: "1:854100669672:web:c224be87d85439b5af855d",
-    measurementId: "G-SS7WCX5ZMV"
+    apiKey: "AIzaSyDwjLbUFMDEyXB7NT63QJonc1NXZH3w07k",
+    authDomain: "samplermj.firebaseapp.com",
+    databaseURL: "https://samplermj-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "samplermj",
+    storageBucket: "samplermj.appspot.com",
+    messagingSenderId: "879567069316",
+    appId: "1:879567069316:web:1208cd45c8b20ca6aba2d1",
+    measurementId: "G-L80RXVVXY6"
 };
-
 
 // 1. Initialize App synchronously (it's fast)
 const firebaseApp = !getApps().length ? initializeApp(firebaseConfig) : getApp();

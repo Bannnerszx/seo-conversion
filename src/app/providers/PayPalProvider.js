@@ -3,7 +3,7 @@
 import { PayPalScriptProvider } from "@paypal/react-paypal-js";
 
 export default function PayPalProvider({ children }) {
-  const rawClientId =  process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ;
+  const rawClientId =  process.env.NEXT_PUBLIC_PAYPAL_SANDBOX_CLIENT_ID ;
 
 
   const clientId = rawClientId?.trim(); // trim just in case

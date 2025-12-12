@@ -151,8 +151,8 @@ export default async function RootLayout({ children }) {
             </Providers>
           </AuthProviderServer>
         </IpInfoProvider>
-        <DelayedGTM gtmId="GTM-NJLD22H" />
-        <ClarityScript />
+        {/* <DelayedGTM gtmId="GTM-NJLD22H" /> */}
+        {/* <ClarityScript /> */}
       </body>
     </html>
   )

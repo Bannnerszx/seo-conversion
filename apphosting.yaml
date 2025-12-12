@@ -52,5 +52,5 @@ env:
   - variable: PAYPAL_WEBHOOK
     secret: PAYPAL_WEBHOOK
 
-  - variable: MONGO_DB
-    secret: MONGO_DB
+  - variable: NEXT_PUBLIC_MONGO_DB
+    secret: NEXT_PUBLIC_MONGO_DB

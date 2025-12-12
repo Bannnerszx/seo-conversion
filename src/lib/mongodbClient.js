@@ -32,8 +32,8 @@
 import { MongoClient } from "mongodb";
 
 // 1. Load from environment variable (Local or Secret Manager)
-const uri = process.env.MONGO_DB;
-const DB_NAME = "mongodb-prod";
+const uri = process.env.NEXT_PUBLIC_MONGO_DB;
+const DB_NAME = "mongodb";
 
 if (!uri) {
   throw new Error(
