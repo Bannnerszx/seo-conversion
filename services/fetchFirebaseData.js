@@ -58,7 +58,7 @@ export const getUnsoldVehicleCount = async () => {
   }
 };
 
-export const  fetchHomepageStock = cache(
+export const fetchHomepageStock = cache(
   async () => {
     return await fetchVehicleProductsByPage({
       itemsPerPage: 50,
@@ -68,7 +68,7 @@ export const  fetchHomepageStock = cache(
     });
   },
   ['homepage-stock-list'],
-  {revalidate: 1, tags: ['homepage-stock']}
+  { revalidate: 1, tags: ['homepage-stock'] }
 );
 
 // export async function fetchCountries() {
@@ -646,6 +646,7 @@ export const fetchVehicleProductsByPage =
       transmission: 1,
       bodyType: 1,
       images: 1,
+      imageCount: 1,
       engineDisplacementNumber: 1,
       steering: 1,
       driveType: 1,

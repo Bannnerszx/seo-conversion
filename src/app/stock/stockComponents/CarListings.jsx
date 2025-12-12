@@ -23,11 +23,11 @@ export function CarCardSkeleton() {
           <Skeleton className="h-full w-full object-cover" />
         </div>
         <div className="flex flex-1 flex-col p-6">
-           <Skeleton className="h-6 w-40" />
-           <Skeleton className="h-8 w-24 mt-6" />
-           <div className="mt-6 justify-self-end">
-              <Skeleton className="w-20 h-6" />
-           </div>
+          <Skeleton className="h-6 w-40" />
+          <Skeleton className="h-8 w-24 mt-6" />
+          <div className="mt-6 justify-self-end">
+            <Skeleton className="w-20 h-6" />
+          </div>
         </div>
       </div>
     </Card>
@@ -65,7 +65,8 @@ function CarCard({
   fobHistory,
   insuranceParams,
   inspectionParams,
-  carDescription
+  carDescription,
+  imageCount
 }) {
   const qs = new URLSearchParams();
   if (countryParams) qs.set('country', countryParams);
@@ -117,7 +118,7 @@ function CarCard({
               src={imageUrl ? imageUrl : '/placeholder.jpg'}
               alt={carName}
 
-      
+
               width={1200}  /* Example: 1200 */
               height={800} /* Example: 800 */
 
@@ -149,6 +150,7 @@ function CarCard({
               <RecommendedBadge size="sm" text="HOT" />
             </div>
           )}
+
         </div>
 
 
@@ -177,6 +179,13 @@ function CarCard({
                 <Eye className="h-3 w-3" />
                 {safeViews + 2} views today
               </Badge>
+
+
+              {imageCount === 0 && (
+                <Badge variant="destructive" className="gap-1.5">
+                  Photos Coming Soon
+                </Badge>
+              )}
             </div>
             <div className="p-1">
               <div className="flex items-center gap-2">
@@ -279,12 +288,12 @@ function CarCard({
 
 
 export default function CarListings({ resultsIsFavorited, products, currency, country, port, userEmail }) {
- const router = useRouter()
+  const router = useRouter()
   const searchParams = useSearchParams();
-  
+
   const inspectionParam = searchParams.get('inspection') === '1' ? '1' : undefined;
   const insuranceParam = searchParams.get('insurance') === '1' ? '1' : undefined;
-  
+
   const clearingParam = searchParams.get('clearing') === '1' ? '1' : undefined;
   const deliveryParam = searchParams.get('delivery');
 
@@ -292,7 +301,7 @@ export default function CarListings({ resultsIsFavorited, products, currency, co
   const filtered = products
     ?.filter(car => car.fobPriceNumber)
     .filter(car => !withPhotosOnly || (car.images?.length ?? 0) > 0);
-    
+
   // 3. Remove top-level function call
   // const incrementView = httpsCallable(functions, 'incrementViewCounter')
 
@@ -303,11 +312,11 @@ export default function CarListings({ resultsIsFavorited, products, currency, co
       try {
         // 4. Dynamic load inside click handler
         const [functionsInstance, { httpsCallable }] = await Promise.all([
-            getFirebaseFunctions(),
-            import("firebase/functions")
+          getFirebaseFunctions(),
+          import("firebase/functions")
         ]);
         const incrementView = httpsCallable(functionsInstance, 'incrementViewCounter');
-        
+
         incrementView({ docId: productId });
 
         sessionStorage.setItem(viewLoggedKey, 'true');
@@ -333,15 +342,15 @@ export default function CarListings({ resultsIsFavorited, products, currency, co
             countryParams={country}
             portParams={port}
             userEmail={userEmail}
-            
+
             // Pass existing params
             inspectionParams={inspectionParam}
             insuranceParams={insuranceParam}
-            
+
             // Pass NEW params
             clearingParams={clearingParam}
             deliveryParams={deliveryParam}
-            
+
             resultsIsFavorited={resultsIsFavorited}
           />
         ))
