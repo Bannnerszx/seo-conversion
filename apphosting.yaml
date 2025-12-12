@@ -32,9 +32,6 @@ env:
     value: "false"
 
   # 5-1) prod mod
-  - variable: API_KEY
-    secret: projects/854100669672/secrets/mongo-db-account-secret-key-viewer/versions/2
-  
   # 5-2) dev mode
   # - variable: API_KEY
   #   secret: projects/879567069316/secrets/mongSource/versions/1
