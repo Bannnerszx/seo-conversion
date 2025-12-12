@@ -18,8 +18,8 @@ export default function ActionButtonsChat({ accountData, bookingData, countryLis
         setPreloadError(null)
         try {
             const [ip, time] = await Promise.all([
-                fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo").then(r => r.json()),
-                fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time").then(r => r.json()),
+                fetch("https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo").then(r => r.json()),
+                fetch("https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time").then(r => r.json()),
             ])
             setIpInfo(ip)
             setTokyoTime(time)
@@ -32,8 +32,8 @@ export default function ActionButtonsChat({ accountData, bookingData, countryLis
     useEffect(() => {
         let mounted = true
         Promise.all([
-            fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo").then(r => r.json()),
-            fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time").then(r => r.json()),
+            fetch("https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo").then(r => r.json()),
+            fetch("https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time").then(r => r.json()),
         ])
             .then(([ip, time]) => {
                 if (!mounted) return

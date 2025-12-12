@@ -12,8 +12,8 @@ export const IpInfoProvider = ({ children }) => {
     const signal = controller.signal;
 
     Promise.all([
-      fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo", { signal }).then(r => r.json()),
-      fetch("https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time", { signal }).then(r => r.json()),
+      fetch("https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo", { signal }).then(r => r.json()),
+      fetch("https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time", { signal }).then(r => r.json()),
     ])
       .then(([ip, time]) => {
         setIpInfo(ip);

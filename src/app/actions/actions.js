@@ -659,7 +659,7 @@ export async function submitJackallClient({
 
     // 2) send it to your Cloud Function
     const response = await fetch(
-        "https://asia-northeast2-real-motor-japan.cloudfunctions.net/uploadJackallClients",
+        "https://asia-northeast2-samplermj.cloudfunctions.net/uploadJackallClients",
         {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -770,7 +770,7 @@ export async function handleSignUp(userEmail, userPassword) {
 
 export async function makeFavorite({ product, userEmail }) {
     const [tokyoTimeResponse] = await Promise.all([
-        fetch('https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time', {
+        fetch('https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time', {
             headers: { 'Origin': 'https://www.realmotor.jp' }
         })
     ]);

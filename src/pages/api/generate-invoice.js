@@ -234,9 +234,9 @@ async function generateInvoiceHTML(invoiceData, selectedChatData, isProforma) {
     const tableTop = s(invoiceData?.placeOfDelivery) && s(invoiceData?.cfs) ? 577 : 537;
 
     const rmjLogoUrl =
-        'https://firebasestorage.googleapis.com/v0/b/real-motor-japan.firebasestorage.app/o/assets%2FRMJ%20logo%20for%20invoice.png?alt=media&token=0326ca6c-0e5b-4e25-8248-fbeb7b057b60';
+        'https://firebasestorage.googleapis.com/v0/b/samplermj.firebasestorage.app/o/assets%2FRMJ%20logo%20for%20invoice.png?alt=media&token=0326ca6c-0e5b-4e25-8248-fbeb7b057b60';
     const hankoUrl =
-        'https://firebasestorage.googleapis.com/v0/b/real-motor-japan.firebasestorage.app/o/assets%2FRMJ%20Invoice%20Signature%20with%20Hanko.png?alt=media&token=2f331216-8605-4225-b74f-ce9447757341';
+        'https://firebasestorage.googleapis.com/v0/b/samplermj.firebasestorage.app/o/assets%2FRMJ%20Invoice%20Signature%20with%20Hanko.png?alt=media&token=2f331216-8605-4225-b74f-ce9447757341';
 
     return `<!DOCTYPE html>
 <html lang="en"><head>

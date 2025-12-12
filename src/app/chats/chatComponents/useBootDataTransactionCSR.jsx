@@ -1,8 +1,8 @@
 // useBootData.js
 import { useEffect, useMemo, useRef, useState } from "react";
 
-const IP_URL  = "https://asia-northeast2-real-motor-japan.cloudfunctions.net/ipApi/ipInfo";
-const TIME_URL = "https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time";
+const IP_URL  = "https://asia-northeast2-samplermj.cloudfunctions.net/ipApi/ipInfo";
+const TIME_URL = "https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time";
 
 const LS_IP = "boot_ipInfo_v1";
 

@@ -34,7 +34,7 @@ export default function AccounCreationCSR({ countryList, accountData, oldId, cur
         let mounted = true
 
         fetch(
-            "https://asia-northeast2-real-motor-japan.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time"
+            "https://asia-northeast2-samplermj.cloudfunctions.net/serverSideTimeAPI/get-tokyo-time"
         )
             .then((r) => r.json())
             .then((data) => {

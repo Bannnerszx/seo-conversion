@@ -78,14 +78,14 @@ export default async function LocalInformation({ params }) {
             : country.title;
 
     const chipataImages = [
-        { src: "https://firebasestorage.googleapis.com/v0/b/real-motor-japan.firebasestorage.app/o/assets%2Fzambia-assets%2Fzm1.jpg?alt=media&token=3e63a404-7732-42ff-a2ba-ceb2deb27cd5", alt: "Chipata Branch Exterior" },
-        { src: "https://firebasestorage.googleapis.com/v0/b/real-motor-japan.firebasestorage.app/o/assets%2Fzambia-assets%2Fzm2.jpg?alt=media&token=09a88e20-0858-4c6e-ae15-894ab0329e0f", alt: "Chipata Branch Interior" },
-        { src: "https://firebasestorage.googleapis.com/v0/b/real-motor-japan.firebasestorage.app/o/assets%2Fzambia-assets%2Fzm3.jpg?alt=media&token=7c40e386-8c95-4f58-a0bc-79a834ac197f", alt: "Chipata Branch Cars" },
-        { src: "https://firebasestorage.googleapis.com/v0/b/real-motor-japan.firebasestorage.app/o/assets%2Fzambia-assets%2Fzm4.jpg?alt=media&token=a016375b-62dd-4136-ac37-42df5c0dabbb", alt: "Zambia Branch" },
-        { src: "https://firebasestorage.googleapis.com/v0/b/real-motor-japan.firebasestorage.app/o/assets%2Fzambia-assets%2Fzm5.jpg?alt=media&token=bc72b182-3995-4d19-a69d-1cf43d713b94", alt: "Zambia Branch 2" },
-        { src: "https://firebasestorage.googleapis.com/v0/b/real-motor-japan.firebasestorage.app/o/assets%2Fzambia-assets%2Fzm7.jpg?alt=media&token=8f7a20ae-ca51-4850-a70c-17d1553e32f2", alt: "Zambia Branch 3" },
-        { src: "https://firebasestorage.googleapis.com/v0/b/real-motor-japan.firebasestorage.app/o/assets%2Fzambia-assets%2Fzm8.jpg?alt=media&token=ccc97885-7d1c-4679-8363-3342e7a71d97", alt: "Zambia Branch 4" },
-        { src: " https://firebasestorage.googleapis.com/v0/b/real-motor-japan.firebasestorage.app/o/assets%2Fzambia-assets%2Fzm6.jpg?alt=media&token=4396bf41-7203-49e8-85fe-4f572ab52594", alt: "Zambia Branch 5" }
+        { src: "https://firebasestorage.googleapis.com/v0/b/samplermj.firebasestorage.app/o/assets%2Fzambia-assets%2Fzm1.jpg?alt=media&token=3e63a404-7732-42ff-a2ba-ceb2deb27cd5", alt: "Chipata Branch Exterior" },
+        { src: "https://firebasestorage.googleapis.com/v0/b/samplermj.firebasestorage.app/o/assets%2Fzambia-assets%2Fzm2.jpg?alt=media&token=09a88e20-0858-4c6e-ae15-894ab0329e0f", alt: "Chipata Branch Interior" },
+        { src: "https://firebasestorage.googleapis.com/v0/b/samplermj.firebasestorage.app/o/assets%2Fzambia-assets%2Fzm3.jpg?alt=media&token=7c40e386-8c95-4f58-a0bc-79a834ac197f", alt: "Chipata Branch Cars" },
+        { src: "https://firebasestorage.googleapis.com/v0/b/samplermj.firebasestorage.app/o/assets%2Fzambia-assets%2Fzm4.jpg?alt=media&token=a016375b-62dd-4136-ac37-42df5c0dabbb", alt: "Zambia Branch" },
+        { src: "https://firebasestorage.googleapis.com/v0/b/samplermj.firebasestorage.app/o/assets%2Fzambia-assets%2Fzm5.jpg?alt=media&token=bc72b182-3995-4d19-a69d-1cf43d713b94", alt: "Zambia Branch 2" },
+        { src: "https://firebasestorage.googleapis.com/v0/b/samplermj.firebasestorage.app/o/assets%2Fzambia-assets%2Fzm7.jpg?alt=media&token=8f7a20ae-ca51-4850-a70c-17d1553e32f2", alt: "Zambia Branch 3" },
+        { src: "https://firebasestorage.googleapis.com/v0/b/samplermj.firebasestorage.app/o/assets%2Fzambia-assets%2Fzm8.jpg?alt=media&token=ccc97885-7d1c-4679-8363-3342e7a71d97", alt: "Zambia Branch 4" },
+        { src: " https://firebasestorage.googleapis.com/v0/b/samplermj.firebasestorage.app/o/assets%2Fzambia-assets%2Fzm6.jpg?alt=media&token=4396bf41-7203-49e8-85fe-4f572ab52594", alt: "Zambia Branch 5" }
 
     ]
 

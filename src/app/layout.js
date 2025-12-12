@@ -32,7 +32,7 @@ const geistMono = Geist_Mono({
 
 export const metadata = {
 
-  metadataBase: new URL('https://www.realmotor.jp'),
+  metadataBase: new URL('https://dev.realmotor.jp'),
 
   title: {
     default: "REAL MOTOR JAPAN - Quality Japanese Used Cars",
