@@ -28,32 +28,32 @@ const SearchByType = () => {
             id: '1',
             name: 'Sedan',
             imageUrl:
-                'https://firebasestorage.googleapis.com/v0/b/samplermj.firebasestorage.app/o/assets%2Fcar-types-assets%2Fsedan-color.png?alt=media&token=7ef19286-f1fd-47f0-a6f3-d5f232aa8f0a',
+                'https://firebasestorage.googleapis.com/v0/b/real-motor-japan.firebasestorage.app/o/assets%2Fcar-types-assets%2Fsedan-color.png?alt=media&token=7ef19286-f1fd-47f0-a6f3-d5f232aa8f0a',
         },
         {
             id: '2',
             name: 'Pickup',
-            imageUrl: 'https://firebasestorage.googleapis.com/v0/b/samplermj.firebasestorage.app/o/assets%2Fcar-types-assets%2Fpickup-color.png?alt=media&token=2c630196-6fa2-433f-ad0d-5d9daf8ed151', // 👉 replace with your real URL
+            imageUrl: 'https://firebasestorage.googleapis.com/v0/b/real-motor-japan.firebasestorage.app/o/assets%2Fcar-types-assets%2Fpickup-color.png?alt=media&token=2c630196-6fa2-433f-ad0d-5d9daf8ed151', // 👉 replace with your real URL
         },
         {
             id: '3',
             name: 'SUV',
-            imageUrl: 'https://firebasestorage.googleapis.com/v0/b/samplermj.firebasestorage.app/o/assets%2Fcar-types-assets%2Fsuv-color.png?alt=media&token=1e30973d-94f6-43e9-8f6b-9deb22cb8f50', // 👉 replace with your real URL
+            imageUrl: 'https://firebasestorage.googleapis.com/v0/b/real-motor-japan.firebasestorage.app/o/assets%2Fcar-types-assets%2Fsuv-color.png?alt=media&token=1e30973d-94f6-43e9-8f6b-9deb22cb8f50', // 👉 replace with your real URL
         },
         {
             id: '4',
             name: 'Hatchback',
-            imageUrl: 'https://firebasestorage.googleapis.com/v0/b/samplermj.firebasestorage.app/o/assets%2Fcar-types-assets%2Fhatchback-color.png?alt=media&token=9f689527-9af8-4d19-bd75-a17c2d451ffb', // 👉 replace with your real URL
+            imageUrl: 'https://firebasestorage.googleapis.com/v0/b/real-motor-japan.firebasestorage.app/o/assets%2Fcar-types-assets%2Fhatchback-color.png?alt=media&token=9f689527-9af8-4d19-bd75-a17c2d451ffb', // 👉 replace with your real URL
         },
         {
             id: '5',
             name: 'Wagon',
-            imageUrl: 'https://firebasestorage.googleapis.com/v0/b/samplermj.firebasestorage.app/o/assets%2Fcar-types-assets%2Fwagon-color.png?alt=media&token=35d33185-f19d-4a57-b523-48659dfe9d75', // 👉 replace with your real URL
+            imageUrl: 'https://firebasestorage.googleapis.com/v0/b/real-motor-japan.firebasestorage.app/o/assets%2Fcar-types-assets%2Fwagon-color.png?alt=media&token=35d33185-f19d-4a57-b523-48659dfe9d75', // 👉 replace with your real URL
         },
         {
             id: '6',
             name: 'Van/Minivan',
-            imageUrl: 'https://firebasestorage.googleapis.com/v0/b/samplermj.firebasestorage.app/o/assets%2Fcar-types-assets%2Fvan-color.png?alt=media&token=02ef9aad-574c-4e1f-90d0-bf7e273c6d7c', // 👉 replace with your real URL
+            imageUrl: 'https://firebasestorage.googleapis.com/v0/b/real-motor-japan.firebasestorage.app/o/assets%2Fcar-types-assets%2Fvan-color.png?alt=media&token=02ef9aad-574c-4e1f-90d0-bf7e273c6d7c', // 👉 replace with your real URL
         },
     ];
     return (

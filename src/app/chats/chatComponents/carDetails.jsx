@@ -7,7 +7,7 @@ import Link from "next/link";
 
 export default function CarDetails({ chatId, handleBackToList, isMobileView, isDetailView, countryDetails, contact, invoiceData, dueDate }) {
     const router = useRouter()
-    const selectedCurrencyCode = contact?.selectedCurrencyExchange; // e.g. "JPY"
+    const selectedCurrencyCode = contact?.selectedCurrencyExchange; 
 
     const toNumber = (v, fallback = 0) => {
         if (v == null) return fallback;
@@ -55,7 +55,6 @@ export default function CarDetails({ chatId, handleBackToList, isMobileView, isD
     };
 
     // --- core compute ---
-    // Fallback parts (all in USD)
     const fobPriceUSD = toNumber(contact?.carData?.fobPrice) *
         (Number.isFinite(rates.jpyToUsd) ? rates.jpyToUsd : 1);
     const dimM3 = toNumber(contact?.carData?.dimensionCubicMeters);
@@ -64,42 +63,33 @@ export default function CarDetails({ chatId, handleBackToList, isMobileView, isD
         (Number.isFinite(dimM3) ? dimM3 : 0) *
         (Number.isFinite(freightUSD) ? freightUSD : 0);
 
-
-    console.log(contact?.carData?.fobPrice, 'usd')
-
     // Invoice totals are ALWAYS USD in your system:
     const invoiceTotalUSD = toNumber(invoiceData?.paymentDetails?.totalAmount, NaN);
     const hasInvoiceTotal = Number.isFinite(invoiceTotalUSD);
 
-    // If invoice exists, display using the invoice’s chosen display currency,
-    // otherwise use the UI-selected currency.
     const targetCurrencyCode = hasInvoiceTotal && invoiceData?.selectedCurrencyExchange
         ? invoiceData.selectedCurrencyExchange
         : pickCurrency(selectedCurrencyCode).code;
 
     const targetCurrency = pickCurrency(targetCurrencyCode);
-
-    // Base (USD): invoice wins (authoritative); else fallback.
     const baseFinalUSD = hasInvoiceTotal ? invoiceTotalUSD : fallbackUSD;
 
-    // Only add surcharges when using fallback (NOT when invoice exists)
+    // --- UPDATED CALCULATION LOGIC ---
     let amountInTarget = fromUSD(baseFinalUSD, targetCurrencyCode);
 
     if (!hasInvoiceTotal) {
-        // FIX: Use saved inspection price if available, otherwise 300
         const savedInspectionPrice = contact?.inspectionPrice ? toNumber(contact.inspectionPrice) : 300;
-
         const inspection = contact?.inspection ? fromUSD(savedInspectionPrice, targetCurrencyCode) : 0;
         const insurance = contact?.insurance ? fromUSD(50, targetCurrencyCode) : 0;
 
-        // Add Clearing & Delivery
-        const clearing = contact?.clearing ? fromUSD(contact.clearingPrice || 0, targetCurrencyCode) : 0;
-        const delivery = contact?.delivery ? fromUSD(contact.deliveryPrice || 0, targetCurrencyCode) : 0;
+        // 1. ACCESS CLEARING & DELIVERY FROM doorToDoor OBJECT
+        const d2d = contact?.doorToDoor || {}; 
+        const clearing = d2d.clearing ? fromUSD(d2d.clearingPrice || 0, targetCurrencyCode) : 0;
+        const delivery = d2d.delivery ? fromUSD(d2d.deliveryPrice || 0, targetCurrencyCode) : 0;
 
         amountInTarget = toNumber(amountInTarget, 0) + inspection + insurance + clearing + delivery;
     }
 
-    // Final for render
     const finalDisplay = formatMoney(amountInTarget, targetCurrency.symbol);
 
     const [thumbnailUrl, setThumbnailUrl] = useState('');
@@ -166,24 +156,18 @@ export default function CarDetails({ chatId, handleBackToList, isMobileView, isD
 
     const src = thumbnailUrl || '/placeholder.jpg';
 
-
     return (
-
         <div className="w-full overflow-x-auto mx-auto rounded-sm p-4 font-sans bg-white">
             <div className="flex gap-4 lg:max-w-[730px] w-[790px]">
-
                 <div className="min-[768px]:hidden flex justify-center items-center">
                     <Link
                         href={'/chats'}
                         className="p-2 rounded-full hover:bg-gray-100 focus:outline-none"
                         aria-label="Back to list"
                     >
-
                         <ChevronLeft className="w-10 h-10 text-gray-700 cursor-pointer" />
-
                     </Link>
                 </div>
-
 
                 <div className="flex flex-col gap-2">
                     <div className="relative w-20 h-20 overflow-hidden rounded-[50%] border border-gray-200">
@@ -226,6 +210,8 @@ export default function CarDetails({ chatId, handleBackToList, isMobileView, isD
                     </div>
 
                     <div className="text-sm">{contact?.country} / {contact?.port}</div>
+                    
+                    {/* --- UPDATED LABELS TO CHECK doorToDoor --- */}
                     <div className="text-sm font-semibold text-green-600">
                         {[
                             (invoiceData?.paymentDetails?.inspectionIsChecked ?? contact?.inspection) ? 'INSPECTION' : null,
@@ -233,8 +219,11 @@ export default function CarDetails({ chatId, handleBackToList, isMobileView, isD
                                 ? (invoiceData?.paymentDetails?.incoterms === 'C&F' ? 'C&F' : 'CIF')
                                 : (contact?.insurance ? 'CIF' : 'C&F')),
                             (invoiceData?.paymentDetails?.warrantyIsChecked ?? contact?.warranty) ? 'WARRANTY' : null,
-                            contact?.clearing ? 'CLEARING' : null,
-                            contact?.delivery ? 'DELIVERY' : null
+                            
+                            // Updated these two lines:
+                            contact?.doorToDoor?.clearing ? 'CLEARING' : null,
+                            contact?.doorToDoor?.delivery ? 'DELIVERY' : null
+
                         ].filter(Boolean).join(' + ')}
                     </div>
                     <div className="text-xs text-red-500">Due Date: {dueDate ? dueDate : `No due date available`}</div>

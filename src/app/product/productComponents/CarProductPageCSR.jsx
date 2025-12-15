@@ -98,12 +98,12 @@ async function handleCreateConversation(
     tokyoTimeData,
     inspectionSelected,
     // NEW PARAMETERS ADDED HERE (Commented out as requested)
-    // clearing,
-    // delivery,
-    // deliveryAddress,
-    // clearingPrice,
-    // deliveryCity,
-    // deliveryPrice
+    clearing,
+    delivery,
+    deliveryAddress,
+    clearingPrice,
+    deliveryCity,
+    deliveryPrice
 ) {
     console.log(inspectionSelected, insuranceSelected)
     setLoadingChat(true);
@@ -186,12 +186,12 @@ async function handleCreateConversation(
             toggle: inspectionSelected,
             insurance: insuranceSelected,
             // --- ADDED NEW FIELDS TO CHAT DATA (Commented out as requested) ---
-            // clearing: clearing,
-            // delivery: delivery,
-            // deliveryAddress: deliveryAddress,
-            // clearingPrice: clearingPrice,
-            // deliveryCity: deliveryCity,
-            // deliveryPrice: deliveryPrice,
+            clearing: clearing,
+            delivery: delivery,
+            deliveryAddress: deliveryAddress,
+            clearingPrice: clearingPrice,
+            deliveryCity: deliveryCity,
+            deliveryPrice: deliveryPrice,
             // -------------------------------------
             currency,
             profitMap: profitMap || 0,
@@ -548,20 +548,28 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
     const clearPersist = (k) => { document.cookie = `${k}=; path=/; max-age=0`; localStorage.removeItem(k); };
 
     const handleDropdownChangeLocation = (key, value) => {
-        // 1. Calculate the new values immediately
         let nextCountry = dropdownValuesLocations["Select Country"];
         let nextPort = dropdownValuesLocations["Select Port"];
 
         if (key === "Select Country") {
             nextCountry = value;
-            nextPort = ""; // Reset port if country changes
+            nextPort = "";
         } else {
             nextPort = value;
         }
 
-        // 2. Perform Side Effects (URL update & Persistence)
-        // CRITICAL: Do this BEFORE setting state so it runs in the event handler, not the render phase
         const params = new URLSearchParams(window.location.search);
+
+        // --- NEW CODE START: Reset URL AND Cookies ---
+        if (key === "Select Country") {
+            params.delete('clearing');
+            params.delete('delivery');
+
+            // 🛑 CRITICAL: Delete cookies so middleware doesn't force them back on
+            clearPersist('stock_clearing');
+            clearPersist('stock_delivery');
+        }
+        // --- NEW CODE END ---
 
         if (nextCountry && nextCountry !== 'none') {
             params.set('country', nextCountry);
@@ -580,10 +588,8 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
         }
 
         const q = params.toString();
-        // Safe to call router here because we are in the event handler
         router.replace(q ? `${window.location.pathname}?${q}` : window.location.pathname, { scroll: false });
 
-        // 3. Update Local State (Purely)
         setDropdownValuesLocations({
             "Select Country": nextCountry,
             "Select Port": nextPort
@@ -724,32 +730,39 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
             watermarkColorClass = "";
     }
 
-    // useEffect(() => {
-    //      if (d2dMatch?.id) {
-    //          const fetchCities = async () => {
-    //              setLoadingCities(true);
-    //              try {
-    //                  const res = await fetch(`/api/d2d-cities?countryId=${d2dMatch.id}`);
-    //                  const data = await res.json();
-    //                  if (data.cities) {
-    //                      setD2dCities(data.cities);
-    //                  } else {
-    //                      setD2dCities([]);
-    //                  }
-    //              } catch (error) {
-    //                  console.error("Error fetching cities:", error);
-    //                  setD2dCities([]);
-    //              } finally {
-    //                  setLoadingCities(false);
-    //              }
-    //          };
+    useEffect(() => {
+        if (d2dMatch?.id) {
+            const fetchCities = async () => {
+                setLoadingCities(true);
+                try {
+                    const res = await fetch(`/api/d2d-cities?countryId=${d2dMatch.id}`);
+                    const data = await res.json();
+                    if (data.cities) {
+                        setD2dCities(data.cities);
+                    } else {
+                        setD2dCities([]);
+                    }
+                } catch (error) {
+                    console.error("Error fetching cities:", error);
+                    setD2dCities([]);
+                } finally {
+                    setLoadingCities(false);
+                }
+            };
 
-    //          fetchCities();
-    //      } else {
-    //          setD2dCities([]);
-    //      }
-    // }, [d2dMatch]);
-
+            fetchCities();
+        } else {
+            setD2dCities([]);
+        }
+    }, [d2dMatch]);
+    useEffect(() => {
+        // Whenever the selected country changes (or becomes empty), reset all D2D states
+        setClearingEnabled(false);
+        setDeliveryEnabled(false);
+        setDeliveryCity('');
+        setDeliveryAddress('');
+        setD2dCities([]); // Clear the cities list immediately
+    }, [selectedCountry]);
 
     return (
         <div className=" mx-auto px-4 py-8 z-[9999]">
@@ -1106,6 +1119,94 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
 
                                             </button>
 
+                                            {d2dMatch && (
+                                                <>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const next = !clearingEnabled;
+                                                            setClearingEnabled(next);
+
+                                                            // 1. Update Cookie
+                                                            if (next) {
+                                                                setPersist('stock_clearing', '1');
+                                                            } else {
+                                                                clearPersist('stock_clearing');
+                                                                clearPersist('stock_delivery');
+                                                                setDeliveryEnabled(false);
+                                                                setDeliveryCity('');
+                                                                setDeliveryAddress('');
+                                                            }
+
+                                                            // 2. Update URL
+                                                            const params = new URLSearchParams(window.location.search);
+                                                            if (next) {
+                                                                params.set('clearing', '1');
+                                                            } else {
+                                                                params.delete('clearing');
+                                                                params.delete('delivery');
+                                                            }
+
+                                                            const q = params.toString();
+                                                            router.replace(q ? `${location.pathname}?${q}` : location.pathname, {
+                                                                scroll: false,
+                                                            });
+                                                        }}
+                                                        className={`relative rounded-full border-2 px-6 py-2.5 text-sm font-semibold transition-all ${clearingEnabled
+                                                                ? 'border-[#155DFC] bg-[#155DFC] text-primary-foreground'
+                                                                : 'border-[#155DFC] text-foreground hover:bg-[#155DFC] hover:text-white'
+                                                            }`}
+                                                    >
+                                                        Clearing
+                                                        {clearingEnabled && d2dMatch?.clearingPrice && (
+                                                            <span
+                                                                className={`ml-2 px-3 py-1 rounded-full text-xs font-bold ${clearingEnabled ? 'bg-white text-[#155DFC]' : 'bg-[#155DFC] text-white'
+                                                                    }`}
+                                                            >
+                                                                +${d2dMatch.clearingPrice}
+                                                            </span>
+                                                        )}
+                                                    </button>
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            if (!clearingEnabled) return;
+                                                            if (deliveryEnabled) {
+                                                                setDeliveryEnabled(false);
+                                                                setDeliveryCity('');
+                                                                setDeliveryAddress('');
+
+                                                                // Clear cookie/URL for delivery only
+                                                                clearPersist('stock_delivery');
+                                                                const params = new URLSearchParams(window.location.search);
+                                                                params.delete('delivery');
+                                                                const q = params.toString();
+                                                                router.replace(q ? `${location.pathname}?${q}` : location.pathname, { scroll: false });
+                                                            } else {
+                                                                setShowDeliveryModal(true);
+                                                            }
+                                                        }}
+                                                        disabled={!clearingEnabled}
+                                                        className={`relative rounded-full border-2 px-6 py-2.5 text-sm font-semibold transition-all ${!clearingEnabled
+                                                                ? 'border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed'
+                                                                : deliveryEnabled
+                                                                    ? 'border-[#155DFC] bg-[#155DFC] text-primary-foreground'
+                                                                    : 'border-[#155DFC] bg-card text-foreground hover:bg-[#155DFC] hover:text-primary-foreground'
+                                                            }`}
+                                                    >
+                                                        Delivery
+                                                        {deliveryEnabled && selectedCityData?.deliveryPrice && (
+                                                            <span
+                                                                className={`ml-2 px-3 py-1 rounded-full text-xs font-bold ${deliveryEnabled ? 'bg-white text-[#155DFC]' : 'bg-[#155DFC] text-white'
+                                                                    }`}
+                                                            >
+                                                                +${selectedCityData.deliveryPrice}
+                                                            </span>
+                                                        )}
+                                                    </button>
+                                                </>
+                                            )}
 
                                         </div>
                                     </div>
@@ -1208,12 +1309,12 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
                                             tokyoTimeData,
                                             inspectionSelected,
                                             // NEW PARAMETERS (Commented out as requested)
-                                            // clearingEnabled,
-                                            // deliveryEnabled,
-                                            // deliveryAddress,
-                                            // clearingAddOn,
-                                            // deliveryCity,
-                                            // deliveryAddOn
+                                            clearingEnabled,
+                                            deliveryEnabled,
+                                            deliveryAddress,
+                                            clearingAddOn,
+                                            deliveryCity,
+                                            deliveryAddOn
                                         )
                                     }
                                     className="w-full rounded-md bg-[#155dfc] py-6 text-lg font-bold text-white hover:bg-[#155dfc]/90 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1224,7 +1325,7 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
                             </CardContent>
                         </Card>
 
-                        {/* {showDeliveryModal && (
+                        {showDeliveryModal && (
                             <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
                                 <Card className="w-full max-w-md border-[3px] border-primary bg-background">
                                     <CardContent className="p-6">
@@ -1343,7 +1444,7 @@ export default function CarProductPageCSR({ d2dCountries, chatCount, carData, co
                                     </CardContent>
                                 </Card>
                             </div>
-                        )} */}
+                        )}
 
 
                     </div>
